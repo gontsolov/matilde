@@ -3,6 +3,7 @@ import AppKit
 import CoreText
 
 extension NSAttributedString.Key {
+    static let divider = NSAttributedString.Key("MatildeDivider")
     static let quoteBlock = NSAttributedString.Key("MatildeQuoteBlock")
     static let concealed = NSAttributedString.Key("MatildeConcealed")
     static let replacement = NSAttributedString.Key("MatildeReplacement")
@@ -81,6 +82,12 @@ enum MarkdownStyler {
             if fence != nil {
                 storage.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: 15, weight: .regular), .backgroundColor: NSColor.black.withAlphaComponent(0.035)], range: range)
                 codeRanges.append(range)
+                continue
+            }
+            if trimmed == "---" {
+                // Keep ordinary glyph metrics for caret/line placement, but draw
+                // a rule instead of the dashes. The Markdown stays untouched.
+                storage.addAttributes([.divider: true, .foregroundColor: NSColor.clear], range: range)
                 continue
             }
             if first("^(\\s*)([-*+] |[0-9]+[.)] )", in: line) != nil {
@@ -220,6 +227,17 @@ final class WritingTextView: NSTextView {
         let origin = textContainerOrigin
         let visibleGlyphs = layoutManager.glyphRange(forBoundingRect: dirtyRect.offsetBy(dx: -origin.x, dy: -origin.y), in: textContainer)
         let visibleCharacters = layoutManager.characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
+        storage.enumerateAttribute(.divider, in: visibleCharacters) { value, range, _ in
+            guard value != nil else { return }
+            let glyph = layoutManager.glyphIndexForCharacter(at: range.location)
+            let rect = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            let baseline = rect.minY + layoutManager.location(forGlyphAt: glyph).y
+            let y = origin.y + baseline - Paper.body().xHeight / 2
+            let padding = textContainer.lineFragmentPadding
+            Paper.muted.withAlphaComponent(0.35).setFill()
+            NSBezierPath(rect: NSRect(x: origin.x + rect.minX + padding, y: y.rounded(),
+                                     width: max(0, rect.width - padding * 2), height: 1)).fill()
+        }
         storage.enumerateAttribute(.quoteBlock, in: visibleCharacters) { value, range, _ in
             guard value != nil else { return }
             // Null delimiter glyphs can belong to the preceding line fragment.

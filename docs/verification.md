@@ -122,3 +122,7 @@ The hosting view's unconstrained fitting measurement underestimated wrapped titl
 ## Quiet spelling
 
 Disabled continuous spell checking in the writing editor; grammar checking was already disabled. Native manual spelling behavior is unchanged. All 36 tests and app build/signature checks pass. Relaunched and confirmed no red underline on the existing non-word. Right-click still exposes spelling guesses (No Guesses Found for that non-word), Ignore/Learn Spelling, and Check Document Now. No text was changed.
+
+## Markdown divider
+
+A standalone `---` (allowing surrounding whitespace) now draws a 1-point muted rule across the text column. Dashes remain in source with transparent glyphs and ordinary caret metrics; inline dashes and fenced code stay literal. All 38 tests and app build/signature checks pass. Added checks for Unicode/lossless styling, removing a dash restoring normal text, code protection, Return without list continuation, and undo with a native undo manager. Relaunched and visually inspected the divider the owner had already entered; no writing was edited. The prepared fixture under ignored `build/DividerVerification` was not needed for the live inspection.
