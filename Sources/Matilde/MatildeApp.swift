@@ -26,7 +26,8 @@ struct MatildeApp: App {
                 Button("Rename Document…") { model.sheet = .rename }.disabled(model.active == nil)
             }
             CommandMenu("Writing") {
-                Button("Branch Draft") { model.branch() }.keyboardShortcut("b", modifiers: [.command, .shift]).disabled(model.active == nil)
+                Button("Branch Draft") { model.branch() }.keyboardShortcut("b", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
+                Button(model.boardVisible ? "Return to Draft" : "Show Draft Board") { model.boardRequest += 1 }.keyboardShortcut("0").disabled(model.active == nil)
                 Button("Writing Goal…") { model.sheet = .goal }.disabled(model.active == nil)
                 Divider()
                 Button(model.sidebar ? "Enter Focus Mode" : "Leave Focus Mode") { model.toggleSidebar() }.keyboardShortcut("\\", modifiers: .command)
@@ -61,6 +62,8 @@ struct ContentView: View {
     @FocusState private var searchFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var draftsVisible = false
+    @State private var boardAmount: CGFloat = 0
+    @State private var animatingFlightID: UUID?
     var body: some View {
         HStack(spacing: 0) {
             if model.workspace != nil && model.sidebar {
@@ -70,7 +73,7 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 if model.workspace == nil { welcome }
                 else {
-                    if let draft = model.active { writing(draft) }
+                    if let draft = model.active { writingSpace(draft) }
                     else { emptyWorkspace }
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -91,6 +94,9 @@ struct ContentView: View {
                         .help("New document").accessibilityLabel("New document")
                 }
                 if model.active != nil {
+                    Button { model.boardRequest += 1 } label: { Image(systemName: model.boardVisible ? "doc.text" : "square.grid.2x2") }
+                        .help(model.boardVisible ? "Return to draft · ⌘0" : "Show draft board · ⌘0")
+                        .accessibilityLabel(model.boardVisible ? "Return to draft" : "Show draft board")
                     Menu {
                         Button("Branch Draft") { model.branch() }
                         Button("Rename…") { model.sheet = .rename }
@@ -192,7 +198,10 @@ struct ContentView: View {
     }
     private func draftRow(_ draft: Draft, indented: Bool) -> some View {
         let selected = model.active?.id == draft.id
-        return Button { model.select(draft) } label: {
+        return Button {
+            if model.boardVisible { model.persistBoard(); model.boardVisible = false; model.boardFlight = nil }
+            model.select(draft)
+        } label: {
             HStack(spacing: 8) {
                 sidebarIcon(indented ? "arrow.turn.down.right" : "doc.text")
                 Text(draft.title).font(.system(size: 13, weight: selected ? .medium : .regular)).lineLimit(1)
@@ -204,12 +213,54 @@ struct ContentView: View {
             .onHover { hoveredDraft = $0 ? draft.id : nil }
             .accessibilityAddTraits(selected ? .isSelected : [])
     }
+    private func writingSpace(_ draft: Draft) -> some View {
+        GeometryReader { geometry in
+            ZStack {
+                if model.boardVisible {
+                    DraftBoard(model: model, open: model.openBoardDraft)
+                        .allowsHitTesting(model.boardFlight == nil)
+                }
+                BoardPageSurface(amount: boardAmount, size: geometry.size,
+                                 target: model.sheetRect(draft.id, in: geometry.size),
+                                 sheet: model.boardSheets.first { $0.id == draft.id },
+                                 editor: writing(draft))
+                    .opacity(model.boardVisible && model.boardFlight == nil ? 0 : 1)
+                    .allowsHitTesting(!model.boardVisible)
+                    .accessibilityHidden(model.boardVisible)
+            }
+            .clipped()
+            .onAppear { model.boardSize = geometry.size; model.reduceBoardMotion = reduceMotion }
+            .onChange(of: geometry.size) { _, size in model.boardSize = size }
+            .onChange(of: reduceMotion) { _, value in model.reduceBoardMotion = value }
+            .onChange(of: model.boardRequest) { _, _ in draftsVisible = false; model.toggleBoard() }
+            .onChange(of: model.boardFlight?.id) { _, _ in animateBoardFlight() }
+            .onChange(of: model.editorReadyID) { _, _ in animateBoardFlight() }
+            .onChange(of: model.boardVisible) { _, visible in
+                if model.boardFlight == nil {
+                    var transaction = Transaction(); transaction.disablesAnimations = true
+                    withTransaction(transaction) { boardAmount = visible ? 1 : 0 }
+                }
+                if !visible {
+                    DispatchQueue.main.async { NSApp.keyWindow?.makeFirstResponder(findWritingView(NSApp.keyWindow?.contentView)) }
+                }
+            }
+        }
+    }
+    private func animateBoardFlight() {
+        guard let flight = model.boardFlight, animatingFlightID != flight.id,
+              !flight.opening || model.editorReadyID == flight.draftID else { return }
+        animatingFlightID = flight.id
+        withAnimation(.timingCurve(0.2, 0.65, 0.25, 1, duration: 0.34), completionCriteria: .removed) {
+            boardAmount = flight.opening ? 0 : 1
+        } completion: {
+            model.finishBoardFlight(flight.id)
+            if animatingFlightID == flight.id { animatingFlightID = nil }
+        }
+    }
     private func writing(_ draft: Draft) -> some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 15) {
                 HStack(spacing: 8) {
-                    InlineTitle(model: model, draftID: draft.id).id(draft.id)
-                    Spacer()
                     HStack(spacing: 12) {
                         Button {
                             withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) { draftsVisible.toggle() }
@@ -223,7 +274,9 @@ struct ContentView: View {
                             Image(systemName: "arrow.triangle.branch").font(.system(size: 13))
                         }.help("Branch draft · ⇧⌘B").accessibilityLabel("Branch draft").disabled(model.isBranching)
                     }.buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
-                }
+                    Spacer()
+                }.padding(.bottom, 12)
+                InlineTitle(model: model, draftID: draft.id).id(draft.id)
                 HStack(alignment: .firstTextBaseline, spacing: 9) {
                     Image(systemName: "flag").font(.system(size: 13)).foregroundStyle(Color(Paper.muted))
                     TextField("What do you want to write?", text: Binding(
@@ -241,14 +294,8 @@ struct ContentView: View {
                     }
                 }.transition(.opacity.combined(with: .move(edge: .top)))
             }
-            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible)
+            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible, onZoomOut: { model.showBoard() }, onReady: { model.editorReadyID = $0 })
                 .frame(maxWidth: 736).frame(maxWidth: .infinity)
-            HStack(spacing: 8) {
-                Text("\(model.wordCount) words")
-                Spacer()
-                Circle().fill(Color(Paper.muted).opacity(0.6)).frame(width: 4, height: 4)
-                Text(model.branchMoment.map { "Branched from \($0.sourceTitle)" } ?? model.status).lineLimit(1)
-            }.font(.system(size: 10)).foregroundStyle(Color(Paper.muted)).padding(.horizontal, 34).frame(height: 40)
         }
         .background(PageCapture { model.capturePage = $0 })
         .overlay {
@@ -287,8 +334,9 @@ struct InlineTitle: View {
     var body: some View {
         TextField("Untitled", text: Binding(
             get: { model.headerTitle }, set: { model.editHeader(title: $0) }
-        ))
+        ), axis: .vertical)
         .textFieldStyle(.plain).font(Font(Paper.body(31, bold: true)))
+        .fixedSize(horizontal: false, vertical: true)
         .focused($focused).accessibilityLabel("Document title")
         .onAppear {
             if model.focusTitleID == draftID {

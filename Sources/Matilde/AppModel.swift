@@ -19,6 +19,14 @@ final class AppModel: ObservableObject {
     @Published var branchMoment: BranchMoment?
     @Published var isBranching = false
     var capturePage: (() -> NSImage?)?
+    @Published var boardVisible = false
+    @Published var boardSheets: [BoardSheet] = []
+    @Published var boardViewport = BoardViewport()
+    @Published var boardFlight: BoardFlight?
+    @Published var boardRequest = 0
+    var boardSize = CGSize.zero
+    var reduceBoardMotion = false
+    @Published var editorReadyID: String?
     private var headerDirty = false
     var cursor = 0
     var scroll = 0.0
@@ -70,6 +78,7 @@ final class AppModel: ObservableObject {
         workspace = newWorkspace; drafts = contents.drafts; folders = contents.folders
         sidebar = try newWorkspace.state("sidebar") != "false"
         active = selected; text = content; savedText = content
+        boardVisible = false; boardSheets = []; boardFlight = nil; editorReadyID = nil
         try loadHeader()
         cursor = selected?.cursor ?? 0; scroll = selected?.scroll ?? 0
         status = "Saved"
@@ -108,6 +117,7 @@ final class AppModel: ObservableObject {
             // Position may have changed since the menu/list was constructed.
             let current = try workspace.allDrafts().first { $0.id == draft.id } ?? draft
             let content = try workspace.read(current)
+            editorReadyID = nil
             active = current; text = content; savedText = content
             try loadHeader()
             cursor = current.cursor; scroll = current.scroll; status = "Saved"
@@ -124,6 +134,7 @@ final class AppModel: ObservableObject {
         }
     }
     func position(_ cursor: Int, _ scroll: Double) {
+        guard !boardVisible else { return }
         self.cursor = cursor; self.scroll = scroll
         positionTask?.cancel()
         positionTask = Task { [weak self] in
@@ -157,7 +168,11 @@ final class AppModel: ObservableObject {
             savedText = text; status = "Saved"
         } catch { status = "Couldn’t save"; throw error }
     }
-    func flush() throws { try save(); try persistPosition() }
+    func flush() throws {
+        try save()
+        if boardVisible, let workspace, let active { try workspace.saveBoardViewport(family: active.family, viewport: boardViewport) }
+        else { try persistPosition() }
+    }
     private func reloadExternal(_ disk: String) throws {
         guard let workspace, let active else { return }
         if text != savedText {
@@ -194,6 +209,7 @@ final class AppModel: ObservableObject {
         attempt {
             try flush()
             guard let workspace else { return }
+            boardVisible = false; boardFlight = nil
             let draft = try workspace.createUntitled(folder: active?.folder ?? "")
             try refresh(); select(draft)
             focusTitleID = draft.id
@@ -225,7 +241,7 @@ final class AppModel: ObservableObject {
         status = "Saved"
     }
     func branch() {
-        guard !isBranching else { return }
+        guard !isBranching, !boardVisible else { return }
         attempt {
             try flush()
             guard let workspace, let active else { return }
@@ -259,5 +275,62 @@ final class AppModel: ObservableObject {
     }
     func reveal() {
         if let workspace, let active, let url = try? workspace.url(for: active.path) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+    }
+
+    func toggleBoard() {
+        guard boardFlight == nil, !isBranching else { return }
+        if boardVisible { if let active { openBoardDraft(active) }; return }
+        showBoard()
+    }
+    func showBoard() {
+        guard !boardVisible, boardFlight == nil, !isBranching, boardSize.width > 0 else { return }
+        attempt {
+            try flush()
+            guard let workspace, let active else { return }
+            let positions = try workspace.boardPositions(for: related)
+            boardSheets = try related.map { draft in
+                BoardSheet(draft: draft, excerpt: DraftTray.excerpt(try workspace.read(draft)), position: positions[draft.id]!)
+            }.sorted { a, b in a.position.x == b.position.x ? a.position.y < b.position.y : a.position.x < b.position.x }
+            if let saved = try workspace.boardViewport(family: active.family) { boardViewport = saved }
+            else { fitBoard(size: boardSize) }
+            let rect = sheetRect(active.id, in: boardSize)
+            if !CGRect(origin: .zero, size: boardSize).contains(rect), let sheet = boardSheets.first(where: { $0.id == active.id }) {
+                boardViewport.x = sheet.position.x + 130; boardViewport.y = sheet.position.y + 170
+            }
+            boardVisible = true
+            if !reduceBoardMotion { boardFlight = BoardFlight(draftID: active.id, opening: false) }
+            persistBoard()
+        }
+    }
+    func openBoardDraft(_ draft: Draft) {
+        guard boardFlight == nil else { return }
+        select(draft)
+        guard active?.id == draft.id else { return }
+        persistBoard()
+        if !reduceBoardMotion { boardFlight = BoardFlight(draftID: draft.id, opening: true) }
+        else { boardVisible = false }
+    }
+    func finishBoardFlight(_ id: UUID) {
+        guard boardFlight?.id == id else { return }
+        if boardFlight?.opening == true { boardVisible = false }
+        boardFlight = nil
+    }
+    func sheetRect(_ id: String, in size: CGSize) -> CGRect {
+        guard let sheet = boardSheets.first(where: { $0.id == id }) else { return .zero }
+        let zoom = boardViewport.zoom
+        return CGRect(x: (sheet.position.x - boardViewport.x) * zoom + size.width / 2,
+                      y: (sheet.position.y - boardViewport.y) * zoom + size.height / 2,
+                      width: 260 * zoom, height: 340 * zoom)
+    }
+    func fitBoard(size: CGSize) {
+        guard !boardSheets.isEmpty else { return }
+        let left = boardSheets.map(\.position.x).min()!, top = boardSheets.map(\.position.y).min()!
+        let right = boardSheets.map(\.position.x).max()! + 260, bottom = boardSheets.map(\.position.y).max()! + 340
+        boardViewport = BoardViewport(x: (left + right) / 2, y: (top + bottom) / 2,
+                                      zoom: max(0.08, min(0.9, (size.width - 100) / (right - left), (size.height - 150) / (bottom - top))))
+        persistBoard()
+    }
+    func persistBoard() {
+        attempt { if let workspace, let active { try workspace.saveBoardViewport(family: active.family, viewport: boardViewport) } }
     }
 }

@@ -37,3 +37,15 @@ Markdown rendering is a deliberately small parser, not complete CommonMark suppo
 Replaced the flat page transition with a SceneKit mesh and separate front/back materials. Ten tests pass, including a new geometry check for an initially flat page, curved geometry with outward normals, and a completed turn entirely outside the writing pane. Release build passes. Live animation verification was blocked because the Mac was locked; verify the fold, underside, shadow, and return to editing after unlocking.
 
 The curl now follows the bottom-right → top-left diagonal. Regression assertions verify that the bottom-right corner lifts and moves up-left before the other right-hand corner.
+
+## Initial canvas
+
+Release build and 12 tests pass. New tests cover stable automatic sheet positions after reopening and adding branches, plus per-family viewport persistence. Live testing of editor/board transitions, trackpad gestures, keyboard opening, and visual layout is pending: the Mac was locked when computer-use verification was attempted. Do not treat those interactions as visually verified yet.
+
+
+## Continuous canvas transition
+
+- Release build and all 12 tests passed.
+- Replaced screenshot/preview swapping and timer completion with one mounted editor surface, a shared board card, and animation completion.
+- Live UI checks: editor to board and back at 140%; opening a different draft from the board at 36%; correct destination title and editable body after completion. No document text was changed.
+- Scroll panning verified in the live app. Continuous finger-tracked zoom and frame-rate profiling remain follow-ups.

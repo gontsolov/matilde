@@ -1,6 +1,20 @@
 # Follow-up: a board of pinned drafts
 
-Status: documented for a later implementation. Do not start building the canvas as part of this documentation task.
+Status: implemented. Release build and 12 tests pass. Live checks cover scrolling, editor-to-board transitions, and opening another draft from the board.
+
+## First implementation
+
+- Current document family only, with pinned paper previews and branch connectors.
+- `⌘0` or the toolbar board button opens the board. A deliberate pinch out in the editor also opens it after an 18% accumulated threshold.
+- The current page shrinks toward its board position. Clicking another sheet expands it into editing; cursor and scroll positions remain independent.
+- Automatic positions are stored in SQLite. New children sit down-right of their source; siblings receive separate rows without moving earlier sheets.
+- Drag the board, scroll with two fingers, or use the mouse wheel to pan. Pages lift subtly on hover and use a pointing-hand cursor. Pinch or use +/− to zoom. Fit shows the family; arrow keys move focus, Return opens a sheet, and Escape returns to the active draft.
+- Zooming beyond 120% opens the highlighted sheet. Reduce Motion skips the page-flight animation.
+- Board position and zoom are saved per family. The app currently reopens in editor mode; the saved board viewport is reused next time the board opens.
+- Only lightweight previews are rendered for visible sheets. Transitions keep the real editor mounted at its full layout size, animate its scale and clipping bounds, and blend into the same card view used on the board. No screenshot cache or approximate editor preview is used.
+- Flights use a 340 ms easing curve with a quick start and animation-completion callbacks. Opening another draft waits for its editor layout and saved scroll position to be ready. Input is held until the flight finishes; Reduce Motion switches directly.
+
+Still to refine: continuous finger-tracked editor-to-board zoom rather than the current threshold-triggered animation, resistance feel, freely dragging individual sheets, and large-family usability.
 
 ## Core experience
 
@@ -34,9 +48,9 @@ The tear should communicate where the previous sheet went. It must not imply tha
 - Offer an explicit board control and keyboard navigation as alternatives to zoom gestures.
 - Respect Reduce Motion with a simpler transition that preserves the same navigation behavior.
 
-## Proposed first scope
+## First scope
 
-Start with the current document's draft family: its original and related branches. Keep separate documents in the sidebar. This was the assistant's recommended starting scope; confirm it when implementation begins.
+Start with the current document's draft family: its original and related branches. Keep separate documents in the sidebar. This scope was approved when the user asked to begin the canvas.
 
 Reuse the existing branch identities, relationships, Markdown files, and snapshots. Persist sheet positions and board viewport state in the workspace's `.matilde` SQLite database. Canvas layout must not create extra copies of document content.
 

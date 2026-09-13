@@ -34,7 +34,7 @@ The visual direction is Japanese paper: restrained, tactile, and carefully detai
 - Use a local SQLite database for document goals, comments, branch relationships, canvas positions, and related metadata.
 - Store the local SQLite database and immutable branch snapshots in a hidden `.matilde` folder inside the workspace, so whole-workspace copies and backups include the writing, goals, and branch history together.
 - Persist application content and state locally. File identity, snapshot format, and coordination between file and database writes remain to be designed.
-- Autosave after a short typing pause and save when switching drafts. Show a subtle “Saved” indicator after a successful save, and support `⌘S` for an immediate save. The exact autosave delay remains an implementation detail.
+- Autosave after a short typing pause and save when switching drafts. Keep successful saves silent and support `⌘S` for an immediate save. The editor has no save-status footer or word counter. The exact autosave delay remains an implementation detail.
 - Reload files when they change externally. The user prefers this simple approach for now; advanced conflict handling is deferred. Automatic conflict branches were proposed but are not part of the agreed v1 scope. Behavior when external changes overlap unsaved edits remains unresolved.
 
 ### Starting a document
@@ -68,15 +68,15 @@ Start with the focused live-rendering Markdown editor and a simple branch switch
 
 The zoomable canvas and all AI functionality are deferred to later phases. The initial priority is getting the writing and branch-switching experience right. The formatting scope is agreed above; detailed editing interactions and storage mechanics still need to be resolved.
 
-## Canvas: deferred, direction to refine
+## Canvas: first implementation
 
-See [the pinned-draft canvas follow-up](canvas-followup.md) for the interaction, proposed first scope, open decisions, and acceptance criteria. This remains a later implementation task.
+See [the pinned-draft canvas follow-up](canvas-followup.md) for the interaction, proposed first scope, open decisions, and acceptance criteria. The user subsequently approved the first implementation.
 
 Zooming out should reveal the editor's sheet pinned among related drafts on a board. The sheet pulled away during branching stays on that board; zooming or selecting a sheet brings it back into focused editing. Treat the board and editor as one continuous space.
 
 The user wants to zoom out to see multiple drafts, then zoom into one to write. Settling on a draft should lock into a focused editing experience. Leaving that focus by zooming out or moving sideways should have resistance, so ordinary editing does not accidentally navigate away.
 
-The canvas is planned for a later phase. Its layout, gestures, transition thresholds, and accessibility alternatives have not been agreed yet.
+The first canvas is now implemented for the current draft family with automatic persisted positions, saved viewport, pinned previews, connectors, and editor/board transitions. See the follow-up document for controls, current limits, and pending visual verification. The earlier v1 deferral above records the initial build scope.
 
 ## AI: documented, deferred from initial implementation
 

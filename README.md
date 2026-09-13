@@ -4,7 +4,7 @@ A native macOS writing app with a quiet, focused editor and space to explore alt
 
 Working names: **Matilde** / **Tilde**.
 
-The first local build uses SwiftUI, an AppKit Markdown editor, and SQLite. AI and the spatial canvas are deferred.
+The first local build uses SwiftUI, an AppKit Markdown editor, and SQLite. AI is deferred; the first draft canvas is implemented.
 
 Build the app with `bash scripts/build-app.sh`, then open `build/Matilde.app`. Requires Xcode with Swift 6; the current build has been compiled on macOS 26.
 
@@ -14,4 +14,4 @@ Documents and branches are ordinary Markdown files. Goals, draft relationships, 
 
 See [the product and architecture notes](docs/architecture.md) for agreed decisions, deferred features, and open questions.
 
-Planned follow-up: [zoom out to a board of pinned drafts](docs/canvas-followup.md).
+Canvas behavior and remaining work: [zoom out to a board of pinned drafts](docs/canvas-followup.md).

@@ -82,6 +82,30 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(drafts.first { $0.id == branch.id }?.cursor, 20)
         XCTAssertEqual(drafts.first { $0.id == branch.id }?.scroll, 240)
     }
+    func testBoardPlacementPersistsAndNewBranchesDoNotMoveExistingSheets() throws {
+        let workspace = try Workspace(root: root)
+        let original = try workspace.create(name: "Original", folder: "", goal: "")
+        let first = try workspace.branch(original, text: "A piece")
+        let positions = try workspace.boardPositions(for: [first, original])
+        XCTAssertEqual(positions[original.id], SheetPosition(x: 0, y: 0))
+        XCTAssertGreaterThan(positions[first.id]!.x, positions[original.id]!.x)
+        XCTAssertGreaterThan(positions[first.id]!.y, positions[original.id]!.y)
+        let second = try workspace.branch(original, text: "Another direction")
+        let reopened = try Workspace(root: root)
+        let updated = try reopened.boardPositions(for: [second, original, first])
+        XCTAssertEqual(updated[original.id], positions[original.id])
+        XCTAssertEqual(updated[first.id], positions[first.id])
+        XCTAssertNotEqual(updated[second.id], updated[first.id])
+        XCTAssertEqual(try reopened.scan().drafts.count, 3)
+    }
+    func testBoardViewportIsPersistentAndScopedToFamily() throws {
+        let workspace = try Workspace(root: root)
+        let viewport = BoardViewport(x: 440, y: 230, zoom: 0.6)
+        try workspace.saveBoardViewport(family: "family-a", viewport: viewport)
+        let reopened = try Workspace(root: root)
+        XCTAssertEqual(try reopened.boardViewport(family: "family-a"), viewport)
+        XCTAssertNil(try reopened.boardViewport(family: "family-b"))
+    }
     func testImmediateUntitledDocumentsDoNotOverwriteAndCanBeNamed() throws {
         let workspace = try Workspace(root: root)
         let first = try workspace.createUntitled(folder: "")
