@@ -3,6 +3,7 @@ import AppKit
 import CoreText
 
 extension NSAttributedString.Key {
+    static let quoteBlock = NSAttributedString.Key("MatildeQuoteBlock")
     static let concealed = NSAttributedString.Key("MatildeConcealed")
     static let replacement = NSAttributedString.Key("MatildeReplacement")
 }
@@ -50,7 +51,7 @@ enum MarkdownStyler {
         let full = NSRange(location: 0, length: storage.length)
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 7
-        paragraph.paragraphSpacing = 8
+        paragraph.paragraphSpacing = 16
         storage.setAttributes([.font: Paper.body(), .foregroundColor: Paper.ink, .paragraphStyle: paragraph], range: full)
         let source = storage.string as NSString
         var offset = 0
@@ -60,7 +61,15 @@ enum MarkdownStyler {
             let length = (line as NSString).length
             let range = NSRange(location: offset, length: length)
             defer { offset += length + 1 }
-            guard length > 0 else { continue }
+            guard length > 0 else {
+                // Keep the normal font and caret height on empty editable lines.
+                if offset < storage.length, fence == nil {
+                    let gap = NSMutableParagraphStyle()
+                    storage.addAttribute(.paragraphStyle, value: gap, range: NSRange(location: offset, length: 1))
+                }
+                continue
+            }
+            let paragraphRange = NSRange(location: offset, length: min(length + 1, storage.length - offset))
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
                 let marker = String(trimmed.prefix(3))
@@ -74,6 +83,13 @@ enum MarkdownStyler {
                 codeRanges.append(range)
                 continue
             }
+            if first("^(\\s*)([-*+] |[0-9]+[.)] )", in: line) != nil {
+                let listStyle = paragraph.mutableCopy() as! NSMutableParagraphStyle
+                listStyle.lineSpacing = 3
+                listStyle.paragraphSpacing = 3
+                listStyle.headIndent = 22
+                storage.addAttribute(.paragraphStyle, value: listStyle, range: paragraphRange)
+            }
             if let match = first("^(#{1,6}) ", in: line) {
                 let level = match.range(at: 1).length
                 let size: CGFloat = [31, 26, 23, 21, 20, 19][level - 1]
@@ -86,12 +102,15 @@ enum MarkdownStyler {
                 conceal(NSRange(location: start + 1, length: 4), in: storage)
                 if checked { storage.addAttribute(.foregroundColor, value: Paper.muted, range: range) }
             } else if let match = first("^(\\s*)[-*+] ", in: line) {
-                storage.addAttribute(.replacement, value: "•", range: NSRange(location: offset + match.range(at: 1).length, length: 1))
+                storage.addAttributes([.replacement: "•", .foregroundColor: Paper.muted], range: NSRange(location: offset + match.range(at: 1).length, length: 1))
+            } else if let match = first("^\\s*[0-9]+[.)]", in: line) {
+                storage.addAttribute(.foregroundColor, value: Paper.muted, range: NSRange(location: offset, length: match.range.length))
             } else if let match = first("^> ?", in: line) {
-                storage.addAttribute(.foregroundColor, value: Paper.muted, range: range)
+                storage.addAttribute(.quoteBlock, value: true, range: paragraphRange)
                 let quoteStyle = paragraph.mutableCopy() as! NSMutableParagraphStyle
-                quoteStyle.headIndent = 18; quoteStyle.firstLineHeadIndent = 18
-                storage.addAttribute(.paragraphStyle, value: quoteStyle, range: range)
+                quoteStyle.headIndent = 24; quoteStyle.firstLineHeadIndent = 24
+                quoteStyle.paragraphSpacing = 3
+                storage.addAttribute(.paragraphStyle, value: quoteStyle, range: paragraphRange)
                 conceal(NSRange(location: offset, length: match.range.length), in: storage)
             }
         }
@@ -142,7 +161,58 @@ enum MarkdownStyler {
 final class WritingTextView: NSTextView {
     var onPosition: ((Int, Double) -> Void)?
     var onZoomOut: (() -> Void)?
+    var scrollingHeader: NSHostingView<AnyView>?
+    override func accessibilityChildren() -> [Any]? {
+        var children = super.accessibilityChildren() ?? []
+        if let scrollingHeader { children.append(scrollingHeader) }
+        return children
+    }
+    private(set) var headerHeight: CGFloat = 0
+    override func layout() {
+        if let scrollingHeader {
+            scrollingHeader.frame.size.width = bounds.width
+            let height = scrollingHeader.fittingSize.height
+            scrollingHeader.frame = NSRect(x: 0, y: 0, width: bounds.width, height: height)
+            if abs(height - headerHeight) > 0.5 {
+                headerHeight = height
+                textContainerInset = NSSize(width: 28, height: height + 20)
+                sizeToFit()
+            }
+        }
+        super.layout()
+    }
     private var pinchAmount: CGFloat = 0
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard let storage = textStorage, let layoutManager, let textContainer else { return }
+        let origin = textContainerOrigin
+        let visibleGlyphs = layoutManager.glyphRange(forBoundingRect: dirtyRect.offsetBy(dx: -origin.x, dy: -origin.y), in: textContainer)
+        let visibleCharacters = layoutManager.characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
+        storage.enumerateAttribute(.quoteBlock, in: visibleCharacters) { value, range, _ in
+            guard value != nil else { return }
+            // Null delimiter glyphs can belong to the preceding line fragment.
+            // Anchor the rule to visible quote text instead.
+            var start = range.location
+            while start < NSMaxRange(range), storage.attribute(.concealed, at: start, effectiveRange: nil) != nil { start += 1 }
+            guard start < NSMaxRange(range) else { return }
+            let glyphs = layoutManager.glyphRange(forCharacterRange: NSRange(location: start, length: NSMaxRange(range) - start), actualCharacterRange: nil)
+            var top: CGFloat?
+            var bottom: CGFloat = 0
+            layoutManager.enumerateLineFragments(forGlyphRange: glyphs) { rect, _, _, lineGlyphs, _ in
+                let glyph = max(glyphs.location, lineGlyphs.location)
+                let character = layoutManager.characterIndexForGlyph(at: glyph)
+                let font = storage.attribute(.font, at: character, effectiveRange: nil) as? NSFont ?? Paper.body()
+                let baseline = rect.minY + layoutManager.location(forGlyphAt: glyph).y
+                // Align to the letters, excluding paragraph leading and spacing.
+                top = min(top ?? .greatestFiniteMagnitude, baseline - font.capHeight - 3)
+                bottom = max(bottom, baseline - font.descender + 3)
+            }
+            guard let top else { return }
+            Paper.muted.withAlphaComponent(0.55).setFill()
+            NSBezierPath(rect: NSRect(x: origin.x + textContainer.lineFragmentPadding, y: origin.y + top, width: 2, height: bottom - top)).fill()
+        }
+    }
+
     override func magnify(with event: NSEvent) {
         if event.phase == .began { pinchAmount = 0 }
         pinchAmount += event.magnification
@@ -258,6 +328,8 @@ struct MarkdownEditor: NSViewRepresentable {
     var focusOnLoad = true
     var onZoomOut: () -> Void = {}
     var onReady: (String) -> Void = { _ in }
+    var header: AnyView? = nil
+    var onHeaderVisibility: (Bool) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
@@ -268,6 +340,11 @@ struct MarkdownEditor: NSViewRepresentable {
         container.widthTracksTextView = true
         storage.addLayoutManager(layout); layout.addTextContainer(container)
         let view = WritingTextView(frame: .zero, textContainer: container)
+        if let header {
+            let hosted = NSHostingView(rootView: header)
+            view.scrollingHeader = hosted
+            view.addSubview(hosted)
+        }
         view.isRichText = false
         view.isAutomaticQuoteSubstitutionEnabled = false
         view.isAutomaticDashSubstitutionEnabled = false
@@ -305,6 +382,10 @@ struct MarkdownEditor: NSViewRepresentable {
     }
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         context.coordinator.parent = self
+        if let header, let view = context.coordinator.view {
+            view.scrollingHeader?.rootView = header
+            view.needsLayout = true
+        }
         if context.coordinator.loadedID != draftID { context.coordinator.load(self, restore: true) }
         else if context.coordinator.view?.string != text { context.coordinator.load(self, restore: false) }
     }
@@ -347,6 +428,7 @@ struct MarkdownEditor: NSViewRepresentable {
                 scroll.reflectScrolledClipView(scroll.contentView)
                 self.updating = false
                 self.restoringPosition = false
+                self.reportPosition()
                 self.parent.onReady(parent.draftID)
             }
         }
@@ -371,7 +453,9 @@ struct MarkdownEditor: NSViewRepresentable {
         func textViewDidChangeSelection(_ notification: Notification) { reportPosition() }
         func reportPosition() {
             guard !updating, !restoringPosition, let view else { return }
-            parent.onPosition(view.selectedRange().location, Double(scroll?.contentView.bounds.origin.y ?? 0))
+            let offset = scroll?.contentView.bounds.origin.y ?? 0
+            parent.onHeaderVisibility(view.headerHeight > 0 && offset > view.headerHeight - 24)
+            parent.onPosition(view.selectedRange().location, Double(offset))
         }
         func layoutManager(_ layoutManager: NSLayoutManager, shouldGenerateGlyphs glyphs: UnsafePointer<CGGlyph>, properties props: UnsafePointer<NSLayoutManager.GlyphProperty>, characterIndexes charIndexes: UnsafePointer<Int>, font: NSFont, forGlyphRange glyphRange: NSRange) -> Int {
             guard let storage = layoutManager.textStorage else { return 0 }

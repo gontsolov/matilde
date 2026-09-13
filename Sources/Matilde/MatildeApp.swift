@@ -66,6 +66,7 @@ struct ContentView: View {
     @State private var searchVisible = false
     @FocusState private var searchFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var headerCollapsed = false
     @State private var draftsVisible = false
     @State private var boardAmount: CGFloat = 0
     @State private var animatingFlightID: UUID?
@@ -91,6 +92,14 @@ struct ContentView: View {
                 if model.workspace != nil {
                     Button { model.toggleSidebar() } label: { Image(systemName: "sidebar.left") }
                         .help("Toggle sidebar").accessibilityLabel("Toggle sidebar")
+                }
+            }
+            ToolbarItem(placement: .principal) {
+                if headerCollapsed && !model.boardVisible {
+                    Text(model.headerTitle.isEmpty ? "Untitled" : model.headerTitle)
+                        .font(.system(size: 12, weight: .medium)).lineLimit(1)
+                        .truncationMode(.tail)
+                        .padding(.horizontal, 16).frame(maxWidth: 480)
                 }
             }
             ToolbarItemGroup(placement: .primaryAction) {
@@ -126,18 +135,8 @@ struct ContentView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Menu {
-                    Button("Choose Folder…") { model.chooseWorkspace() }
-                    Button("Show in Finder") {
-                        if let root = model.workspace?.root { NSWorkspace.shared.activateFileViewerSelecting([root]) }
-                    }
-                } label: {
-                    HStack(spacing: 7) {
-                        Text(model.workspace?.root.lastPathComponent ?? "Matilde")
-                            .font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .medium)).foregroundStyle(Color(Paper.muted))
-                    }
-                }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize(horizontal: false, vertical: true)
+                Text("Matilde")
+                    .font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 Spacer(minLength: 4)
                 Button {
                     searchVisible.toggle()
@@ -271,6 +270,16 @@ struct ContentView: View {
         }
     }
     private func writing(_ draft: Draft) -> some View {
+            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible, onZoomOut: { model.showBoard() }, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 })
+                .frame(maxWidth: 736).frame(maxWidth: .infinity)
+        .background(PageCapture { model.capturePage = $0 })
+        .overlay {
+            if let moment = model.branchMoment { TearAwayPage(moment: moment).id(moment.id) }
+        }
+        .clipped()
+        .onChange(of: model.active?.id) { _, _ in draftsVisible = false }
+    }
+    private func writingHeader(_ draft: Draft) -> some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 15) {
                 HStack(spacing: 8) {
@@ -307,15 +316,7 @@ struct ContentView: View {
                     }
                 }.transition(.opacity.combined(with: .move(edge: .top)))
             }
-            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible, onZoomOut: { model.showBoard() }, onReady: { model.editorReadyID = $0 })
-                .frame(maxWidth: 736).frame(maxWidth: .infinity)
         }
-        .background(PageCapture { model.capturePage = $0 })
-        .overlay {
-            if let moment = model.branchMoment { TearAwayPage(moment: moment).id(moment.id) }
-        }
-        .clipped()
-        .onChange(of: model.active?.id) { _, _ in draftsVisible = false }
     }
     private func findWritingView(_ root: NSView?) -> NSView? {
         guard let root else { return nil }

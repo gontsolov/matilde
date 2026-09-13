@@ -16,6 +16,8 @@ Documents and branches are ordinary Markdown files. Goals, draft relationships, 
 
 See [the product and architecture notes](docs/architecture.md) for agreed decisions, deferred features, and open questions.
 
+Features, saved ideas, fixes, and progress: [living roadmap and backlog](ROADMAP.md).
+
 Canvas behavior and remaining work: [zoom out to a board of pinned drafts](docs/canvas-followup.md).
 
 Builds, GitHub Actions, update signing, and optional Apple notarization: [release flow](docs/releases.md).

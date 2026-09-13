@@ -64,3 +64,11 @@ Release build and 12 tests pass. New tests cover stable automatic sheet position
 Added real NSTextView tests for formatting toggles, nested emphasis, Unicode selections, undo/redo after styling, plaintext paste including links, list/task continuation, empty-list exit, fenced code, large list numbers, and typing during initial layout. All 24 tests pass with macOS pasteboard access. The sandbox denies the separate test pasteboard, so that test was also run outside the sandbox.
 
 Live checks in `build/EditorPolishTests`: Command-B toggled Unicode text on/off, Command-Z and Shift-Command-Z undid/redid formatting, and pasted list text continued on Return. CUA text selection did not reliably place a caret within the rendered Markdown, so that navigation step is not treated as an editor validation. The original workspace was restored without editing its documents.
+
+## Quote and block styling
+
+Added quote rules with normal body ink, larger paragraph spacing, compact blank lines, and tighter lists with muted markers. All 24 tests passed and the app bundle built successfully. Live inspection found concealed quote delimiters pulling the rule into the preceding line; anchored drawing to visible text and rebuilt. Final live check confirmed rule alignment and compact muted numbered lists without editing the user document.
+
+## Unified page scrolling
+
+Moved the inline header into the editor scroll surface and added a compact native toolbar title when it scrolls away. All 24 tests and the app build pass. Live checks confirmed scrolling down hides the header and reveals the toolbar title, scrolling to the top removes it, and restarting restores the saved scroll fraction (0.90438) and collapsed title. Header controls remain exposed in the accessibility tree. No document text was edited.
