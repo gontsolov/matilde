@@ -1,0 +1,19 @@
+docs/verification.md
+  s_709d6037db8fc8::t_2be0069efbfad3 52-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c97dd2497ae3f114b26c4ae50e83f1a16160d14a",
+  "prompts": {},
+  "sessions": {
+    "s_709d6037db8fc8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b85-2383-7071-abb6-290961e3e098",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
