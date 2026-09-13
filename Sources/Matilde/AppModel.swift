@@ -1,0 +1,201 @@
+import SwiftUI
+import AppKit
+
+@MainActor
+final class AppModel: ObservableObject {
+    @Published var workspace: Workspace?
+    @Published var drafts: [Draft] = []
+    @Published var folders: [String] = [""]
+    @Published var active: Draft?
+    @Published var text = ""
+    @Published var sidebar = true
+    @Published var status = "Saved"
+    @Published var error: String?
+    @Published var sheet: Sheet?
+    @Published var search = ""
+    var cursor = 0
+    var scroll = 0.0
+    private var savedText = ""
+    private var saveTask: Task<Void, Never>?
+    private var positionTask: Task<Void, Never>?
+    private var timer: Timer?
+    private var scopedURL: URL?
+    enum Sheet: String, Identifiable { case document, folder, rename, goal; var id: String { rawValue } }
+
+    init() {
+        restore()
+        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.poll() }
+        }
+    }
+    var related: [Draft] { drafts.filter { $0.family == active?.family } }
+    var wordCount: Int { text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).filter { $0.contains(where: { $0.isLetter || $0.isNumber }) }.count }
+
+    func attempt(_ operation: () throws -> Void) {
+        do { try operation() } catch { self.error = error.localizedDescription }
+    }
+    func startWriting() {
+        attempt {
+            let documents = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            let folder = documents.appendingPathComponent("Matilde", isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try open(folder)
+            if active == nil { sheet = .document }
+        }
+    }
+    func chooseWorkspace() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose your writing folder"
+        panel.message = "Choose a home for your writing. You can use an existing folder or create a new one."
+        panel.canChooseDirectories = true; panel.canChooseFiles = false
+        panel.canCreateDirectories = true; panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url { attempt { try open(url) } }
+    }
+    func open(_ url: URL) throws {
+        try flush()
+        let newWorkspace = try Workspace(root: url)
+        let contents = try newWorkspace.scan()
+        let last = try newWorkspace.state("active")
+        let selected = contents.drafts.first { $0.id == last } ?? contents.drafts.first
+        let content = try selected.map { try newWorkspace.read($0) } ?? ""
+        scopedURL?.stopAccessingSecurityScopedResource()
+        scopedURL = url.startAccessingSecurityScopedResource() ? url : nil
+        workspace = newWorkspace; drafts = contents.drafts; folders = contents.folders
+        sidebar = try newWorkspace.state("sidebar") != "false"
+        active = selected; text = content; savedText = content
+        cursor = selected?.cursor ?? 0; scroll = selected?.scroll ?? 0
+        status = "Saved"
+        UserDefaults.standard.set(url.path, forKey: "workspacePath")
+        if let bookmark = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) {
+            UserDefaults.standard.set(bookmark, forKey: "workspaceBookmark")
+        }
+    }
+    private func restore() {
+        // A launch argument is useful for UI verification with an isolated workspace.
+        if let index = CommandLine.arguments.firstIndex(of: "--workspace"), CommandLine.arguments.count > index + 1 {
+            attempt { try open(URL(fileURLWithPath: CommandLine.arguments[index + 1])) }; return
+        }
+        if let data = UserDefaults.standard.data(forKey: "workspaceBookmark") {
+            var stale = false
+            if let url = try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &stale) {
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                attempt { try open(url) }; return
+            }
+        }
+        if let path = UserDefaults.standard.string(forKey: "workspacePath") { attempt { try open(URL(fileURLWithPath: path)) } }
+    }
+    func refresh() throws {
+        guard let workspace else { return }
+        let contents = try workspace.scan()
+        if drafts != contents.drafts { drafts = contents.drafts }
+        if folders != contents.folders { folders = contents.folders }
+        if let id = active?.id, let updated = drafts.first(where: { $0.id == id }), updated != active { active = updated }
+    }
+    func select(_ draft: Draft) {
+        guard draft.id != active?.id else { return }
+        attempt {
+            try flush()
+            guard let workspace else { return }
+            // Position may have changed since the menu/list was constructed.
+            let current = try workspace.allDrafts().first { $0.id == draft.id } ?? draft
+            let content = try workspace.read(current)
+            active = current; text = content; savedText = content
+            cursor = current.cursor; scroll = current.scroll; status = "Saved"
+            try workspace.setState("active", draft.id)
+        }
+    }
+    func edited(_ value: String) {
+        text = value; status = "Saving…"
+        saveTask?.cancel()
+        saveTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(650)) } catch { return }
+            guard let self else { return }
+            self.attempt { try self.save() }
+        }
+    }
+    func position(_ cursor: Int, _ scroll: Double) {
+        self.cursor = cursor; self.scroll = scroll
+        positionTask?.cancel()
+        positionTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
+            guard let self else { return }
+            self.attempt { try self.persistPosition() }
+        }
+    }
+    private func persistPosition() throws {
+        if let workspace, let active {
+            try workspace.position(active, cursor: cursor, scroll: scroll)
+            try workspace.setState("active", active.id)
+            try workspace.setState("sidebar", String(sidebar))
+        }
+    }
+    func toggleSidebar() {
+        sidebar.toggle()
+        attempt { try workspace?.setState("sidebar", String(sidebar)) }
+    }
+    func save() throws {
+        saveTask?.cancel()
+        guard let workspace, let active, text != savedText else { return }
+        let disk = try workspace.read(active)
+        if disk != savedText {
+            try reloadExternal(disk)
+            return
+        }
+        do {
+            try workspace.save(active, text: text)
+            savedText = text; status = "Saved"
+        } catch { status = "Couldn’t save"; throw error }
+    }
+    func flush() throws { try save(); try persistPosition() }
+    private func reloadExternal(_ disk: String) throws {
+        guard let workspace, let active else { return }
+        if text != savedText {
+            // No merge UI in v1. Keep a recovery copy before honoring external reload.
+            let recovery = workspace.root.appendingPathComponent(".matilde/recovery", isDirectory: true)
+            try FileManager.default.createDirectory(at: recovery, withIntermediateDirectories: true)
+            let copy = recovery.appendingPathComponent("\(active.id)-\(UUID().uuidString).md")
+            try text.write(to: copy, atomically: true, encoding: .utf8)
+            error = "The file changed outside Matilde and was reloaded. Your unsaved text was preserved at \(copy.path)."
+        }
+        text = disk; savedText = disk; status = "Reloaded from disk"
+    }
+    private func poll() {
+        guard let workspace, error == nil, sheet == nil else { return }
+        attempt {
+            try refresh()
+            if let active {
+                if !drafts.contains(where: { $0.id == active.id }) {
+                    status = "File moved or removed"
+                    return
+                }
+                let disk = try workspace.read(active)
+                if disk != savedText { try reloadExternal(disk) }
+            }
+        }
+    }
+    func create(name: String, folder: String, goal: String) throws {
+        guard let workspace else { return }
+        try flush()
+        let draft = try workspace.create(name: name, folder: folder, goal: goal)
+        try refresh(); select(draft)
+    }
+    func branch() {
+        attempt {
+            try flush()
+            guard let workspace, let active else { return }
+            let draft = try workspace.branch(active, text: text)
+            try refresh(); select(draft)
+        }
+    }
+    func rename(_ name: String) throws {
+        try flush()
+        if let workspace, let active { try workspace.rename(active, name: name); try refresh() }
+    }
+    func setGoal(_ value: String) throws {
+        if let workspace, let active { try workspace.goal(active, text: value); try refresh() }
+    }
+    func reveal() {
+        if let workspace, let active, let url = try? workspace.url(for: active.path) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+    }
+}
