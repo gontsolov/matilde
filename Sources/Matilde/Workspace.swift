@@ -160,6 +160,16 @@ final class Workspace {
         catch { try? fm.removeItem(at: file); throw error }
         return Draft(id: id, path: path, family: id, parent: nil, goal: goal, cursor: 0, scroll: 0)
     }
+    func createUntitled(folder: String) throws -> Draft {
+        var name = "Untitled"
+        var number = 2
+        while fm.fileExists(atPath: try url(for: filePath(name: name, folder: folder)).path) {
+            name = "Untitled \(number)"; number += 1
+        }
+        let draft = try create(name: name, folder: folder, goal: "")
+        try setState("untitled:\(draft.id)", "true")
+        return draft
+    }
     func createFolder(name: String, parent: String) throws {
         let name = try validName(name)
         let path = parent.isEmpty ? name : parent + "/" + name
@@ -185,14 +195,14 @@ final class Workspace {
             try text.write(to: childURL, atomically: true, encoding: .utf8)
             try db.execute("BEGIN IMMEDIATE")
             do {
-                try db.execute("INSERT INTO drafts (id,path,family,parent,goal) VALUES (?,?,?,?,?)", [child, path, source.family, source.id, source.goal])
+                try db.execute("INSERT INTO drafts (id,path,family,parent,goal,cursor,scroll) VALUES (?,?,?,?,?,?,?)", [child, path, source.family, source.id, source.goal, String(source.cursor), String(source.scroll)])
                 try db.execute("INSERT INTO snapshots VALUES (?,?,?,?,?)", [snapshot, source.id, child, snapshotPath, ISO8601DateFormatter().string(from: Date())])
                 try db.execute("COMMIT")
             } catch { _ = try? db.execute("ROLLBACK"); throw error }
         } catch {
             try? fm.removeItem(at: snapshotURL); try? fm.removeItem(at: childURL); throw error
         }
-        return Draft(id: child, path: path, family: source.family, parent: source.id, goal: source.goal, cursor: 0, scroll: 0)
+        return Draft(id: child, path: path, family: source.family, parent: source.id, goal: source.goal, cursor: source.cursor, scroll: source.scroll)
     }
     func rename(_ draft: Draft, name: String) throws {
         let path = try filePath(name: name, folder: draft.folder)

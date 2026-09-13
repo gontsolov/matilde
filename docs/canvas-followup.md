@@ -1,0 +1,61 @@
+# Follow-up: a board of pinned drafts
+
+Status: documented for a later implementation. Do not start building the canvas as part of this documentation task.
+
+## Core experience
+
+The editor and the canvas are two views of one continuous space. Zooming out reveals the current sheet in its place on a board of pinned drafts. Selecting another sheet or zooming into it returns to focused editing, restoring that draft's cursor and scroll position.
+
+The user specifically wants sheets to feel pinned on a board, and the transition to connect naturally to the existing page-tearing branch animation.
+
+## Branching connects the two views
+
+1. The user branches while writing.
+2. The current sheet tears away, revealing the new editable draft underneath.
+3. The original remains on the board as an independently editable sheet. The new draft has its own nearby position.
+4. Zooming out reveals both sheets and their relationship.
+
+The tear should communicate where the previous sheet went. It must not imply that the original was deleted or frozen. Both drafts stay editable; the existing immutable branching snapshot is separate from either live sheet.
+
+## Zoom out to the board
+
+- The focused editor shrinks continuously into its board position, rather than disappearing and being replaced by an unrelated screen.
+- Show sheets with their draft titles and recognizable text previews, using the same paper and Newsreader visual language as the editor.
+- Indicate that sheets are pinned, with restrained details rather than decorative clutter.
+- Place related drafts near one another. Subtle connectors show the branching relationships.
+- Preserve spatial orientation: the sheet the user was editing remains identifiable throughout the transition.
+- Add resistance around the focused editing zoom level so small or accidental gestures do not eject the user from writing.
+
+## Return to writing
+
+- Clicking a sheet or deliberately zooming into it brings that draft forward into the focused editor.
+- Restore its own saved cursor and scroll position.
+- Once the sheet settles into editing focus, ordinary typing, selection, and document scrolling work normally.
+- Offer an explicit board control and keyboard navigation as alternatives to zoom gestures.
+- Respect Reduce Motion with a simpler transition that preserves the same navigation behavior.
+
+## Proposed first scope
+
+Start with the current document's draft family: its original and related branches. Keep separate documents in the sidebar. This was the assistant's recommended starting scope; confirm it when implementation begins.
+
+Reuse the existing branch identities, relationships, Markdown files, and snapshots. Persist sheet positions and board viewport state in the workspace's `.matilde` SQLite database. Canvas layout must not create extra copies of document content.
+
+AI and any AI-generated content remain outside this follow-up's scope.
+
+## Decisions to resolve when we pick this up
+
+- Exact zoom gesture, thresholds, and resistance; distinguish board navigation from scrolling a document or changing text size.
+- Whether users can drag/re-pin sheets immediately, or whether the first layout is automatic.
+- How new branches are placed and how the tear direction points toward the original sheet's board position.
+- Which preview detail remains readable at each zoom level, including long or empty drafts.
+- Whether leaving and reopening the app restores board mode as well as the board viewport.
+
+## Acceptance criteria
+
+- From an open draft, zoom out and visibly follow that same sheet into the board.
+- Branch a draft, then see both independently editable sheets on the board with their relationship intact.
+- Open another sheet and resume at its saved writing position without losing unsaved work.
+- Switch repeatedly between editor and board without changing draft identity or creating duplicate files.
+- Reopen the workspace and retain saved sheet positions.
+- Small incidental gestures do not leave editing mode; explicit controls and keyboard interaction can perform the same navigation.
+- Reduced Motion remains usable, and a large draft family does not require rendering every full document as a live editor.

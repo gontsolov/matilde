@@ -13,3 +13,5 @@ On first launch, **Start writing** creates or reuses `Documents/Matilde`. **Choo
 Documents and branches are ordinary Markdown files. Goals, draft relationships, session state, and branching snapshots live in the workspace's hidden `.matilde` folder.
 
 See [the product and architecture notes](docs/architecture.md) for agreed decisions, deferred features, and open questions.
+
+Planned follow-up: [zoom out to a board of pinned drafts](docs/canvas-followup.md).

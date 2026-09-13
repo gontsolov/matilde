@@ -66,6 +66,38 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(try workspace.read(first), "one")
         XCTAssertEqual(try workspace.read(second), "two")
     }
+    func testBranchInheritsPositionAndThenPersistsIndependently() throws {
+        let workspace = try Workspace(root: root)
+        var source = try workspace.create(name: "Original", folder: "", goal: "")
+        source.cursor = 12; source.scroll = 160
+        try workspace.position(source, cursor: source.cursor, scroll: source.scroll)
+        let branch = try workspace.branch(source, text: "A longer piece of writing")
+        XCTAssertEqual(branch.cursor, 12)
+        XCTAssertEqual(branch.scroll, 160)
+        try workspace.position(branch, cursor: 20, scroll: 240)
+        let reopened = try Workspace(root: root)
+        let drafts = try reopened.allDrafts()
+        XCTAssertEqual(drafts.first { $0.id == source.id }?.cursor, 12)
+        XCTAssertEqual(drafts.first { $0.id == source.id }?.scroll, 160)
+        XCTAssertEqual(drafts.first { $0.id == branch.id }?.cursor, 20)
+        XCTAssertEqual(drafts.first { $0.id == branch.id }?.scroll, 240)
+    }
+    func testImmediateUntitledDocumentsDoNotOverwriteAndCanBeNamed() throws {
+        let workspace = try Workspace(root: root)
+        let first = try workspace.createUntitled(folder: "")
+        try workspace.save(first, text: "Keep this writing")
+        let second = try workspace.createUntitled(folder: "")
+        XCTAssertEqual(first.path, "Untitled.md")
+        XCTAssertEqual(second.path, "Untitled 2.md")
+        XCTAssertEqual(try workspace.state("untitled:\(second.id)"), "true")
+        try workspace.rename(second, name: "A new piece")
+        try workspace.goal(second, text: "Explain the idea")
+        let reopened = try Workspace(root: root)
+        let named = try XCTUnwrap(reopened.scan().drafts.first { $0.id == second.id })
+        XCTAssertEqual(named.path, "A new piece.md")
+        XCTAssertEqual(named.goal, "Explain the idea")
+        XCTAssertEqual(try reopened.read(first), "Keep this writing")
+    }
 }
 
 final class MarkdownTests: XCTestCase {
@@ -106,5 +138,33 @@ final class MarkdownTests: XCTestCase {
         XCTAssertNil(storage.attribute(.concealed, at: range.location, effectiveRange: nil))
         let inline = (markdown as NSString).range(of: "**literal**")
         XCTAssertNil(storage.attribute(.concealed, at: inline.location, effectiveRange: nil))
+    }
+}
+
+final class PageCurlTests: XCTestCase {
+    func testPageStartsFlatBendsAndClearsTheEditor() {
+        let size = CGSize(width: 900, height: 700)
+        let flat = CurlMesh(size: size, progress: 0)
+        XCTAssertTrue(flat.vertices.allSatisfy { abs($0.z) < 0.001 })
+        XCTAssertEqual(flat.vertices.first!.x, -450, accuracy: 0.001)
+        XCTAssertEqual(flat.vertices.last!.x, 450, accuracy: 0.001)
+        let startingCurl = CurlMesh(size: size, progress: 0.2)
+        // Mesh rows go bottom to top: the bottom-right corner must lift first.
+        XCTAssertGreaterThan(startingCurl.vertices[120].z, 0)
+        XCTAssertLessThan(startingCurl.vertices[120].x, flat.vertices[120].x)
+        XCTAssertGreaterThan(startingCurl.vertices[120].y, flat.vertices[120].y)
+        XCTAssertEqual(startingCurl.vertices.last!.z, 0, accuracy: 0.001)
+        XCTAssertEqual(startingCurl.vertices.first!.z, 0, accuracy: 0.001)
+        let curled = CurlMesh(size: size, progress: 0.4)
+        XCTAssertTrue(curled.vertices.contains { $0.z > 40 })
+        XCTAssertTrue(curled.normals.contains { $0.z < 0 })
+        XCTAssertTrue(curled.normals.contains { $0.z > 0 })
+        for normal in curled.normals {
+            let length = sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z)
+            XCTAssertEqual(length, 1, accuracy: 0.001)
+        }
+        XCTAssertTrue(curled.indices.allSatisfy { $0 >= 0 && Int($0) < curled.vertices.count })
+        let turned = CurlMesh(size: size, progress: 1)
+        XCTAssertTrue(turned.vertices.allSatisfy { $0.x < -450 })
     }
 }

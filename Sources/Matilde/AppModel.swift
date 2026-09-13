@@ -13,6 +13,13 @@ final class AppModel: ObservableObject {
     @Published var error: String?
     @Published var sheet: Sheet?
     @Published var search = ""
+    @Published var headerTitle = ""
+    @Published var headerGoal = ""
+    @Published var focusTitleID: String?
+    @Published var branchMoment: BranchMoment?
+    @Published var isBranching = false
+    var capturePage: (() -> NSImage?)?
+    private var headerDirty = false
     var cursor = 0
     var scroll = 0.0
     private var savedText = ""
@@ -40,7 +47,7 @@ final class AppModel: ObservableObject {
             let folder = documents.appendingPathComponent("Matilde", isDirectory: true)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try open(folder)
-            if active == nil { sheet = .document }
+            if active == nil { newDocument() }
         }
     }
     func chooseWorkspace() {
@@ -63,6 +70,7 @@ final class AppModel: ObservableObject {
         workspace = newWorkspace; drafts = contents.drafts; folders = contents.folders
         sidebar = try newWorkspace.state("sidebar") != "false"
         active = selected; text = content; savedText = content
+        try loadHeader()
         cursor = selected?.cursor ?? 0; scroll = selected?.scroll ?? 0
         status = "Saved"
         UserDefaults.standard.set(url.path, forKey: "workspacePath")
@@ -101,6 +109,7 @@ final class AppModel: ObservableObject {
             let current = try workspace.allDrafts().first { $0.id == draft.id } ?? draft
             let content = try workspace.read(current)
             active = current; text = content; savedText = content
+            try loadHeader()
             cursor = current.cursor; scroll = current.scroll; status = "Saved"
             try workspace.setState("active", draft.id)
         }
@@ -136,6 +145,7 @@ final class AppModel: ObservableObject {
     }
     func save() throws {
         saveTask?.cancel()
+        try saveHeader()
         guard let workspace, let active, text != savedText else { return }
         let disk = try workspace.read(active)
         if disk != savedText {
@@ -180,20 +190,72 @@ final class AppModel: ObservableObject {
         let draft = try workspace.create(name: name, folder: folder, goal: goal)
         try refresh(); select(draft)
     }
+    func newDocument() {
+        attempt {
+            try flush()
+            guard let workspace else { return }
+            let draft = try workspace.createUntitled(folder: active?.folder ?? "")
+            try refresh(); select(draft)
+            focusTitleID = draft.id
+        }
+    }
+    private func loadHeader() throws {
+        headerTitle = try active.map { try workspace?.state("untitled:\($0.id)") == "true" ? "" : $0.title } ?? ""
+        headerGoal = active?.goal ?? ""
+        headerDirty = false
+        focusTitleID = nil
+    }
+    func editHeader(title: String? = nil, goal: String? = nil) {
+        if let title { headerTitle = title }
+        if let goal { headerGoal = goal }
+        headerDirty = true
+        // Use the same autosave cadence as the document body.
+        edited(text)
+    }
+    private func saveHeader() throws {
+        guard headerDirty, let workspace, let active else { return }
+        let name = headerTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty {
+            try workspace.rename(active, name: name)
+            try workspace.setState("untitled:\(active.id)", "false")
+        }
+        try workspace.goal(active, text: headerGoal)
+        headerDirty = false
+        try refresh()
+        status = "Saved"
+    }
     func branch() {
+        guard !isBranching else { return }
         attempt {
             try flush()
             guard let workspace, let active else { return }
-            let draft = try workspace.branch(active, text: text)
+            let image = capturePage?()
+            var source = active
+            source.cursor = cursor; source.scroll = scroll
+            let draft = try workspace.branch(source, text: text)
             try refresh(); select(draft)
+            guard self.active?.id == draft.id else { return }
+            let moment = BranchMoment(sourceTitle: source.title, image: image)
+            branchMoment = moment
+            isBranching = true
+            Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(1050))
+                self?.isBranching = false
+                try? await Task.sleep(for: .milliseconds(850))
+                if self?.branchMoment?.id == moment.id { self?.branchMoment = nil }
+            }
         }
     }
     func rename(_ name: String) throws {
         try flush()
-        if let workspace, let active { try workspace.rename(active, name: name); try refresh() }
+        if let workspace, let active {
+            try workspace.rename(active, name: name)
+            try workspace.setState("untitled:\(active.id)", "false")
+            try refresh(); try loadHeader()
+        }
     }
     func setGoal(_ value: String) throws {
-        if let workspace, let active { try workspace.goal(active, text: value); try refresh() }
+        if let workspace, let active { try workspace.goal(active, text: value); headerGoal = value; try refresh() }
     }
     func reveal() {
         if let workspace, let active, let url = try? workspace.url(for: active.path) { NSWorkspace.shared.activateFileViewerSelecting([url]) }

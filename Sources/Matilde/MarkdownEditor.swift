@@ -197,6 +197,7 @@ struct MarkdownEditor: NSViewRepresentable {
     let initialScroll: Double
     var onChange: (String) -> Void
     var onPosition: (Int, Double) -> Void
+    var focusOnLoad = true
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
@@ -271,7 +272,7 @@ struct MarkdownEditor: NSViewRepresentable {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 guard let self, self.loadedID == parent.draftID, let scroll = self.scroll else { return }
                 self.updating = true
-                if restore { self.view?.window?.makeFirstResponder(self.view) }
+                if restore && parent.focusOnLoad { self.view?.window?.makeFirstResponder(self.view) }
                 self.view?.layoutManager?.ensureLayout(for: self.view!.textContainer!)
                 self.view?.sizeToFit()
                 let maxY = max(0, (scroll.documentView?.bounds.height ?? 0) - scroll.contentSize.height)
