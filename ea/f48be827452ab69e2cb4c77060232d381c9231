@@ -1,0 +1,27 @@
+Tests/MatildeTests/WritingPinchTests.swift
+  s_c0cc3196221124::t_8fec2106afc233 9,17,23,34-36
+docs/canvas-followup.md
+  s_c0cc3196221124::t_276378aa07b27b 15,17
+docs/verification.md
+  s_c0cc3196221124::t_276378aa07b27b 113-116
+Sources/Matilde/DraftBoard.swift
+  s_c0cc3196221124::t_8fec2106afc233 24-25,30-31
+ROADMAP.md
+  s_c0cc3196221124::t_276378aa07b27b 45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "eaf48be827452ab69e2cb4c77060232d381c9231",
+  "prompts": {},
+  "sessions": {
+    "s_c0cc3196221124": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09c7e-efff-7e50-b7b4-7538770a0586",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
