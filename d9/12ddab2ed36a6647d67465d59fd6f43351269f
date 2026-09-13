@@ -1,0 +1,53 @@
+Tests/MatildeTests/WorkspaceTests.swift
+  s_709d6037db8fc8::t_55cb32b258180b 85-108
+Sources/Matilde/MarkdownEditor.swift
+  s_709d6037db8fc8::t_c1b36ed30ee816 144-154,212,243
+  s_709d6037db8fc8::t_8a002d13886d81 213,296
+Sources/Matilde/MatildeApp.swift
+  s_709d6037db8fc8::t_b8a7c1c97fa0c3 253
+  s_709d6037db8fc8::t_db5a43c0c0481b 65-66,223-229,236-237,239-242,247-252,254-257,297
+  s_709d6037db8fc8::t_006ab28db65a36 277-279,337,339
+  s_709d6037db8fc8::t_38aa0934234360 29-30,76,97-99,201-204,216-222,230-235,238,243-246,258-259
+docs/canvas-followup.md
+  s_709d6037db8fc8::t_b3b90eb4bee9c0 5-10,12-13,16,51,53
+  s_709d6037db8fc8::t_65aadc4f2d6663 3,14,17
+  s_709d6037db8fc8::t_23b13d5fbc93f1 11
+  s_709d6037db8fc8::t_b8a7c1c97fa0c3 15
+  s_709d6037db8fc8::t_b4ac0b46f2bfa5 4
+Sources/Matilde/BoardStore.swift
+  s_709d6037db8fc8::t_15094df98635aa 1-55
+Sources/Matilde/AppModel.swift
+  s_709d6037db8fc8::t_f9c0073e4ed0de 22-28,137,171-175,212,244,279-300,302-309,311-335
+  s_709d6037db8fc8::t_8a002d13886d81 29,81,120,301,310
+docs/verification.md
+  s_709d6037db8fc8::t_b3b90eb4bee9c0 40-43
+  s_709d6037db8fc8::t_65aadc4f2d6663 44-51
+docs/architecture.md
+  s_709d6037db8fc8::t_b3b90eb4bee9c0 71,73,79
+  s_709d6037db8fc8::t_2ca5b7bec8298f 37
+Sources/Matilde/DraftBoard.swift
+  s_709d6037db8fc8::t_bd42caac34f728 37,44-45
+  s_709d6037db8fc8::t_32fbbdd0d8bf37 57,93,96-97,100-102,110-114,172-219
+  s_709d6037db8fc8::t_15094df98635aa 1-8,14,21,47-56,58-88,90-92,94-95,104-109,115-160,244-245
+  s_709d6037db8fc8::t_eea7a69c4a48ca 98-99,161-171
+  s_709d6037db8fc8::t_8a002d13886d81 9-13,15-20,22-36,38-43,46,89,220-243
+  s_709d6037db8fc8::t_3bca76e9c3c3ed 103
+README.md
+  s_709d6037db8fc8::t_b3b90eb4bee9c0 7,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d912ddab2ed36a6647d67465d59fd6f43351269f",
+  "prompts": {},
+  "sessions": {
+    "s_709d6037db8fc8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b85-2383-7071-abb6-290961e3e098",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
