@@ -1,0 +1,23 @@
+ROADMAP.md
+  s_c0cc3196221124::t_62a0bcb70a1d68 43
+docs/verification.md
+  s_c0cc3196221124::t_62a0bcb70a1d68 99-102
+Sources/Matilde/DraftBoard.swift
+  s_c0cc3196221124::t_0b18db03f8e432 167-169,174,177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3b1508b3398d16d685f7e87815bdc575e0171bee",
+  "prompts": {},
+  "sessions": {
+    "s_c0cc3196221124": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09c7e-efff-7e50-b7b4-7538770a0586",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
