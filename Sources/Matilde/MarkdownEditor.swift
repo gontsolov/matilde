@@ -158,9 +158,42 @@ enum MarkdownStyler {
     }
 }
 
+/// Constrain the SwiftUI proposal before asking for fitting height. An unconstrained
+/// fittingSize measures a single-line title, then centers wrapped content in that
+/// undersized frame, moving the controls upward and overlapping the body.
+final class WritingHeaderView: NSHostingView<AnyView> {
+    private var content: AnyView
+    private var measuredWidth: CGFloat = -1
+
+    init(content: AnyView) {
+        self.content = content
+        super.init(rootView: content)
+    }
+
+    @MainActor required dynamic init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    required init(rootView: AnyView) {
+        content = rootView
+        super.init(rootView: rootView)
+    }
+
+    func update(content: AnyView) {
+        self.content = content
+        let width = measuredWidth
+        measuredWidth = -1
+        measure(at: max(0, width))
+    }
+
+    func measure(at width: CGFloat) {
+        guard measuredWidth != width else { return }
+        measuredWidth = width
+        rootView = AnyView(content.frame(width: width, alignment: .topLeading)
+            .fixedSize(horizontal: false, vertical: true))
+    }
+}
+
 final class WritingTextView: NSTextView {
     var onPosition: ((Int, Double) -> Void)?
-    var scrollingHeader: NSHostingView<AnyView>?
+    var scrollingHeader: WritingHeaderView?
     override func accessibilityChildren() -> [Any]? {
         var children = super.accessibilityChildren() ?? []
         if let scrollingHeader { children.append(scrollingHeader) }
@@ -169,6 +202,7 @@ final class WritingTextView: NSTextView {
     private(set) var headerHeight: CGFloat = 0
     override func layout() {
         if let scrollingHeader {
+            scrollingHeader.measure(at: bounds.width)
             scrollingHeader.frame.size.width = bounds.width
             let height = scrollingHeader.fittingSize.height
             scrollingHeader.frame = NSRect(x: 0, y: 0, width: bounds.width, height: height)
@@ -332,7 +366,7 @@ struct MarkdownEditor: NSViewRepresentable {
         storage.addLayoutManager(layout); layout.addTextContainer(container)
         let view = WritingTextView(frame: .zero, textContainer: container)
         if let header {
-            let hosted = NSHostingView(rootView: header)
+            let hosted = WritingHeaderView(content: header)
             view.scrollingHeader = hosted
             view.addSubview(hosted)
         }
@@ -373,7 +407,7 @@ struct MarkdownEditor: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         context.coordinator.parent = self
         if let header, let view = context.coordinator.view {
-            view.scrollingHeader?.rootView = header
+            view.scrollingHeader?.update(content: header)
             view.needsLayout = true
         }
         if context.coordinator.loadedID != draftID { context.coordinator.load(self, restore: true) }

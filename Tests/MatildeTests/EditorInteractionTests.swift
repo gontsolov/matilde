@@ -1,9 +1,35 @@
 import XCTest
 import AppKit
+import SwiftUI
 @testable import Matilde
 
 @MainActor
 final class EditorInteractionTests: XCTestCase {
+    func testWrappedHeaderGrowsDownAndMovesBodyBelowIt() {
+        let view = editor("Body")
+        func header(_ title: String) -> AnyView {
+            AnyView(VStack(alignment: .leading, spacing: 15) {
+                Text("Draft controls")
+                Text(title).font(.system(size: 32)).fixedSize(horizontal: false, vertical: true)
+                Text("Writing goal")
+            }.padding(.top, 29))
+        }
+        let hosted = WritingHeaderView(content: header("Short title"))
+        view.scrollingHeader = hosted
+        view.addSubview(hosted)
+        view.layout()
+        let shortHeight = view.headerHeight
+        let shortBody = view.textContainerOrigin.y
+        hosted.update(content: header(String(repeating: "Long wrapping title ", count: 8)))
+        view.layout()
+        XCTAssertEqual(hosted.frame.minY, 0)
+        XCTAssertGreaterThan(view.headerHeight, shortHeight + 30)
+        XCTAssertEqual(view.textContainerOrigin.y - shortBody, view.headerHeight - shortHeight, accuracy: 1)
+        hosted.update(content: header("Short title"))
+        view.layout()
+        XCTAssertEqual(view.headerHeight, shortHeight, accuracy: 1)
+    }
+
     private func editor(_ text: String, selection: NSRange? = nil) -> WritingTextView {
         let view = WritingTextView(frame: NSRect(x: 0, y: 0, width: 680, height: 500))
         view.isRichText = false

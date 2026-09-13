@@ -114,3 +114,7 @@ All 35 Swift tests pass, including large-input/delayed-frame limits, target conv
 ### Faster tuning after owner feedback
 
 The owner reported the first pass felt excessively slow. Reduced smoothing from 160 to 60 ms, raised tracking speed from 1.8 to 5 progress units/sec, and shortened release from 340–1500 to 180–420 ms. Regression tests now require over 98% target convergence within 400 ms and a maximum 420 ms release, alongside existing jump protection and reversal checks. All 35 tests and app build/signature checks pass. Relaunched and checked canvas/editor navigation without changing writing. Actual pinch feel still needs owner verification.
+
+## Top-anchored wrapping header
+
+The hosting view's unconstrained fitting measurement underestimated wrapped title height. Constrained the SwiftUI header to the editor width before measuring its vertical fitting size, retaining the header at y=0 and updating the body's inset with its full height. Added a native layout regression for short-to-long-to-short title changes and matching body displacement. All 36 tests and app build/signature checks pass. Live screenshots of the owner's existing one-line and two-line examples confirm identical draft-control/title top positions, with the goal and body moving down for the extra line. No writing was edited; restored the original draft selection.
