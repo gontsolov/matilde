@@ -241,11 +241,14 @@ struct ContentView: View {
                     .accessibilityHidden(model.boardVisible)
             }
             .clipped()
+            .background(WritingPinchInput(enabled: !model.boardVisible && !model.isBranching && model.boardFlight == nil,
+                                          changed: updateWritingPinch))
             .onAppear { model.boardSize = geometry.size; model.reduceBoardMotion = reduceMotion }
             .onChange(of: geometry.size) { _, size in model.boardSize = size }
             .onChange(of: reduceMotion) { _, value in model.reduceBoardMotion = value }
             .onChange(of: model.boardRequest) { _, _ in draftsVisible = false; model.toggleBoard() }
             .onChange(of: model.boardFlight?.id) { _, _ in animateBoardFlight() }
+            .onChange(of: model.boardFlight?.interactive) { _, _ in animateBoardFlight() }
             .onChange(of: model.editorReadyID) { _, _ in animateBoardFlight() }
             .onChange(of: model.boardVisible) { _, visible in
                 if model.boardFlight == nil {
@@ -260,17 +263,34 @@ struct ContentView: View {
     }
     private func animateBoardFlight() {
         guard let flight = model.boardFlight, animatingFlightID != flight.id,
+              !flight.interactive,
               !flight.opening || model.editorReadyID == flight.draftID else { return }
         animatingFlightID = flight.id
-        withAnimation(.timingCurve(0.2, 0.65, 0.25, 1, duration: 0.34), completionCriteria: .removed) {
+        withAnimation(reduceMotion ? nil : .timingCurve(0.2, 0.65, 0.25, 1, duration: 0.34), completionCriteria: .removed) {
             boardAmount = flight.opening ? 0 : 1
         } completion: {
             model.finishBoardFlight(flight.id)
             if animatingFlightID == flight.id { animatingFlightID = nil }
         }
     }
+    private func updateWritingPinch(_ total: CGFloat, _ phase: NSEvent.Phase) {
+        let ending = phase == .ended || phase == .cancelled
+        if model.boardFlight == nil && !ending && WritingPinch.progress(total) > 0 {
+            draftsVisible = false
+            model.showBoard(interactive: true)
+        }
+        guard var flight = model.boardFlight, flight.interactive else { return }
+        if ending {
+            flight.opening = phase == .cancelled || !WritingPinch.commits(total)
+            flight.interactive = false
+            model.boardFlight = flight
+        } else {
+            var transaction = Transaction(); transaction.disablesAnimations = true
+            withTransaction(transaction) { boardAmount = reduceMotion ? 0 : WritingPinch.progress(total) }
+        }
+    }
     private func writing(_ draft: Draft) -> some View {
-            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible, onZoomOut: { model.showBoard() }, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 })
+            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 })
                 .frame(maxWidth: 736).frame(maxWidth: .infinity)
         .background(PageCapture { model.capturePage = $0 })
         .overlay {

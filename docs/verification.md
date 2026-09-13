@@ -72,3 +72,11 @@ Added quote rules with normal body ink, larger paragraph spacing, compact blank 
 ## Unified page scrolling
 
 Moved the inline header into the editor scroll surface and added a compact native toolbar title when it scrolls away. All 24 tests and the app build pass. Live checks confirmed scrolling down hides the header and reveals the toolbar title, scrolling to the top removes it, and restarting restores the saved scroll fraction (0.90438) and collapsed title. Header controls remain exposed in the accessibility tree. No document text was edited.
+
+## Continuous editor pinch
+
+Implemented continuous progress on the existing mounted editor surface, with a 3% dead zone, quadratic resistance, and an 18% outward release threshold. Reversal and cancellation settle back into writing; window deactivation also cancels. Reduce Motion skips scaling. Native event capture remains active until the gesture ends even after the page moves away from the pointer.
+
+All 27 Swift tests pass with native pasteboard access, including three new resistance/reversal/threshold checks. The local app builds and passes code-signature verification. Live checks in `build/ContinuousPinchVerification` confirmed Command-0 opens the board, Escape restores editor focus, typing resumes at the cursor, branching retains text, and opening the original sheet restores its editor. No original workspace documents were edited.
+
+Physical pinch delivery, cancellation, and Reduce Motion gesture behavior have not been verified end to end: the available native UI tool cannot generate magnification gestures. CAN-07 tracks that explicit verification gap. The curve tests do not substitute for a trackpad test.

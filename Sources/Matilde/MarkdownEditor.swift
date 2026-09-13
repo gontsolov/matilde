@@ -160,7 +160,6 @@ enum MarkdownStyler {
 
 final class WritingTextView: NSTextView {
     var onPosition: ((Int, Double) -> Void)?
-    var onZoomOut: (() -> Void)?
     var scrollingHeader: NSHostingView<AnyView>?
     override func accessibilityChildren() -> [Any]? {
         var children = super.accessibilityChildren() ?? []
@@ -181,7 +180,6 @@ final class WritingTextView: NSTextView {
         }
         super.layout()
     }
-    private var pinchAmount: CGFloat = 0
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         guard let storage = textStorage, let layoutManager, let textContainer else { return }
@@ -214,13 +212,7 @@ final class WritingTextView: NSTextView {
     }
 
     override func magnify(with event: NSEvent) {
-        if event.phase == .began { pinchAmount = 0 }
-        pinchAmount += event.magnification
-        if pinchAmount < -0.18 {
-            pinchAmount = 0
-            onZoomOut?()
-        }
-        if event.phase == .ended || event.phase == .cancelled { pinchAmount = 0 }
+        // The writing-space boundary owns pinch navigation, including tail events.
     }
 
     override func insertNewline(_ sender: Any?) {
@@ -326,7 +318,6 @@ struct MarkdownEditor: NSViewRepresentable {
     var onChange: (String) -> Void
     var onPosition: (Int, Double) -> Void
     var focusOnLoad = true
-    var onZoomOut: () -> Void = {}
     var onReady: (String) -> Void = { _ in }
     var header: AnyView? = nil
     var onHeaderVisibility: (Bool) -> Void = { _ in }
@@ -364,7 +355,6 @@ struct MarkdownEditor: NSViewRepresentable {
         view.linkTextAttributes = [.foregroundColor: Paper.accent, .underlineStyle: NSUnderlineStyle.single.rawValue]
         view.font = Paper.body()
         view.delegate = context.coordinator
-        view.onZoomOut = { [weak coordinator = context.coordinator] in coordinator?.parent.onZoomOut() }
         view.setAccessibilityLabel("Writing editor")
         let scroll = NSScrollView()
         scroll.documentView = view

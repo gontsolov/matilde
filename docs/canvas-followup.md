@@ -5,7 +5,7 @@ Status: implemented. Release build and 12 tests pass. Live checks cover scrollin
 ## First implementation
 
 - Current document family only, with pinned paper previews and branch connectors.
-- `⌘0` or the toolbar board button opens the board. A deliberate pinch out in the editor also opens it after an 18% accumulated threshold.
+- `⌘0` or the toolbar board button opens the board. Editor zoom-out pinches continuously move the mounted page after a 3% dead zone, with quadratic resistance near writing. Releasing at 18% outward travel settles onto the board; smaller or reversed gestures return to writing.
 - The current page shrinks toward its board position. Clicking another sheet expands it into editing; cursor and scroll positions remain independent.
 - Automatic positions are stored in SQLite. New children sit down-right of their source; siblings receive separate rows without moving earlier sheets.
 - Drag the board, scroll with two fingers, or use the mouse wheel to pan. Pages lift subtly on hover and use a pointing-hand cursor. Pinch or use +/− to zoom. Fit shows the family; arrow keys move focus, Return opens a sheet, and Escape returns to the active draft.
@@ -14,7 +14,9 @@ Status: implemented. Release build and 12 tests pass. Live checks cover scrollin
 - Only lightweight previews are rendered for visible sheets. Transitions keep the real editor mounted at its full layout size, animate its scale and clipping bounds, and blend into the same card view used on the board. No screenshot cache or approximate editor preview is used.
 - Flights use a 340 ms easing curve with a quick start and animation-completion callbacks. Opening another draft waits for its editor layout and saved scroll position to be ready. Input is held until the flight finishes; Reduce Motion switches directly.
 
-Still to refine: continuous finger-tracked editor-to-board zoom rather than the current threshold-triggered animation, resistance feel, freely dragging individual sheets, and large-family usability.
+Continuous editor pinch is implemented. The native event monitor retains the gesture while the page moves away from the pointer; cancellation, keyboard interruption, and window deactivation return it to writing. Reduce Motion retains the release decision without scaling. Board-to-editor navigation still uses the existing settled flight after clicking a sheet or ending board zoom beyond 120%.
+
+Still to verify/refine: physical trackpad delivery and resistance feel (CAN-07), freely dragging individual sheets, and large-family usability. Automated UI tools do not expose native pinch gestures.
 
 ## Core experience
 

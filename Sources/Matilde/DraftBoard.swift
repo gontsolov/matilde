@@ -3,7 +3,80 @@ import SwiftUI
 struct BoardFlight: Identifiable {
     let id = UUID()
     let draftID: String
-    let opening: Bool
+    var opening: Bool
+    var interactive = false
+}
+
+/// A dead zone and quadratic onset keep incidental pinches close to writing.
+enum WritingPinch {
+    static func progress(_ magnification: CGFloat) -> CGFloat {
+        let distance = max(0, -magnification - 0.03)
+        return min(1, distance * distance / (0.36 * 0.36))
+    }
+    static func commits(_ magnification: CGFloat) -> Bool { magnification <= -0.18 }
+}
+
+/// Capture the whole native gesture even after the page moves away from the pointer.
+struct WritingPinchInput: NSViewRepresentable {
+    var enabled: Bool
+    var changed: (CGFloat, NSEvent.Phase) -> Void
+    func makeNSView(context: Context) -> InputView { InputView() }
+    func updateNSView(_ view: InputView, context: Context) {
+        view.enabled = enabled; view.changed = changed
+    }
+    static func dismantleNSView(_ view: InputView, coordinator: ()) { view.stop() }
+    final class InputView: NSView {
+        var enabled = false
+        var changed: ((CGFloat, NSEvent.Phase) -> Void)?
+        private var monitor: Any?
+        private var resignation: NSObjectProtocol?
+        private var tracking = false
+        private var total: CGFloat = 0
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stop()
+            guard window != nil else { return }
+            resignation = NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification,
+                                                                 object: window, queue: .main) { [weak self] _ in
+                guard let self, self.tracking else { return }
+                self.tracking = false
+                self.changed?(self.total, .cancelled)
+            }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.magnify, .keyDown]) { [weak self] event in
+                guard let self, event.window === self.window else { return event }
+                if event.type == .keyDown {
+                    if self.tracking {
+                        self.tracking = false
+                        self.changed?(self.total, .cancelled)
+                        return nil
+                    }
+                    return event
+                }
+                if event.phase == .began {
+                    self.tracking = self.enabled && !self.isHiddenOrHasHiddenAncestor &&
+                        self.bounds.contains(self.convert(event.locationInWindow, from: nil))
+                    self.total = 0
+                }
+                guard self.tracking else { return event }
+                self.total += event.magnification
+                self.changed?(self.total, event.phase)
+                if event.phase == .ended || event.phase == .cancelled { self.tracking = false }
+                return nil
+            }
+        }
+        func stop() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+            if let resignation { NotificationCenter.default.removeObserver(resignation) }
+            resignation = nil
+            if tracking { tracking = false; changed?(total, .cancelled) }
+        }
+        deinit {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            if let resignation { NotificationCenter.default.removeObserver(resignation) }
+        }
+    }
 }
 
 /// One mounted editor, rendered at a fixed layout size throughout the flight.

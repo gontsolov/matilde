@@ -313,7 +313,7 @@ final class AppModel: ObservableObject {
         if boardVisible { if let active { openBoardDraft(active) }; return }
         showBoard()
     }
-    func showBoard() {
+    func showBoard(interactive: Bool = false) {
         guard !boardVisible, boardFlight == nil, !isBranching, boardSize.width > 0 else { return }
         attempt {
             try flush()
@@ -329,7 +329,7 @@ final class AppModel: ObservableObject {
                 boardViewport.x = sheet.position.x + 130; boardViewport.y = sheet.position.y + 170
             }
             boardVisible = true
-            if !reduceBoardMotion { boardFlight = BoardFlight(draftID: active.id, opening: false) }
+            if !reduceBoardMotion || interactive { boardFlight = BoardFlight(draftID: active.id, opening: false, interactive: interactive) }
             persistBoard()
         }
     }
