@@ -69,6 +69,7 @@ These summarize implemented scope, not a claim that all possible edge cases are 
 
 | ID | Status | Delivered |
 | --- | --- | --- |
+| EDIT-07 | Done | Return in the goal saves and focuses the body; Shift-Return is passed through. Built and verified live that focus moves from Writing goal to Writing editor without altering text. |
 | UI-03 | Done | Title, goal, and draft controls scroll with the body; a compact native toolbar title with 16-point horizontal padding appears after the header leaves view. Verified scrolling both ways and reopening at the saved offset; 24 tests and build pass. |
 | UI-02 | Done | Removed the sidebar workspace switcher; the header is a plain Matilde label beside search. |
 | EDIT-05 | Done | Quote rule uses text baseline/font metrics instead of the line box; blank lines retain normal font and caret height. Build and 24 tests passed; quote inspected after restart. |

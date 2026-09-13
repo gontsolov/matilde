@@ -306,6 +306,15 @@ struct ContentView: View {
                     ), axis: .vertical)
                     .textFieldStyle(.plain).font(Font(Paper.body())).lineLimit(1...5)
                     .foregroundStyle(Color(Paper.muted)).accessibilityLabel("Writing goal")
+                    .onKeyPress(.return, phases: .down) { press in
+                        guard !press.modifiers.contains(.shift) else { return .ignored }
+                        model.attempt { try model.flush() }
+                        guard let window = NSApp.keyWindow,
+                              let editor = findWritingView(window.contentView) as? WritingTextView else { return .ignored }
+                        window.makeFirstResponder(editor)
+                        editor.scrollRangeToVisible(editor.selectedRange())
+                        return .handled
+                    }
                 }
             }.padding(.horizontal, 28).padding(.top, 29).padding(.bottom, 10).frame(maxWidth: 736)
             if draftsVisible {
