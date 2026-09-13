@@ -1,0 +1,79 @@
+Package.swift
+  s_709d6037db8fc8::t_d6a5ed5ed12f8b 8,11
+docs/architecture.md
+  s_709d6037db8fc8::t_5baef7d8cf90bd 107-113
+.github/workflows/release.yml
+  s_709d6037db8fc8::t_be2cb71ff16995 1-76
+scripts/release-version.py
+  s_709d6037db8fc8::t_3e2de43cdf63ae 1-45
+scripts/write-info.py
+  s_709d6037db8fc8::t_d63f0c7bbf8e2f 1-30
+.github/workflows/ci.yml
+  s_709d6037db8fc8::t_be2cb71ff16995 1-25
+scripts/publish-release.sh
+  s_709d6037db8fc8::t_3e2de43cdf63ae 1-29
+Sources/Matilde/AppUpdater.swift
+  s_709d6037db8fc8::t_d63f0c7bbf8e2f 1-25
+scripts/verify-appcast.py
+  s_709d6037db8fc8::t_d2f27d141773be 6-7,25-32,34
+  s_709d6037db8fc8::t_a491e4a27e0f0d 23
+  s_709d6037db8fc8::t_be2cb71ff16995 1-5,8-22,24
+  s_709d6037db8fc8::t_9e6de4b12536b7 33
+Sources/Matilde/Workspace.swift
+  s_709d6037db8fc8::t_437f6f7e323310 139-156
+Config/release.json
+  s_709d6037db8fc8::t_d63f0c7bbf8e2f 1-7
+Sources/Matilde/DraftBoard.swift
+  s_709d6037db8fc8::t_bda4200e5bfd68 104-106,148-150
+  s_709d6037db8fc8::t_d434953cfbd0bb 103
+scripts/sign-release.sh
+  s_709d6037db8fc8::t_be2cb71ff16995 1-14
+Tests/MatildeTests/WorkspaceTests.swift
+  s_709d6037db8fc8::t_a2b2371429ef29 13-41
+scripts/tests/test_release.py
+  s_709d6037db8fc8::t_3e2de43cdf63ae 1-18
+.gitignore
+  s_709d6037db8fc8::t_51d8d5be0abace 10-13
+README.md
+  s_709d6037db8fc8::t_5a27069debd613 5-7,20-21
+scripts/verify-signature.swift
+  s_709d6037db8fc8::t_d2f27d141773be 1-13
+Sources/Matilde/MatildeApp.swift
+  s_709d6037db8fc8::t_ba711a87dec479 8,19-22
+  s_709d6037db8fc8::t_bda4200e5bfd68 111-114,222-225
+scripts/package-release.sh
+  s_709d6037db8fc8::t_0b4af0db342f44 12-20,26,35
+  s_709d6037db8fc8::t_be2cb71ff16995 1-6,8-11,21-25,27-34,36-43
+  s_709d6037db8fc8::t_a491e4a27e0f0d 7
+Sources/Matilde/DraftInteraction.swift
+  s_709d6037db8fc8::t_c67cc2b75d4c8c 77-82
+scripts/build-app.sh
+  s_709d6037db8fc8::t_2879b18f4ba411 31-38
+  s_709d6037db8fc8::t_d63f0c7bbf8e2f 7-30,39-49
+scripts/import-certificate.sh
+  s_709d6037db8fc8::t_3e2de43cdf63ae 1-19
+docs/releases.md
+  s_709d6037db8fc8::t_5a27069debd613 1-57,59-60
+  s_709d6037db8fc8::t_9e6de4b12536b7 58
+Sources/Matilde/AppModel.swift
+  s_709d6037db8fc8::t_c67cc2b75d4c8c 226,239
+  s_709d6037db8fc8::t_b182354b52ba1e 218-225,227-238,240-248
+Package.resolved
+  s_709d6037db8fc8::t_5b157884884ced 1-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b5ea677ad5ca77ad4534f8c01f60448774e1f878",
+  "prompts": {},
+  "sessions": {
+    "s_709d6037db8fc8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b85-2383-7071-abb6-290961e3e098",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
