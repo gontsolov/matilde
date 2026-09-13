@@ -4,6 +4,25 @@ import AppKit
 
 final class DividerTests: XCTestCase {
     @MainActor
+    func testNavigationSkipsAdjacentDividersInBothDirections() {
+        let view = WritingTextView(frame: NSRect(x: 0, y: 0, width: 680, height: 500))
+        view.string = "Before\n---\n---\nAfter"
+        MarkdownStyler.style(view.textStorage!)
+        view.setSelectedRange(NSRange(location: 8, length: 0))
+        view.skipDivider(forward: true)
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 15, length: 0))
+        view.setSelectedRange(NSRange(location: 12, length: 0))
+        view.skipDivider(forward: false)
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 6, length: 0))
+        view.string = "---"
+        MarkdownStyler.style(view.textStorage!)
+        view.setSelectedRange(NSRange(location: 1, length: 0))
+        view.skipDivider(forward: true)
+        XCTAssertEqual(view.selectedRange(), NSRange(location: 0, length: 3))
+        XCTAssertEqual(view.string, "---")
+    }
+
+    @MainActor
     func testDividerFocusDeletionAndReturnTreatItAsOneBlock() {
         let view = WritingTextView(frame: NSRect(x: 0, y: 0, width: 680, height: 500))
         view.string = "Before\n---\nAfter"

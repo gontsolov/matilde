@@ -130,3 +130,7 @@ A standalone `---` (allowing surrounding whitespace) now draws a 1-point muted r
 ### Divider focus follow-up
 
 Hide the insertion caret on divider paragraphs and use a subtle accented rule for focus. Clicking selects the whole marker; Backspace with a collapsed caret anywhere on that paragraph removes the whole divider, and Return on a selected divider moves below it instead of replacing it. All 39 tests and app build/signature checks pass. Live click selected the entire existing marker without a caret through the rule; no writing was edited. Keyboard deletion/Return were verified with synthetic native text views, not the owner's documents.
+
+### Directional navigation and full-line selection
+
+Up/Left now skip divider paragraphs backward; Down/Right skip forward, including adjacent dividers. Single clicks move to the next paragraph; at a document boundary the divider is selected without inserting new content. Selected dividers get a full-width soft accent background instead of the native tiny hidden-dash selection rectangle. All 40 tests and app build/signature checks pass. Live inspection confirmed the full-width highlight, then clicked the divider and pressed Up: the caret landed on the blank paragraph above it rather than within the line. No writing was changed.

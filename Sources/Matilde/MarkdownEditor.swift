@@ -199,6 +199,15 @@ final class WritingHeaderView: NSHostingView<AnyView> {
 }
 
 final class WritingTextView: NSTextView {
+    private var ordinarySelectionAttributes: [NSAttributedString.Key: Any]?
+    override func setSelectedRange(_ range: NSRange, affinity: NSSelectionAffinity, stillSelecting flag: Bool) {
+        if ordinarySelectionAttributes == nil { ordinarySelectionAttributes = selectedTextAttributes }
+        let isDivider = range.length > 0 && dividerRange(at: range.location) == range
+        selectedTextAttributes = isDivider ? [.backgroundColor: NSColor.clear, .foregroundColor: NSColor.clear]
+            : ordinarySelectionAttributes ?? selectedTextAttributes
+        super.setSelectedRange(range, affinity: affinity, stillSelecting: flag)
+        needsDisplay = true
+    }
     var onPosition: ((Int, Double) -> Void)?
     var scrollingHeader: WritingHeaderView?
     override func accessibilityChildren() -> [Any]? {
@@ -237,6 +246,12 @@ final class WritingTextView: NSTextView {
             let selection = selectedRange()
             let selected = NSIntersectionRange(selection, range).length > 0 ||
                 (selection.length == 0 && dividerRange(at: selection.location) == range)
+            if selected {
+                Paper.accent.withAlphaComponent(0.10).setFill()
+                NSBezierPath(roundedRect: NSRect(x: origin.x + rect.minX + padding - 4, y: y - 8,
+                                                width: max(0, rect.width - padding * 2 + 8), height: 16),
+                             xRadius: 4, yRadius: 4).fill()
+            }
             (selected ? Paper.accent.withAlphaComponent(0.65) : Paper.muted.withAlphaComponent(0.35)).setFill()
             NSBezierPath(rect: NSRect(x: origin.x + rect.minX + padding, y: y.rounded(),
                                      width: max(0, rect.width - padding * 2), height: 1)).fill()
@@ -275,6 +290,32 @@ final class WritingTextView: NSTextView {
         let content = source.substring(with: line).trimmingCharacters(in: .newlines)
         return NSRange(location: line.location, length: (content as NSString).length)
     }
+
+    /// Navigation never leaves a caret inside a divider. At document boundaries,
+    /// select the block instead of inserting text merely to make a landing spot.
+    func skipDivider(forward: Bool) {
+        guard selectedRange().length == 0 else { return }
+        let source = string as NSString
+        var position = selectedRange().location
+        while let divider = dividerRange(at: position) {
+            let line = source.lineRange(for: NSRange(location: divider.location, length: 0))
+            if forward, NSMaxRange(line) > NSMaxRange(divider) {
+                position = NSMaxRange(line)
+            } else if !forward, divider.location > 0 {
+                position = divider.location - 1
+            } else {
+                setSelectedRange(divider)
+                return
+            }
+        }
+        setSelectedRange(NSRange(location: position, length: 0))
+        scrollRangeToVisible(selectedRange())
+    }
+
+    override func moveUp(_ sender: Any?) { super.moveUp(sender); skipDivider(forward: false) }
+    override func moveDown(_ sender: Any?) { super.moveDown(sender); skipDivider(forward: true) }
+    override func moveLeft(_ sender: Any?) { super.moveLeft(sender); skipDivider(forward: false) }
+    override func moveRight(_ sender: Any?) { super.moveRight(sender); skipDivider(forward: true) }
 
     override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
         guard dividerRange(at: selectedRange().location) == nil else { return }
@@ -335,7 +376,8 @@ final class WritingTextView: NSTextView {
     override func mouseDown(with event: NSEvent) {
         super.mouseDown(with: event)
         if selectedRange().length == 0, let divider = dividerRange(at: selectedRange().location) {
-            setSelectedRange(divider)
+            if event.clickCount == 1 { skipDivider(forward: true) }
+            else { setSelectedRange(divider) }
             needsDisplay = true
             return
         }
