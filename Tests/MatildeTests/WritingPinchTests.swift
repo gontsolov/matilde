@@ -2,6 +2,40 @@ import XCTest
 @testable import Matilde
 
 final class WritingPinchTests: XCTestCase {
+    func testLargePinchCannotJumpAndDelayedFramesAreCapped() {
+        for elapsed in [1.0 / 120, 1.0 / 60, 1.0 / 30, 2.0] {
+            let next = WritingPinch.advance(0, toward: 1, elapsed: elapsed)
+            XCTAssertGreaterThan(next, 0)
+            XCTAssertLessThanOrEqual(next, CGFloat(min(elapsed, 1.0 / 30)) * 1.8 + 0.00001)
+        }
+        XCTAssertEqual(WritingPinch.advance(0.4, toward: 1, elapsed: 0), 0.4)
+    }
+
+    func testTimeBasedTrackingSlowsNearTargetAndReversesWithoutOvershoot() {
+        var progress: CGFloat = 0
+        var increments: [CGFloat] = []
+        for _ in 0..<120 {
+            let next = WritingPinch.advance(progress, toward: 1, elapsed: 1.0 / 120)
+            increments.append(next - progress)
+            XCTAssertLessThan(next, 1)
+            progress = next
+        }
+        XCTAssertGreaterThan(progress, 0.98)
+        XCTAssertLessThan(increments.last!, increments.first!)
+        let reversed = WritingPinch.advance(progress, toward: 0, elapsed: 1.0 / 60)
+        XCTAssertLessThan(reversed, progress)
+        XCTAssertGreaterThan(reversed, 0)
+        XCTAssertEqual(WritingPinch.advance(0.4, toward: 0.4, elapsed: 0.02), 0.4)
+    }
+
+    func testReleaseDurationBoundsCubicEaseOutSpeed() {
+        for progress: CGFloat in [0, 0.1, 0.5, 0.9, 1] {
+            let duration = WritingPinch.settleDuration(from: progress)
+            XCTAssertGreaterThanOrEqual(duration, 0.34)
+            XCTAssertLessThanOrEqual(Double(1 - progress) * 3 / duration, 2.00001)
+        }
+    }
+
     func testIncidentalAndOppositeGesturesStayInWriting() {
         for amount: CGFloat in [0.3, 0, -0.01, -0.03] {
             XCTAssertEqual(WritingPinch.progress(amount), 0)

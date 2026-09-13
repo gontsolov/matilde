@@ -71,6 +71,7 @@ struct ContentView: View {
     @State private var headerCollapsed = false
     @State private var draftsVisible = false
     @State private var boardAmount: CGFloat = 0
+    @State private var pinchTarget: CGFloat = 0
     @State private var animatingFlightID: UUID?
     var body: some View {
         HStack(spacing: 0) {
@@ -257,6 +258,20 @@ struct ContentView: View {
             .onChange(of: model.boardFlight?.id) { _, _ in animateBoardFlight() }
             .onChange(of: model.boardFlight?.interactive) { _, _ in animateBoardFlight() }
             .onChange(of: model.editorReadyID) { _, _ in animateBoardFlight() }
+            .task(id: model.boardFlight?.id) {
+                var previous = ProcessInfo.processInfo.systemUptime
+                while !Task.isCancelled, model.boardFlight?.interactive == true {
+                    do { try await Task.sleep(for: .milliseconds(8)) } catch { return }
+                    guard !Task.isCancelled, model.boardFlight?.interactive == true else { return }
+                    let now = ProcessInfo.processInfo.systemUptime
+                    var transaction = Transaction(); transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        boardAmount = reduceMotion ? 0 : WritingPinch.advance(boardAmount, toward: pinchTarget,
+                                                                             elapsed: now - previous)
+                    }
+                    previous = now
+                }
+            }
             .onChange(of: model.boardVisible) { _, visible in
                 if model.boardFlight == nil {
                     var transaction = Transaction(); transaction.disablesAnimations = true
@@ -273,7 +288,10 @@ struct ContentView: View {
               !flight.interactive,
               !flight.opening || model.editorReadyID == flight.draftID else { return }
         animatingFlightID = flight.id
-        withAnimation(reduceMotion ? nil : .timingCurve(0.2, 0.65, 0.25, 1, duration: 0.34), completionCriteria: .removed) {
+        let animation: Animation = flight.opening
+            ? .timingCurve(0.2, 0.65, 0.25, 1, duration: 0.34)
+            : .timingCurve(1.0 / 3, 1, 2.0 / 3, 1, duration: WritingPinch.settleDuration(from: boardAmount))
+        withAnimation(reduceMotion ? nil : animation, completionCriteria: .removed) {
             boardAmount = flight.opening ? 0 : 1
         } completion: {
             model.finishBoardFlight(flight.id)
@@ -292,8 +310,7 @@ struct ContentView: View {
             flight.interactive = false
             model.boardFlight = flight
         } else {
-            var transaction = Transaction(); transaction.disablesAnimations = true
-            withTransaction(transaction) { boardAmount = reduceMotion ? 0 : WritingPinch.progress(total) }
+            pinchTarget = WritingPinch.progress(total)
         }
     }
     private func writing(_ draft: Draft) -> some View {

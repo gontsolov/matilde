@@ -15,6 +15,21 @@ enum WritingPinch {
         return 1 - pow(1 - t, 3)
     }
     static func commits(_ magnification: CGFloat) -> Bool { magnification <= -0.18 }
+
+    /// Limit travel per second, then ease toward the finger's target. Cap elapsed
+    /// time too so a delayed frame cannot turn into a visible catch-up jump.
+    static func advance(_ current: CGFloat, toward target: CGFloat, elapsed: TimeInterval) -> CGFloat {
+        let dt = max(0, min(elapsed, 1.0 / 30))
+        let difference = min(1, max(0, target)) - current
+        let eased = difference * CGFloat(1 - exp(-dt / 0.16))
+        let limit = CGFloat(dt) * 1.8
+        return current + min(limit, max(-limit, eased))
+    }
+
+    static func settleDuration(from progress: CGFloat) -> TimeInterval {
+        // Cubic ease-out's initial slope is 3: keep release below 2 units/sec.
+        max(0.34, Double(1 - min(1, max(0, progress))) * 1.5)
+    }
 }
 
 enum BoardPageStyle {

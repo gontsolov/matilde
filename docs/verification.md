@@ -104,3 +104,9 @@ Made the existing faint grid visible to match the supplied reference: 20-point s
 ## Canvas previews without goals
 
 Removed the goal and flag from the shared canvas page preview; the editor and saved goal remain unchanged. App build and signature verification pass. In `build/ContinuousPinchVerification`, entered a disposable goal, confirmed it was absent from the board preview, and returned to the editor to confirm it remained saved and editable. Restored the original workspace without editing its writing. No unit tests were rerun for this presentation-only removal.
+
+## Time-limited document zoom-out
+
+The distance-only cubic curve could advance almost the entire flight in one native event; it did not limit speed in time. Added a cancellable interactive tracking task with a 1.8/sec progress cap, 160 ms smoothing, and a delayed-frame clamp. Outward settle duration now scales with remaining distance to bound cubic ease-out speed at 2/sec; opening retains its existing duration and Reduce Motion skips movement.
+
+All 35 Swift tests pass, including large-input/delayed-frame limits, target convergence/deceleration, reversal/no overshoot, and release speed bounds. App build/signature checks pass. Relaunched normally, inspected the settled canvas after the toolbar transition, and returned with Escape to the focused editor without editing any writing. Native pinch delivery, cancellation, and subjective trackpad feel remain unverified (CAN-07); automated curve tests are not a substitute for that check.
