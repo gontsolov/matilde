@@ -215,6 +215,37 @@ final class AppModel: ObservableObject {
             focusTitleID = draft.id
         }
     }
+    func trashDraft(_ draft: Draft) {
+        guard !isBranching, boardFlight == nil else { return }
+        attempt {
+            try flush()
+            guard let workspace,
+                  let current = try workspace.allDrafts().first(where: { $0.id == draft.id }) else { return }
+            try workspace.trash(current)
+            let wasActive = active?.id == current.id
+            let previousFamily = active?.family
+            try refresh()
+            if wasActive {
+                active = nil; text = ""; savedText = ""
+                headerTitle = ""; headerGoal = ""; headerDirty = false
+                cursor = 0; scroll = 0; editorReadyID = nil; focusTitleID = nil
+                if let next = drafts.first(where: { $0.id == current.parent })
+                    ?? drafts.first(where: { $0.family == current.family }) ?? drafts.first {
+                    select(next)
+                } else {
+                    try workspace.setState("active", "")
+                }
+            }
+            if boardVisible, let active, active.family == previousFamily {
+                let positions = try workspace.boardPositions(for: related)
+                boardSheets = try related.map {
+                    BoardSheet(draft: $0, excerpt: DraftTray.excerpt(try workspace.read($0)), position: positions[$0.id]!)
+                }.sorted { $0.position.x == $1.position.x ? $0.position.y < $1.position.y : $0.position.x < $1.position.x }
+            } else if boardVisible {
+                boardVisible = false; boardSheets = []
+            }
+        }
+    }
     private func loadHeader() throws {
         headerTitle = try active.map { try workspace?.state("untitled:\($0.id)") == "true" ? "" : $0.title } ?? ""
         headerGoal = active?.goal ?? ""

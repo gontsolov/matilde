@@ -7,3 +7,7 @@ xcuserdata/
 .env
 .env.*
 !.env.example
+__pycache__/
+*.pyc
+*.p12
+*.p8

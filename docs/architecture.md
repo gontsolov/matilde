@@ -104,3 +104,10 @@ Resolve these one at a time, recording decisions here:
 1. How should file identity, snapshots, database recovery, and detailed editing interactions evolve beyond the first build?
 
 The first build's high-level scope is agreed above; continue resolving its implementation details through the architecture discussion.
+
+
+### Removing drafts
+
+Move to Trash is available in the document menu and the sidebar, draft tray, and canvas context menus. It flushes pending edits, moves only the selected Markdown file to macOS Trash, and selects a remaining draft if needed. Children survive and reconnect to the removed draft’s parent; deleting a family root leaves its children as roots in the same family. Metadata is archived in `trashed_drafts`, and snapshots remain intact. A failed filesystem move rolls back metadata changes.
+
+Recover the Markdown file from macOS Trash. Returning it to the workspace currently imports it as a new draft; automatic restoration of archived goal, position, and family metadata is a follow-up.

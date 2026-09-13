@@ -10,6 +10,35 @@ final class WorkspaceTests: XCTestCase {
     }
     override func tearDownWithError() throws { try FileManager.default.removeItem(at: root) }
 
+    func testTrashingDraftKeepsChildrenAndHistoryAndAllowsNameReuse() throws {
+        let workspace = try Workspace(root: root)
+        let original = try workspace.create(name: "Original", folder: "", goal: "Keep this", text: "Original text")
+        let branch = try workspace.branch(original, text: "Original text")
+        let child = try workspace.branch(branch, text: "Child text")
+        let recovery = root.appendingPathComponent(".recovered.md")
+        try workspace.trash(branch) { try FileManager.default.moveItem(at: $0, to: recovery) }
+        let reopened = try Workspace(root: root)
+        let drafts = try reopened.scan().drafts
+        XCTAssertFalse(drafts.contains { $0.id == branch.id })
+        XCTAssertEqual(drafts.first { $0.id == child.id }?.parent, original.id)
+        XCTAssertEqual(try reopened.read(child), "Child text")
+        XCTAssertEqual(try String(contentsOf: recovery, encoding: .utf8), "Child text")
+        XCTAssertEqual(try reopened.db.execute("SELECT * FROM trashed_drafts WHERE id=?", [branch.id]).first?["goal"], "Keep this")
+        XCTAssertEqual(try reopened.db.execute("SELECT * FROM snapshots").count, 2)
+        _ = try reopened.create(name: branch.title, folder: "", goal: "", text: "New draft")
+    }
+
+    func testFailedTrashLeavesDraftAndRelationshipsUntouched() throws {
+        let workspace = try Workspace(root: root)
+        let original = try workspace.create(name: "Original", folder: "", goal: "", text: "Keep me")
+        let child = try workspace.branch(original, text: "Keep me")
+        XCTAssertThrowsError(try workspace.trash(original) { _ in throw WorkspaceError.message("Trash unavailable") })
+        XCTAssertEqual(try workspace.scan().drafts.count, 2)
+        XCTAssertEqual(try workspace.read(original), "Keep me")
+        XCTAssertEqual(try workspace.allDrafts().first { $0.id == child.id }?.parent, original.id)
+        XCTAssertTrue(try workspace.db.execute("SELECT * FROM trashed_drafts").isEmpty)
+    }
+
     func testBranchSnapshotAndIndependentGoalsSurviveReopen() throws {
         let workspace = try Workspace(root: root)
         try workspace.createFolder(name: "Essays", parent: "")

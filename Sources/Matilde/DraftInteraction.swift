@@ -74,6 +74,12 @@ struct DraftTray: View {
                                 .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color(Paper.accent).opacity(highlighted == preview.id ? 0.55 : 0.1), lineWidth: 1))
                                 .contentShape(Rectangle())
                         }.buttonStyle(.plain).id(preview.id)
+                            .contextMenu {
+                                Button("Move to Trash", systemImage: "trash", role: .destructive) {
+                                    close()
+                                    model.trashDraft(preview.draft)
+                                }.disabled(model.isBranching || model.boardFlight != nil)
+                            }
                             .onHover { if $0 { highlighted = preview.id } }
                             .accessibilityLabel("\(preview.draft.title), \(preview.excerpt)")
                             .accessibilityAddTraits(preview.id == model.active?.id ? .isSelected : [])

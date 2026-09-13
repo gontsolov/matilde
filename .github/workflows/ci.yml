@@ -1,0 +1,25 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test
+        run: swift test --disable-sandbox
+      - name: Build app bundle
+        run: bash scripts/build-app.sh
+      - name: Check packaging
+        run: |
+          codesign --verify --deep --strict build/Matilde.app
+          plutil -lint build/Matilde.app/Contents/Info.plist
+          bash -n scripts/*.sh
+          python3 -m unittest discover -s scripts/tests

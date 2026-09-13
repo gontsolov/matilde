@@ -5,6 +5,7 @@ import AppKit
 struct MatildeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var model = AppModel()
+    @StateObject private var updater = AppUpdater()
     var body: some Scene {
         Window("Matilde", id: "main") {
             ContentView(model: model)
@@ -15,6 +16,10 @@ struct MatildeApp: App {
         .defaultSize(width: 1180, height: 820)
         .windowStyle(.titleBar)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { updater.checkForUpdates() }
+                    .disabled(!updater.canCheckForUpdates)
+            }
             CommandGroup(replacing: .newItem) {
                 Button("New Document") { model.newDocument() }.keyboardShortcut("n").disabled(model.workspace == nil)
                 Button("New Folder…") { model.sheet = .folder }.keyboardShortcut("n", modifiers: [.command, .shift]).disabled(model.workspace == nil)
@@ -103,6 +108,10 @@ struct ContentView: View {
                         Button("Writing Goal…") { model.sheet = .goal }
                         Divider()
                         Button("Show in Finder") { model.reveal() }
+                        Divider()
+                        Button("Move to Trash", role: .destructive) {
+                            if let draft = model.active { model.trashDraft(draft) }
+                        }.disabled(model.isBranching || model.boardFlight != nil)
                     } label: { Image(systemName: "ellipsis.circle") }
                     .help("Document actions").accessibilityLabel("Document actions")
                 }
@@ -210,6 +219,10 @@ struct ContentView: View {
                 .background(Color(Paper.ink).opacity(selected ? 0.075 : hoveredDraft == draft.id ? 0.035 : 0), in: RoundedRectangle(cornerRadius: 5))
                 .contentShape(Rectangle())
         }.buttonStyle(.plain).help(draft.path)
+            .contextMenu {
+                Button("Move to Trash", systemImage: "trash", role: .destructive) { model.trashDraft(draft) }
+                    .disabled(model.isBranching || model.boardFlight != nil)
+            }
             .onHover { hoveredDraft = $0 ? draft.id : nil }
             .accessibilityAddTraits(selected ? .isSelected : [])
     }

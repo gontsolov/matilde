@@ -100,9 +100,12 @@ struct DraftBoard: View {
                             .onHover { inside in
                                 hoveredID = inside ? sheet.id : (hoveredID == sheet.id ? nil : hoveredID)
                             }
+                            .accessibilityLabel("Open draft: \(sheet.draft.title)")
+                            .contextMenu {
+                                Button("Move to Trash", systemImage: "trash", role: .destructive) { model.trashDraft(sheet.draft) }
+                            }
                             .position(x: rect.midX, y: rect.midY)
                             .opacity(model.boardFlight?.draftID == sheet.id ? 0 : 1)
-                            .accessibilityLabel("Open draft: \(sheet.draft.title)")
                     }
                 }
             }
@@ -142,6 +145,9 @@ struct DraftBoard: View {
                     .background(.regularMaterial, in: Capsule()).padding(.bottom, 22)
             }
             .onAppear { selectedID = model.active?.id ?? ""; focused = true }
+            .onChange(of: model.boardSheets.map(\.id)) { _, ids in
+                if !ids.contains(selectedID) { selectedID = model.active?.id ?? "" }
+            }
         }
     }
     private func zoom(_ factor: Double) {

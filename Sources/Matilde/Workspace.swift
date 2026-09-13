@@ -136,6 +136,24 @@ final class Workspace {
         }
     }
     func read(_ draft: Draft) throws -> String { try String(contentsOf: url(for: draft.path), encoding: .utf8) }
+    /// Trash only this file. Keep its metadata and snapshots as history, and reconnect children.
+    func trash(_ draft: Draft, move: (URL) throws -> Void = { url in
+        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+    }) throws {
+        let file = try url(for: draft.path)
+        try db.execute("CREATE TABLE IF NOT EXISTS trashed_drafts AS SELECT *, '' AS trashed_at FROM drafts WHERE 0")
+        try db.execute("BEGIN IMMEDIATE")
+        do {
+            try db.execute("INSERT INTO trashed_drafts SELECT *, ? FROM drafts WHERE id=?", [ISO8601DateFormatter().string(from: Date()), draft.id])
+            try db.execute("UPDATE drafts SET parent=? WHERE parent=?", [draft.parent, draft.id])
+            try db.execute("DELETE FROM drafts WHERE id=?", [draft.id])
+            try move(file)
+            try db.execute("COMMIT")
+        } catch {
+            _ = try? db.execute("ROLLBACK")
+            throw error
+        }
+    }
     func save(_ draft: Draft, text: String) throws { try text.write(to: url(for: draft.path), atomically: true, encoding: .utf8) }
 
     func validName(_ name: String) throws -> String {

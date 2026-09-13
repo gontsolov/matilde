@@ -1,0 +1,76 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Stable version (e.g. 0.1.0); must be newer than the latest release'
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      INPUT_VERSION: ${{ inputs.version }}
+      SIGN_WITH_APPLE: ${{ vars.APPLE_SIGNING_ENABLED }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Validate version and release signing
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          test -n "$SPARKLE_PRIVATE_KEY" || { echo 'Missing SPARKLE_PRIVATE_KEY secret'; exit 1; }
+          python3 scripts/release-version.py
+      - name: Test
+        run: |
+          swift test --disable-sandbox
+          python3 -m unittest discover -s scripts/tests
+      - name: Import optional Apple signing certificate
+        if: env.SIGN_WITH_APPLE == 'true'
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          CODE_SIGN_IDENTITY: ${{ vars.CODE_SIGN_IDENTITY }}
+        run: bash scripts/import-certificate.sh
+      - name: Build universal app
+        env:
+          BUILD_UNIVERSAL: '1'
+        run: bash scripts/build-app.sh
+      - name: Package download
+        env:
+          NOTARIZE: ${{ env.SIGN_WITH_APPLE == 'true' && '1' || '0' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: bash scripts/package-release.sh
+      - name: Sign update archive and feed
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: bash scripts/sign-release.sh
+      - name: Keep release artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Matilde-${{ env.MATILDE_VERSION }}
+          path: |
+            build/releases/${{ env.MATILDE_VERSION }}/Matilde.dmg
+            build/releases/${{ env.MATILDE_VERSION }}/appcast.xml
+            build/releases/${{ env.MATILDE_VERSION }}/SHA256SUMS
+          if-no-files-found: error
+      - name: Publish release
+        run: bash scripts/publish-release.sh
+      - name: Remove temporary signing keychain
+        if: always() && env.SIGN_WITH_APPLE == 'true'
+        run: |
+          security delete-keychain "$RUNNER_TEMP/matilde-signing.keychain-db" || true
+          rm -f "$RUNNER_TEMP/matilde-signing.p12"
