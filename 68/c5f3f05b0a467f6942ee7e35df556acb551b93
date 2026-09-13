@@ -1,0 +1,21 @@
+ROADMAP.md
+  s_c0cc3196221124::t_0c45323984b8b7 18,44
+docs/verification.md
+  s_c0cc3196221124::t_0c45323984b8b7 103-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "68c5f3f05b0a467f6942ee7e35df556acb551b93",
+  "prompts": {},
+  "sessions": {
+    "s_c0cc3196221124": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09c7e-efff-7e50-b7b4-7538770a0586",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
