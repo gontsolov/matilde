@@ -1,0 +1,39 @@
+Sources/Matilde/DraftBoard.swift
+  s_c0cc3196221124::t_6b2e1658d79cc8 6-31,33-39,46-70,73,78-79
+  s_c0cc3196221124::t_d683086a3f8710 32,40-45,71-72,74-77
+ROADMAP.md
+  s_c0cc3196221124::t_a673870fee075b 39-40
+docs/verification.md
+  s_c0cc3196221124::t_a673870fee075b 75-79,81-82
+  s_c0cc3196221124::t_cde42a50f13d11 80
+Sources/Matilde/AppModel.swift
+  s_c0cc3196221124::t_6b2e1658d79cc8 316,332
+docs/canvas-followup.md
+  s_c0cc3196221124::t_a673870fee075b 8,17-19
+AGENTS.md
+  s_c0cc3196221124::t_9a7e21447edbc1 81,86
+Sources/Matilde/MarkdownEditor.swift
+  s_c0cc3196221124::t_820ef2150b096b 215
+Sources/Matilde/MatildeApp.swift
+  s_c0cc3196221124::t_6b2e1658d79cc8 244-245,251,266,269,276-290
+  s_c0cc3196221124::t_820ef2150b096b 293
+  s_c0cc3196221124::t_21c20feb1703b1 291
+Tests/MatildeTests/WritingPinchTests.swift
+  s_c0cc3196221124::t_d683086a3f8710 1-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "dcbecfef72db5cb0c61fad595929e06663794bc5",
+  "prompts": {},
+  "sessions": {
+    "s_c0cc3196221124": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09c7e-efff-7e50-b7b4-7538770a0586",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
