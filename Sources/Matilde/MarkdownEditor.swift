@@ -234,7 +234,10 @@ final class WritingTextView: NSTextView {
             let baseline = rect.minY + layoutManager.location(forGlyphAt: glyph).y
             let y = origin.y + baseline - Paper.body().xHeight / 2
             let padding = textContainer.lineFragmentPadding
-            Paper.muted.withAlphaComponent(0.35).setFill()
+            let selection = selectedRange()
+            let selected = NSIntersectionRange(selection, range).length > 0 ||
+                (selection.length == 0 && dividerRange(at: selection.location) == range)
+            (selected ? Paper.accent.withAlphaComponent(0.65) : Paper.muted.withAlphaComponent(0.35)).setFill()
             NSBezierPath(rect: NSRect(x: origin.x + rect.minX + padding, y: y.rounded(),
                                      width: max(0, rect.width - padding * 2), height: 1)).fill()
         }
@@ -263,11 +266,38 @@ final class WritingTextView: NSTextView {
         }
     }
 
+    func dividerRange(at location: Int) -> NSRange? {
+        let source = string as NSString
+        guard location <= source.length, let storage = textStorage, source.length > 0 else { return nil }
+        let line = source.lineRange(for: NSRange(location: location, length: 0))
+        guard line.location < storage.length,
+              storage.attribute(.divider, at: line.location, effectiveRange: nil) != nil else { return nil }
+        let content = source.substring(with: line).trimmingCharacters(in: .newlines)
+        return NSRange(location: line.location, length: (content as NSString).length)
+    }
+
+    override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
+        guard dividerRange(at: selectedRange().location) == nil else { return }
+        super.drawInsertionPoint(in: rect, color: color, turnedOn: flag)
+    }
+
+    override func deleteBackward(_ sender: Any?) {
+        if selectedRange().length == 0, let range = dividerRange(at: selectedRange().location) {
+            insertText("", replacementRange: range)
+        } else {
+            super.deleteBackward(sender)
+        }
+    }
+
     override func magnify(with event: NSEvent) {
         // The writing-space boundary owns pinch navigation, including tail events.
     }
 
     override func insertNewline(_ sender: Any?) {
+        if let divider = dividerRange(at: selectedRange().location),
+           selectedRange() == divider {
+            setSelectedRange(NSRange(location: NSMaxRange(divider), length: 0))
+        }
         let source = string as NSString
         let selection = selectedRange()
         let lineRange = source.lineRange(for: NSRange(location: min(selection.location, source.length), length: 0))
@@ -304,6 +334,11 @@ final class WritingTextView: NSTextView {
     }
     override func mouseDown(with event: NSEvent) {
         super.mouseDown(with: event)
+        if selectedRange().length == 0, let divider = dividerRange(at: selectedRange().location) {
+            setSelectedRange(divider)
+            needsDisplay = true
+            return
+        }
         guard event.clickCount == 1, let layoutManager, let textContainer else { return }
         var point = convert(event.locationInWindow, from: nil)
         point.x -= textContainerOrigin.x; point.y -= textContainerOrigin.y

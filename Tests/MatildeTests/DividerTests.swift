@@ -3,6 +3,24 @@ import AppKit
 @testable import Matilde
 
 final class DividerTests: XCTestCase {
+    @MainActor
+    func testDividerFocusDeletionAndReturnTreatItAsOneBlock() {
+        let view = WritingTextView(frame: NSRect(x: 0, y: 0, width: 680, height: 500))
+        view.string = "Before\n---\nAfter"
+        MarkdownStyler.style(view.textStorage!)
+        let divider = NSRange(location: 7, length: 3)
+        for position in 7...10 { XCTAssertEqual(view.dividerRange(at: position), divider) }
+        XCTAssertNil(view.dividerRange(at: 11))
+        view.setSelectedRange(NSRange(location: 8, length: 0))
+        view.deleteBackward(nil)
+        XCTAssertEqual(view.string, "Before\n\nAfter")
+        view.string = "---"
+        MarkdownStyler.style(view.textStorage!)
+        view.setSelectedRange(NSRange(location: 0, length: 3))
+        view.insertNewline(nil)
+        XCTAssertEqual(view.string, "---\n")
+    }
+
     func testDividerIsLosslessAndOnlyStandaloneOutsideCode() {
         let source = "日本語 🌱\n---\nAfter\ntext --- text\n--\n```\n---\n```\n`---`\n  ---  "
         let text = NSMutableAttributedString(string: source)

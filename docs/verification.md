@@ -126,3 +126,7 @@ Disabled continuous spell checking in the writing editor; grammar checking was a
 ## Markdown divider
 
 A standalone `---` (allowing surrounding whitespace) now draws a 1-point muted rule across the text column. Dashes remain in source with transparent glyphs and ordinary caret metrics; inline dashes and fenced code stay literal. All 38 tests and app build/signature checks pass. Added checks for Unicode/lossless styling, removing a dash restoring normal text, code protection, Return without list continuation, and undo with a native undo manager. Relaunched and visually inspected the divider the owner had already entered; no writing was edited. The prepared fixture under ignored `build/DividerVerification` was not needed for the live inspection.
+
+### Divider focus follow-up
+
+Hide the insertion caret on divider paragraphs and use a subtle accented rule for focus. Clicking selects the whole marker; Backspace with a collapsed caret anywhere on that paragraph removes the whole divider, and Return on a selected divider moves below it instead of replacing it. All 39 tests and app build/signature checks pass. Live click selected the entire existing marker without a caret through the rule; no writing was edited. Keyboard deletion/Return were verified with synthetic native text views, not the owner's documents.
