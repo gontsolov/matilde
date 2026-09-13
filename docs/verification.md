@@ -100,3 +100,7 @@ Published on the owner's explicit request from commit `32574fd4ee953e5d108e9731b
 ## Dotted canvas
 
 Made the existing faint grid visible to match the supplied reference: 20-point spacing, 1.6-point dots, and 25% ink opacity. App build and signature verification pass. Inspected the pattern behind sheets and after scroll panning in `build/ContinuousPinchVerification`; restored the original workspace without changing writing. No additional tests were added or rerun for this visual-constant change.
+
+## Canvas previews without goals
+
+Removed the goal and flag from the shared canvas page preview; the editor and saved goal remain unchanged. App build and signature verification pass. In `build/ContinuousPinchVerification`, entered a disposable goal, confirmed it was absent from the board preview, and returned to the editor to confirm it remained saved and editable. Restored the original workspace without editing its writing. No unit tests were rerun for this presentation-only removal.

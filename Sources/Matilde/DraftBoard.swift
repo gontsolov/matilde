@@ -358,9 +358,6 @@ struct BoardPageContent: View {
                 Spacer()
             }.padding(.bottom, 5)
             Text(sheet.draft.title).font(Font(Paper.body(23, bold: true))).lineLimit(3)
-            if !sheet.draft.goal.isEmpty {
-                Label(sheet.draft.goal, systemImage: "flag").font(Font(Paper.body(13))).foregroundStyle(Color(Paper.muted)).lineLimit(2)
-            }
             Text(sheet.excerpt.isEmpty ? "" : sheet.excerpt).font(Font(Paper.body(16))).lineSpacing(4).lineLimit(8).foregroundStyle(Color(Paper.ink).opacity(0.85))
             Spacer(minLength: 0)
             if active {

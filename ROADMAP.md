@@ -15,7 +15,7 @@ Last updated: 2026-09-13.
 
 ## In progress
 
-No implementation work currently in progress.
+No implementation currently in progress.
 
 ## Writing quality and fixes to investigate
 
@@ -41,6 +41,7 @@ Detailed interaction notes: [canvas follow-up](docs/canvas-followup.md).
 | CAN-08 | Done | **Zoom feel and pointer targeting.** Replaced CAN-01's quadratic curve with cubic ease-out after the dead zone. Sheet corners round during the flight and match the rounded board cards. Board pinch captures the page and anchor under the pointer at gesture start; empty space never falls back to the previous draft. All 31 tests and app build/signature checks pass; rounded pages and keyboard round trip inspected live. Physical pinch verification remains CAN-07. |
 | CAN-02 | Idea | **Drag and re-pin sheets.** Move individual drafts independently of board panning, persist positions, and keep connectors correct. Placement is currently automatic. |
 | CAN-09 | Done | **Dotted canvas.** Visible muted dot grid behind sheets, matching the supplied reference: 20-point spacing, 1.6-point dots, and 25% ink opacity. Spacing stays consistent on screen and the pattern shifts with panning. App build/signature checks passed; appearance and panning inspected live in a disposable workspace. |
+| CAN-10 | Done | **Clean canvas previews.** Show title and body excerpt without the goal or flag; retain the editable goal and its saved value in the editor. App build/signature checks and live verification with a populated disposable goal passed. See [verification](docs/verification.md). |
 | CAN-03 | Planned | **Large-family usability.** Check navigation, preview readability, frame rate, and spatial orientation with many branches. Keep offscreen previews lightweight and tune based on measured issues. |
 | CAN-04 | Idea | **Connect the page curl to the board.** Make the bottom-right-to-top-left curl communicate where the previous draft lives on the canvas, while making clear both drafts remain editable. Explore the motion before committing to an implementation. |
 | CAN-05 | Idea | **Restore board mode on launch.** Decide whether reopening should return to the canvas when that was the last view. Currently the viewport persists but startup opens the editor. |
