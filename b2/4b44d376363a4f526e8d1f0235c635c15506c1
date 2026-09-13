@@ -1,0 +1,33 @@
+release-notes/0.1.1.md
+  s_709d6037db8fc8::t_72f19eaf02a88a 1-9
+docs/verification.md
+  s_709d6037db8fc8::t_72f19eaf02a88a 60-66
+scripts/publish-release.sh
+  s_709d6037db8fc8::t_72f19eaf02a88a 16-19
+Config/release.json
+  s_709d6037db8fc8::t_35bf0a07e46fca 2
+Sources/Matilde/MarkdownEditor.swift
+  s_709d6037db8fc8::t_d515306c91965f 223-231,318-319,326-328,336,340,349,363,365,373
+  s_709d6037db8fc8::t_35bf0a07e46fca 364,367
+  s_709d6037db8fc8::t_008633e0a3a970 161-171,173-175,183-186,197-198,209-222,232-240
+Tests/MatildeTests/EditorInteractionTests.swift
+  s_709d6037db8fc8::t_5315f137308d1d 33-68,97,108-116
+  s_709d6037db8fc8::t_5f8ccc3445605b 98-107
+  s_709d6037db8fc8::t_008633e0a3a970 1-32,69-96,117-118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b24b44d376363a4f526e8d1f0235c635c15506c1",
+  "prompts": {},
+  "sessions": {
+    "s_709d6037db8fc8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b85-2383-7071-abb6-290961e3e098",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
