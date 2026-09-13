@@ -41,6 +41,7 @@ struct MatildeApp: App {
                 Button("Welcome to Matilde") { model.showWelcomeDocument() }.disabled(model.workspace == nil)
             }
         }
+        Settings { AppSettingsView() }
     }
 }
 
@@ -63,6 +64,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 struct ContentView: View {
+    @AppStorage(SettingKeys.textSize) private var writingTextSize = 19.0
+    @AppStorage(SettingKeys.lineSpacing) private var writingLineSpacing = 7.0
+    @AppStorage(SettingKeys.spellChecking) private var writingSpellChecking = false
     @ObservedObject var model: AppModel
     @State private var collapsedFolders: Set<String> = []
     @State private var hoveredDraft: String?
@@ -320,7 +324,8 @@ struct ContentView: View {
             MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 }, saveImage: { data in
                 guard let workspace = model.workspace else { throw WorkspaceError.message("Open a workspace first.") }
                 return try workspace.importImage(data, beside: draft)
-            }, resolveImage: { model.workspace?.image(at: $0, beside: draft) }, mediaError: { model.error = $0 })
+            }, resolveImage: { model.workspace?.image(at: $0, beside: draft) }, mediaError: { model.error = $0 },
+                           textSize: writingTextSize, lineSpacing: writingLineSpacing, spellChecking: writingSpellChecking)
                 .frame(maxWidth: 736).frame(maxWidth: .infinity)
         .background(PageCapture { model.capturePage = $0 })
         .overlay {

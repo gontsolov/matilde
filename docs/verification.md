@@ -148,3 +148,9 @@ In `build/OnboardingMediaVerification`, inspected the seeded page/goal, reopened
 ## Public release 0.1.3 — 2026-09-14
 
 Published on the owner's explicit request from `76a8de3`. CI 34786021150 passed tests, app build, and packaging. Release run 34786127598 passed tests, universal build, packaging, archive/feed signing and verification, and publication. GitHub confirms v0.1.3 is public and stable with all three assets uploaded. The stable feed advertises 0.1.3 and the public DMG is available at 5,127,477 bytes. A fresh updater install/relaunch was not performed for this release. Distribution remains ad-hoc signed, not Apple-notarized. GitHub emitted a non-fatal Node 20 action-runtime deprecation warning; the run completed successfully.
+
+## Settings foundation — 2026-09-14
+
+Implemented the native Settings scene with Writing, Canvas, and Connections tabs. Writing size/line spacing and spelling use application preferences; canvas dots can be toggled. Text styling changes preserve source. Langdock keys use a separate generic-password Keychain service (`app.matilde.credentials`, account `langdock`), never the Sparkle signing-key service. The UI queries only presence, accepts masked replacement input, clears it after saving/closing, and confirms removal. No network request or AI integration is present.
+
+All 48 tests, build, and code-signature checks pass locally. Added presentation-only styling tests, blank-key rejection, and an opt-in native Keychain lifecycle test. The latter saved/replaced/read/removed only a unique dummy test item and passed locally; it is skipped in normal CI without `MATILDE_TEST_KEYCHAIN=1`. No real API key was read or modified. Live UI verification and normal relaunch could not proceed because computer use reported the Mac is locked; UI-05 remains In progress for the remaining visual, focus, live-control, and persistence checks. No release/version bump.

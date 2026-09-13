@@ -49,12 +49,13 @@ enum Paper {
 /// The text storage remains lossless Markdown; only glyphs and attributes change.
 /// Hidden delimiters consume no space, so no render/serialize cycle can rewrite a file.
 enum MarkdownStyler {
-    static func style(_ storage: NSMutableAttributedString) {
+    static func style(_ storage: NSMutableAttributedString, textSize: CGFloat = 19, lineSpacing: CGFloat = 7) {
+        let textSize = min(26, max(16, textSize))
         let full = NSRange(location: 0, length: storage.length)
         let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = 7
+        paragraph.lineSpacing = min(12, max(2, lineSpacing))
         paragraph.paragraphSpacing = 16
-        storage.setAttributes([.font: Paper.body(), .foregroundColor: Paper.ink, .paragraphStyle: paragraph], range: full)
+        storage.setAttributes([.font: Paper.body(textSize), .foregroundColor: Paper.ink, .paragraphStyle: paragraph], range: full)
         let source = storage.string as NSString
         var offset = 0
         var fence: String?
@@ -102,7 +103,7 @@ enum MarkdownStyler {
             if let match = first("^(#{1,6}) ", in: line) {
                 let level = match.range(at: 1).length
                 let size: CGFloat = [31, 26, 23, 21, 20, 19][level - 1]
-                storage.addAttribute(.font, value: Paper.body(size, bold: true), range: range)
+                storage.addAttribute(.font, value: Paper.body(size * textSize / 19, bold: true), range: range)
                 conceal(NSRange(location: offset, length: match.range.length), in: storage)
             } else if let match = first("^(\\s*)[-*+] \\[([ xX])\\] ", in: line) {
                 let start = offset + match.range(at: 1).length
@@ -529,6 +530,9 @@ struct MarkdownEditor: NSViewRepresentable {
     var saveImage: ((Data) throws -> String)? = nil
     var resolveImage: ((String) -> NSImage?)? = nil
     var mediaError: (String) -> Void = { _ in }
+    var textSize: Double = 19
+    var lineSpacing: Double = 7
+    var spellChecking = false
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
@@ -550,7 +554,7 @@ struct MarkdownEditor: NSViewRepresentable {
         view.isAutomaticQuoteSubstitutionEnabled = false
         view.isAutomaticDashSubstitutionEnabled = false
         view.isAutomaticTextReplacementEnabled = true
-        view.isContinuousSpellCheckingEnabled = false
+        view.isContinuousSpellCheckingEnabled = spellChecking
         view.isGrammarCheckingEnabled = false
         view.allowsUndo = true
         view.isVerticallyResizable = true
@@ -581,7 +585,9 @@ struct MarkdownEditor: NSViewRepresentable {
         return scroll
     }
     func updateNSView(_ nsView: NSScrollView, context: Context) {
+        let styleChanged = context.coordinator.parent.textSize != textSize || context.coordinator.parent.lineSpacing != lineSpacing
         context.coordinator.parent = self
+        context.coordinator.view?.isContinuousSpellCheckingEnabled = spellChecking
         context.coordinator.view?.saveImage = saveImage
         context.coordinator.view?.resolveImage = resolveImage
         context.coordinator.view?.mediaError = mediaError
@@ -592,6 +598,7 @@ struct MarkdownEditor: NSViewRepresentable {
         }
         if context.coordinator.loadedID != draftID { context.coordinator.load(self, restore: true) }
         else if context.coordinator.view?.string != text { context.coordinator.load(self, restore: false) }
+        else if styleChanged { context.coordinator.restyle() }
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate, NSLayoutManagerDelegate {
@@ -638,11 +645,13 @@ struct MarkdownEditor: NSViewRepresentable {
         }
         func restyle() {
             guard let view, let storage = view.textStorage else { return }
-            storage.beginEditing(); MarkdownStyler.style(storage); view.styleImages(); storage.endEditing()
+            storage.beginEditing()
+            MarkdownStyler.style(storage, textSize: CGFloat(parent.textSize), lineSpacing: CGFloat(parent.lineSpacing))
+            view.styleImages(); storage.endEditing()
             view.layoutManager?.invalidateGlyphs(forCharacterRange: NSRange(location: 0, length: storage.length), changeInLength: 0, actualCharacterRange: nil)
             view.layoutManager?.ensureLayout(for: view.textContainer!)
             view.sizeToFit()
-            view.typingAttributes = [.font: Paper.body(), .foregroundColor: Paper.ink]
+            view.typingAttributes = [.font: Paper.body(CGFloat(parent.textSize)), .foregroundColor: Paper.ink]
         }
         func textDidChange(_ notification: Notification) {
             guard !updating, let view else { return }
