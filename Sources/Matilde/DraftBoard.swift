@@ -21,14 +21,14 @@ enum WritingPinch {
     static func advance(_ current: CGFloat, toward target: CGFloat, elapsed: TimeInterval) -> CGFloat {
         let dt = max(0, min(elapsed, 1.0 / 30))
         let difference = min(1, max(0, target)) - current
-        let eased = difference * CGFloat(1 - exp(-dt / 0.16))
-        let limit = CGFloat(dt) * 1.8
+        let eased = difference * CGFloat(1 - exp(-dt / 0.06))
+        let limit = CGFloat(dt) * 5
         return current + min(limit, max(-limit, eased))
     }
 
     static func settleDuration(from progress: CGFloat) -> TimeInterval {
-        // Cubic ease-out's initial slope is 3: keep release below 2 units/sec.
-        max(0.34, Double(1 - min(1, max(0, progress))) * 1.5)
+        // A short settle even after an abrupt release; never a long slow tail.
+        max(0.18, Double(1 - min(1, max(0, progress))) * 0.42)
     }
 }
 

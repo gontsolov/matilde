@@ -6,7 +6,7 @@ final class WritingPinchTests: XCTestCase {
         for elapsed in [1.0 / 120, 1.0 / 60, 1.0 / 30, 2.0] {
             let next = WritingPinch.advance(0, toward: 1, elapsed: elapsed)
             XCTAssertGreaterThan(next, 0)
-            XCTAssertLessThanOrEqual(next, CGFloat(min(elapsed, 1.0 / 30)) * 1.8 + 0.00001)
+            XCTAssertLessThanOrEqual(next, CGFloat(min(elapsed, 1.0 / 30)) * 5 + 0.00001)
         }
         XCTAssertEqual(WritingPinch.advance(0.4, toward: 1, elapsed: 0), 0.4)
     }
@@ -14,13 +14,13 @@ final class WritingPinchTests: XCTestCase {
     func testTimeBasedTrackingSlowsNearTargetAndReversesWithoutOvershoot() {
         var progress: CGFloat = 0
         var increments: [CGFloat] = []
-        for _ in 0..<120 {
+        for _ in 0..<48 {
             let next = WritingPinch.advance(progress, toward: 1, elapsed: 1.0 / 120)
             increments.append(next - progress)
             XCTAssertLessThan(next, 1)
             progress = next
         }
-        XCTAssertGreaterThan(progress, 0.98)
+        XCTAssertGreaterThan(progress, 0.98, "Tracking should catch up within 400 ms, not trail for a second")
         XCTAssertLessThan(increments.last!, increments.first!)
         let reversed = WritingPinch.advance(progress, toward: 0, elapsed: 1.0 / 60)
         XCTAssertLessThan(reversed, progress)
@@ -31,8 +31,9 @@ final class WritingPinchTests: XCTestCase {
     func testReleaseDurationBoundsCubicEaseOutSpeed() {
         for progress: CGFloat in [0, 0.1, 0.5, 0.9, 1] {
             let duration = WritingPinch.settleDuration(from: progress)
-            XCTAssertGreaterThanOrEqual(duration, 0.34)
-            XCTAssertLessThanOrEqual(Double(1 - progress) * 3 / duration, 2.00001)
+            XCTAssertGreaterThanOrEqual(duration, 0.18)
+            XCTAssertLessThanOrEqual(duration, 0.42)
+            XCTAssertLessThanOrEqual(Double(1 - progress) * 3 / duration, 3 / 0.42 + 0.00001)
         }
     }
 

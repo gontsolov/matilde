@@ -110,3 +110,7 @@ Removed the goal and flag from the shared canvas page preview; the editor and sa
 The distance-only cubic curve could advance almost the entire flight in one native event; it did not limit speed in time. Added a cancellable interactive tracking task with a 1.8/sec progress cap, 160 ms smoothing, and a delayed-frame clamp. Outward settle duration now scales with remaining distance to bound cubic ease-out speed at 2/sec; opening retains its existing duration and Reduce Motion skips movement.
 
 All 35 Swift tests pass, including large-input/delayed-frame limits, target convergence/deceleration, reversal/no overshoot, and release speed bounds. App build/signature checks pass. Relaunched normally, inspected the settled canvas after the toolbar transition, and returned with Escape to the focused editor without editing any writing. Native pinch delivery, cancellation, and subjective trackpad feel remain unverified (CAN-07); automated curve tests are not a substitute for that check.
+
+### Faster tuning after owner feedback
+
+The owner reported the first pass felt excessively slow. Reduced smoothing from 160 to 60 ms, raised tracking speed from 1.8 to 5 progress units/sec, and shortened release from 340–1500 to 180–420 ms. Regression tests now require over 98% target convergence within 400 ms and a maximum 420 ms release, alongside existing jump protection and reversal checks. All 35 tests and app build/signature checks pass. Relaunched and checked canvas/editor navigation without changing writing. Actual pinch feel still needs owner verification.
