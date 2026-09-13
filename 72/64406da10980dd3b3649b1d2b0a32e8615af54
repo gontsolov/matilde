@@ -1,0 +1,57 @@
+Sources/Matilde/PageCurlView.swift
+  s_709d6037db8fc8::t_022da484932327 148-155,162-163,165-166,168-169
+  s_709d6037db8fc8::t_a087395cbc1325 12,113-118
+  s_709d6037db8fc8::t_e2a48730f39e25 1-11,13-112,119-147,156-161,164,167,170-183
+Sources/Matilde/AppModel.swift
+  s_709d6037db8fc8::t_b3d022286e5a7a 16-18,22,50,73,112,148,193-226,251-255,258
+  s_709d6037db8fc8::t_67e465f0795474 19-21,228,232-235,237-241,243,245-246
+  s_709d6037db8fc8::t_cd0b56465095de 242,244
+Sources/Matilde/MarkdownEditor.swift
+  s_709d6037db8fc8::t_b3d022286e5a7a 200,275
+Sources/Matilde/Workspace.swift
+  s_709d6037db8fc8::t_67e465f0795474 198,205
+  s_709d6037db8fc8::t_b3d022286e5a7a 163-172
+Sources/Matilde/MatildeApp.swift
+  s_709d6037db8fc8::t_fba1cf4a69351f 62-63,213-225,236-244,250,253-263,301
+  s_709d6037db8fc8::t_5232c9a36977ea 19,90,211,227-233,278,283-300
+  s_709d6037db8fc8::t_70ad2244504ffc 58-61,113-145,147,149-152,154,158,160-171,173-180,185,187-191,194-198,200-201,204-205
+  s_709d6037db8fc8::t_a0535bce1b0017 302-303
+Tests/MatildeTests/WorkspaceTests.swift
+  s_709d6037db8fc8::t_9f01d6d1d46e91 85-100
+  s_709d6037db8fc8::t_a087395cbc1325 143-150,158-170
+  s_709d6037db8fc8::t_022da484932327 151-157
+  s_709d6037db8fc8::t_5ace146092c450 69-84
+docs/architecture.md
+  s_709d6037db8fc8::t_be1dc27a2b6fb9 26
+  s_709d6037db8fc8::t_022da484932327 57
+  s_709d6037db8fc8::t_0a0ba58e4d9638 24-25,31,42-43
+  s_709d6037db8fc8::t_f5d0b28bb08567 58-59
+  s_709d6037db8fc8::t_cb4016913a65f7 73-76
+Sources/Matilde/DraftInteraction.swift
+  s_709d6037db8fc8::t_952100d20c93e4 1-33,35,37-121
+  s_709d6037db8fc8::t_cd0b56465095de 34,36
+docs/canvas-followup.md
+  s_709d6037db8fc8::t_2007f16a35e2b8 1-61
+README.md
+  s_709d6037db8fc8::t_cb4016913a65f7 16-17
+docs/verification.md
+  s_709d6037db8fc8::t_f5d0b28bb08567 27-30
+  s_709d6037db8fc8::t_3ffab3e509ed6d 34-37
+  s_709d6037db8fc8::t_022da484932327 38-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7264406da10980dd3b3649b1d2b0a32e8615af54",
+  "prompts": {},
+  "sessions": {
+    "s_709d6037db8fc8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b85-2383-7071-abb6-290961e3e098",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
