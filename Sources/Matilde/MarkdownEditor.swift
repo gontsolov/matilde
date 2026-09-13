@@ -158,7 +158,21 @@ final class WritingTextView: NSTextView {
         let selection = selectedRange()
         let lineRange = source.lineRange(for: NSRange(location: min(selection.location, source.length), length: 0))
         let line = source.substring(with: lineRange).trimmingCharacters(in: .newlines)
+        var fence: String?
+        for previous in source.substring(to: lineRange.location).components(separatedBy: "\n") {
+            let trimmed = previous.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+                let marker = String(trimmed.prefix(3))
+                if fence == nil { fence = marker } else if fence == marker { fence = nil }
+            }
+        }
+        guard fence == nil, !source.substring(with: selection).contains("\n") else {
+            super.insertNewline(sender); return
+        }
         if let match = MarkdownStyler.first("^(\\s*)([-*+] \\[[ xX]\\] |[-*+] |[0-9]+[.)] |>{1} ?)", in: line) {
+            guard selection.location >= lineRange.location + match.range.length else {
+                super.insertNewline(sender); return
+            }
             let prefix = (line as NSString).substring(with: match.range)
             if line.trimmingCharacters(in: .whitespaces) == prefix.trimmingCharacters(in: .whitespaces) {
                 insertText("", replacementRange: NSRange(location: lineRange.location, length: match.range.length))
@@ -166,7 +180,10 @@ final class WritingTextView: NSTextView {
             }
             var next = prefix.replacingOccurrences(of: "[x]", with: "[ ]").replacingOccurrences(of: "[X]", with: "[ ]")
             if let number = MarkdownStyler.first("[0-9]+", in: prefix), let value = Int((prefix as NSString).substring(with: number.range)) {
-                next = (prefix as NSString).replacingCharacters(in: number.range, with: String(value + 1))
+                let increment = value.addingReportingOverflow(1)
+                if !increment.overflow {
+                    next = (prefix as NSString).replacingCharacters(in: number.range, with: String(increment.partialValue))
+                }
             }
             insertText("\n" + next, replacementRange: selection)
         } else { super.insertNewline(sender) }
@@ -177,7 +194,8 @@ final class WritingTextView: NSTextView {
         var point = convert(event.locationInWindow, from: nil)
         point.x -= textContainerOrigin.x; point.y -= textContainerOrigin.y
         let glyph = layoutManager.glyphIndex(for: point, in: textContainer)
-        guard glyph < layoutManager.numberOfGlyphs else { return }
+        guard glyph < layoutManager.numberOfGlyphs, selectedRange().length == 0,
+              layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: textContainer).contains(point) else { return }
         let index = layoutManager.characterIndexForGlyph(at: glyph)
         guard index < (string as NSString).length else { return }
         let lineRange = (string as NSString).lineRange(for: NSRange(location: index, length: 0))
@@ -188,9 +206,38 @@ final class WritingTextView: NSTextView {
         }
     }
     func wrap(_ marker: String) {
-        let range = selectedRange(), selected = (string as NSString).substring(with: range)
-        insertText(marker + selected + marker, replacementRange: range)
-        setSelectedRange(NSRange(location: range.location + (marker as NSString).length, length: range.length))
+        let source = string as NSString
+        let range = selectedRange(), count = (marker as NSString).length
+        guard range.location != NSNotFound, NSMaxRange(range) <= source.length else { return }
+        func runLength(from start: Int, direction: Int) -> Int {
+            var index = start, length = 0
+            while index >= 0, index < source.length, source.character(at: index) == 42 {
+                length += 1; index += direction
+            }
+            return length
+        }
+        let left = runLength(from: range.location - 1, direction: -1)
+        let right = runLength(from: NSMaxRange(range), direction: 1)
+        let surrounded = count == 1 ? left % 2 == 1 && right % 2 == 1 : left >= count && right >= count
+        breakUndoCoalescing()
+        let includesMarkers = range.length >= count * 2 &&
+            (count == 1
+             ? runLength(from: range.location, direction: 1) % 2 == 1 && runLength(from: NSMaxRange(range) - 1, direction: -1) % 2 == 1
+             : runLength(from: range.location, direction: 1) >= count && runLength(from: NSMaxRange(range) - 1, direction: -1) >= count)
+        if includesMarkers {
+            let inner = NSRange(location: range.location + count, length: range.length - count * 2)
+            insertText(source.substring(with: inner), replacementRange: range)
+            setSelectedRange(NSRange(location: range.location, length: inner.length))
+        } else if surrounded {
+            let selected = source.substring(with: range)
+            insertText(selected, replacementRange: NSRange(location: range.location - count, length: range.length + count * 2))
+            setSelectedRange(NSRange(location: range.location - count, length: range.length))
+        } else {
+            let selected = source.substring(with: range)
+            insertText(marker + selected + marker, replacementRange: range)
+            setSelectedRange(NSRange(location: range.location + count, length: range.length))
+        }
+        breakUndoCoalescing()
     }
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command {
@@ -268,12 +315,17 @@ struct MarkdownEditor: NSViewRepresentable {
         weak var scroll: NSScrollView?
         var loadedID = ""
         var updating = false
+        var restoringPosition = false
+        var loadGeneration = 0
         var observer: NSObjectProtocol?
         init(_ parent: MarkdownEditor) { self.parent = parent }
         deinit { if let observer { NotificationCenter.default.removeObserver(observer) } }
         func load(_ parent: MarkdownEditor, restore: Bool) {
             guard let view else { return }
             updating = true
+            restoringPosition = true
+            loadGeneration += 1
+            let generation = loadGeneration
             let selection = restore ? parent.initialCursor : view.selectedRange().location
             let position = restore ? parent.initialScroll : Double(scroll?.contentView.bounds.origin.y ?? 0)
             loadedID = parent.draftID
@@ -281,10 +333,11 @@ struct MarkdownEditor: NSViewRepresentable {
             restyle()
             view.setSelectedRange(NSRange(location: min(max(0, selection), (parent.text as NSString).length), length: 0))
             view.undoManager?.removeAllActions()
+            updating = false
             // Wait for SwiftUI to size the scroll view and establish first responder.
             // Suppress temporary layout positions so they cannot overwrite the saved state.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                guard let self, self.loadedID == parent.draftID, let scroll = self.scroll else { return }
+                guard let self, self.loadGeneration == generation, self.loadedID == parent.draftID, let scroll = self.scroll else { return }
                 self.updating = true
                 if restore && parent.focusOnLoad { self.view?.window?.makeFirstResponder(self.view) }
                 self.view?.layoutManager?.ensureLayout(for: self.view!.textContainer!)
@@ -293,6 +346,7 @@ struct MarkdownEditor: NSViewRepresentable {
                 scroll.contentView.scroll(to: NSPoint(x: 0, y: min(CGFloat(position), maxY)))
                 scroll.reflectScrolledClipView(scroll.contentView)
                 self.updating = false
+                self.restoringPosition = false
                 self.parent.onReady(parent.draftID)
             }
         }
@@ -306,13 +360,17 @@ struct MarkdownEditor: NSViewRepresentable {
         }
         func textDidChange(_ notification: Notification) {
             guard !updating, let view else { return }
+            loadGeneration += 1
+            let wasRestoring = restoringPosition
+            restoringPosition = false
             updating = true; restyle(); updating = false
+            if wasRestoring { parent.onReady(loadedID) }
             parent.onChange(view.string)
             reportPosition()
         }
         func textViewDidChangeSelection(_ notification: Notification) { reportPosition() }
         func reportPosition() {
-            guard !updating, let view else { return }
+            guard !updating, !restoringPosition, let view else { return }
             parent.onPosition(view.selectedRange().location, Double(scroll?.contentView.bounds.origin.y ?? 0))
         }
         func layoutManager(_ layoutManager: NSLayoutManager, shouldGenerateGlyphs glyphs: UnsafePointer<CGGlyph>, properties props: UnsafePointer<NSLayoutManager.GlyphProperty>, characterIndexes charIndexes: UnsafePointer<Int>, font: NSFont, forGlyphRange glyphRange: NSRange) -> Int {

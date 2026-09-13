@@ -13,6 +13,10 @@ Supports Apple silicon and Intel Macs running macOS 14 or later.
 
 Matilde checks for new versions and offers to install them. You can also use **Matilde → Check for Updates…**. Updates and the update feed are verified using Matilde's signing key.
 NOTES
+if [[ -f "release-notes/$MATILDE_VERSION.md" ]]; then
+    printf '\n' >> build/release-notes.md
+    cat "release-notes/$MATILDE_VERSION.md" >> build/release-notes.md
+fi
 if [[ "${SIGN_WITH_APPLE:-}" != true ]]; then
     cat >> build/release-notes.md <<'NOTES'
 

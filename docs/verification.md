@@ -57,3 +57,10 @@ Release build and 12 tests pass. New tests cover stable automatic sheet position
 - End-to-end Sparkle smoke test: copied the updater-enabled app into `build/updater-test`, changed its bundle version to 0.0.9, and re-signed the disposable copy ad hoc. The native Check for Updates command discovered 0.1.0, downloaded it, offered Install and Relaunch, replaced the test copy, and reopened the current document. The resulting app reports 0.1.0, passes deep signature verification, and contains x86_64 and arm64 slices.
 - No document content was edited during the test. Returned to the normal build afterward.
 - This verifies update installation from an artificially older development copy. Apple notarization and first launch of a quarantined download on a clean Mac remain unverified; this release is not Developer ID signed or notarized.
+
+
+## Editor polish (0.1.1)
+
+Added real NSTextView tests for formatting toggles, nested emphasis, Unicode selections, undo/redo after styling, plaintext paste including links, list/task continuation, empty-list exit, fenced code, large list numbers, and typing during initial layout. All 24 tests pass with macOS pasteboard access. The sandbox denies the separate test pasteboard, so that test was also run outside the sandbox.
+
+Live checks in `build/EditorPolishTests`: Command-B toggled Unicode text on/off, Command-Z and Shift-Command-Z undid/redid formatting, and pasted list text continued on Return. CUA text selection did not reliably place a caret within the rendered Markdown, so that navigation step is not treated as an editor validation. The original workspace was restored without editing its documents.
