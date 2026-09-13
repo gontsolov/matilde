@@ -68,7 +68,9 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 
 ## Editor invariants and pitfalls
 
-- Supported scope: headings, emphasis, links, lists, checklists, blockquotes, and fenced code. The small Markdown renderer is not a complete CommonMark parser. Tables and embedded images are deferred.
+- Supported scope: headings, emphasis, links, lists, checklists, blockquotes, dividers, fenced code, and standalone local Markdown images. The small Markdown renderer is not a complete CommonMark parser. Tables and remote image fetching are deferred.
+- Empty workspaces receive a welcome document once, with a sample goal. Help can reopen or explicitly recreate it; never overwrite edited welcome content or reseed after deletion automatically.
+- Image paste/drop stores immutable PNG files in `.assets` beside the draft, using relative Markdown references shared by branches. Do not delete assets on undo or draft Trash because other drafts/snapshots may reference them. Images are limited to 32 MB input and 40 megapixels; automatic unused-asset cleanup is not implemented. Bare URLs auto-link, pasting a URL over text creates a Markdown link, and Command-K adds/edits links.
 - Styling must not rewrite the source text. Keep UTF-16 `NSRange` handling correct for Unicode and preserve native selection and undo behavior.
 - Command-B/Command-I toggle formatting, including nested emphasis. List continuation resets task checkboxes, exits empty lists, respects code fences, and handles numeric overflow.
 - Checklist clicks must hit the actual glyph, not nearby whitespace or an active text selection.

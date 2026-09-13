@@ -3,6 +3,7 @@ import AppKit
 import CoreText
 
 extension NSAttributedString.Key {
+    static let codeBlock = NSAttributedString.Key("MatildeCodeBlock")
     static let divider = NSAttributedString.Key("MatildeDivider")
     static let quoteBlock = NSAttributedString.Key("MatildeQuoteBlock")
     static let concealed = NSAttributedString.Key("MatildeConcealed")
@@ -80,6 +81,7 @@ enum MarkdownStyler {
                 continue
             }
             if fence != nil {
+                storage.addAttribute(.codeBlock, value: true, range: range)
                 storage.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: 15, weight: .regular), .backgroundColor: NSColor.black.withAlphaComponent(0.035)], range: range)
                 codeRanges.append(range)
                 continue
@@ -146,11 +148,24 @@ enum MarkdownStyler {
                 conceal(NSRange(location: NSMaxRange(content), length: marker), in: storage)
             }
         }
-        for match in matches("(?<!!)\\[([^\\]\\n]+)\\]\\(([^\\s)]+)\\)", in: storage.string) {
+        if let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) {
+            let explicitLinks = matches(EditorLinks.pattern, in: storage.string).map(\.range)
+            for match in detector.matches(in: storage.string, range: full) {
+                guard let url = match.url, EditorLinks.destination(url.absoluteString) != nil,
+                      !explicitLinks.contains(where: { NSIntersectionRange($0, match.range).length > 0 }),
+                      !codeRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { continue }
+                storage.addAttributes([.link: url, .foregroundColor: Paper.accent,
+                                       .underlineStyle: NSUnderlineStyle.single.rawValue], range: match.range)
+            }
+        }
+        for match in matches(EditorLinks.pattern, in: storage.string) {
             guard !codeRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { continue }
             let label = match.range(at: 1), destination = source.substring(with: match.range(at: 2))
             if let url = URL(string: destination), ["https", "http", "mailto"].contains(url.scheme?.lowercased() ?? "") {
                 storage.addAttributes([.link: url, .foregroundColor: Paper.accent, .underlineStyle: NSUnderlineStyle.single.rawValue], range: label)
+                for escape in matches(#"\\[\\\[\]]"#, in: source.substring(with: label)) {
+                    conceal(NSRange(location: label.location + escape.range.location, length: 1), in: storage)
+                }
                 conceal(NSRange(location: match.range.location, length: 1), in: storage)
                 conceal(NSRange(location: NSMaxRange(label), length: NSMaxRange(match.range) - NSMaxRange(label)), in: storage)
             }
@@ -199,6 +214,50 @@ final class WritingHeaderView: NSHostingView<AnyView> {
 }
 
 final class WritingTextView: NSTextView {
+    var saveImage: ((Data) throws -> String)?
+    var resolveImage: ((String) -> NSImage?)?
+    var mediaError: ((String) -> Void)?
+    var renderedImages: [EditorImage] = []
+    var imageCache: [String: NSImage] = [:]
+    private var imageLayoutWidth: CGFloat = -1
+
+    override func paste(_ sender: Any?) {
+        if !pasteMedia(from: .general) { super.paste(sender) }
+    }
+
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(paste(_:)), isEditable, saveImage != nil,
+           NSPasteboard.general.availableType(from: [.png, .tiff, .fileURL]) != nil { return true }
+        return super.validateUserInterfaceItem(item)
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        if sender.draggingPasteboard.availableType(from: [.png, .tiff, .fileURL]) != nil { return .copy }
+        return super.draggingEntered(sender)
+    }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { draggingEntered(sender) }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard saveImage != nil else { return super.performDragOperation(sender) }
+        let pasteboard = sender.draggingPasteboard
+        let point = convert(sender.draggingLocation, from: nil)
+        if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
+           let url = urls.first, urls.count == 1 {
+            guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 32 * 1024 * 1024,
+                  let data = try? Data(contentsOf: url), NSBitmapImageRep(data: data) != nil else { return false }
+            do {
+                let path = try saveImage!(data)
+                let location = characterIndexForInsertion(at: point)
+                insertText("\n\n![Image](\(path))\n\n", replacementRange: NSRange(location: location, length: 0))
+                return true
+            } catch { mediaError?(error.localizedDescription); return false }
+        }
+        if pasteboard.availableType(from: [.png, .tiff]) != nil {
+            setSelectedRange(NSRange(location: characterIndexForInsertion(at: point), length: 0))
+            return pasteMedia(from: pasteboard)
+        }
+        return super.performDragOperation(sender)
+    }
     private var ordinarySelectionAttributes: [NSAttributedString.Key: Any]?
     override func setSelectedRange(_ range: NSRange, affinity: NSSelectionAffinity, stillSelecting flag: Bool) {
         if ordinarySelectionAttributes == nil { ordinarySelectionAttributes = selectedTextAttributes }
@@ -217,6 +276,10 @@ final class WritingTextView: NSTextView {
     }
     private(set) var headerHeight: CGFloat = 0
     override func layout() {
+        if imageLayoutWidth != bounds.width {
+            imageLayoutWidth = bounds.width
+            styleImages()
+        }
         if let scrollingHeader {
             scrollingHeader.measure(at: bounds.width)
             scrollingHeader.frame.size.width = bounds.width
@@ -234,6 +297,18 @@ final class WritingTextView: NSTextView {
         super.draw(dirtyRect)
         guard let storage = textStorage, let layoutManager, let textContainer else { return }
         let origin = textContainerOrigin
+        for item in renderedImages {
+            let glyph = layoutManager.glyphIndexForCharacter(at: item.range.location)
+            let line = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            let rect = NSRect(x: origin.x + textContainer.lineFragmentPadding,
+                              y: origin.y + line.minY + 6, width: item.size.width, height: item.size.height)
+            guard rect.intersects(dirtyRect) else { continue }
+            NSGraphicsContext.saveGraphicsState()
+            NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6).addClip()
+            item.image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1,
+                            respectFlipped: true, hints: nil)
+            NSGraphicsContext.restoreGraphicsState()
+        }
         let visibleGlyphs = layoutManager.glyphRange(forBoundingRect: dirtyRect.offsetBy(dx: -origin.x, dy: -origin.y), in: textContainer)
         let visibleCharacters = layoutManager.characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
         storage.enumerateAttribute(.divider, in: visibleCharacters) { value, range, _ in
@@ -434,6 +509,7 @@ final class WritingTextView: NSTextView {
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command {
             if event.charactersIgnoringModifiers == "b" { wrap("**"); return true }
             if event.charactersIgnoringModifiers == "i" { wrap("*"); return true }
+            if event.charactersIgnoringModifiers == "k" { editLink(); return true }
         }
         return super.performKeyEquivalent(with: event)
     }
@@ -450,6 +526,9 @@ struct MarkdownEditor: NSViewRepresentable {
     var onReady: (String) -> Void = { _ in }
     var header: AnyView? = nil
     var onHeaderVisibility: (Bool) -> Void = { _ in }
+    var saveImage: ((Data) throws -> String)? = nil
+    var resolveImage: ((String) -> NSImage?)? = nil
+    var mediaError: (String) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
@@ -460,6 +539,8 @@ struct MarkdownEditor: NSViewRepresentable {
         container.widthTracksTextView = true
         storage.addLayoutManager(layout); layout.addTextContainer(container)
         let view = WritingTextView(frame: .zero, textContainer: container)
+        view.saveImage = saveImage; view.resolveImage = resolveImage; view.mediaError = mediaError
+        view.registerForDraggedTypes([.png, .tiff, .fileURL])
         if let header {
             let hosted = WritingHeaderView(content: header)
             view.scrollingHeader = hosted
@@ -501,6 +582,10 @@ struct MarkdownEditor: NSViewRepresentable {
     }
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         context.coordinator.parent = self
+        context.coordinator.view?.saveImage = saveImage
+        context.coordinator.view?.resolveImage = resolveImage
+        context.coordinator.view?.mediaError = mediaError
+        if context.coordinator.loadedID != draftID { context.coordinator.view?.imageCache = [:] }
         if let header, let view = context.coordinator.view {
             view.scrollingHeader?.update(content: header)
             view.needsLayout = true
@@ -553,7 +638,7 @@ struct MarkdownEditor: NSViewRepresentable {
         }
         func restyle() {
             guard let view, let storage = view.textStorage else { return }
-            storage.beginEditing(); MarkdownStyler.style(storage); storage.endEditing()
+            storage.beginEditing(); MarkdownStyler.style(storage); view.styleImages(); storage.endEditing()
             view.layoutManager?.invalidateGlyphs(forCharacterRange: NSRange(location: 0, length: storage.length), changeInLength: 0, actualCharacterRange: nil)
             view.layoutManager?.ensureLayout(for: view.textContainer!)
             view.sizeToFit()

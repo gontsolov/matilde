@@ -2,7 +2,7 @@
 
 Our living backlog for features, ideas, fixes, and open questions. Save new ideas here; update entries as we build. Product direction: a quiet native writing experience, tactile drafts on a canvas, and AI as a supporting feature.
 
-Last updated: 2026-09-13.
+Last updated: 2026-09-14.
 
 ## How we use this
 
@@ -26,6 +26,9 @@ These are known limitations or verification gaps, not claims that every case is 
 | EDIT-06 | Planned | **Confirm cursor artifact is resolved.** User reported tiny chevrons at the typing cursor. Removed the 8-point blank-line font, a likely cause of a shrunken caret; exact reported artifact has not been reproduced. Follow up if it persists. |
 | EDIT-08 | Done | **Top-anchored wrapping header.** Measure the header at the actual editor width so longer titles grow downward, retaining the draft controls' top position and pushing the goal/body down. All 36 tests and app build/signature checks pass. Compared the owner's one-line and two-line examples live without editing writing; top alignment stays fixed and body moves down. |
 | EDIT-09 | Done | **Quiet spelling.** Automatic red spelling underlines are disabled in the writing editor; native right-click spelling tools remain available. All 36 tests and app build/signature checks pass; clean editor and spelling context menu inspected live without changing writing. |
+| ONB-01 | Done | **Welcome document.** An editable concise introduction seeds once in an empty workspace, with a sample goal and invitation to branch. Help reopens/recreates it without overwriting writing. One-time seeding, existing writing, edited welcome preservation, and explicit recovery tested; first-launch page inspected live in an isolated workspace. |
+| EDIT-11 | Done | **Images and links.** Local image paste/drop and inline rendering with relative `.assets` references; bare URL auto-linking, URL-over-selection, and Command-K link editing. All 45 tests and app build/signature checks pass. Live checks cover image clipboard paste, undo/redo, branching/reopen, layout, URL paste and link editing. Remaining drag/large-image checks are EDIT-12. |
+| EDIT-12 | Planned | **Media follow-up verification.** Exercise Finder file paste/drop end-to-end, image-heavy document performance, resizing with many images, and external asset replacement. Current native clipboard image paste is verified. Remote image fetching, rich URL cards, image-specific selection/resize controls, and automatic unused-asset cleanup remain outside delivered scope. |
 | EDIT-10 | Done | **Markdown divider.** A standalone `---` renders as a thin muted line across the writing column, preserving source and ordinary caret metrics. Inline/code dashes remain literal. All 38 tests and app build/signature checks pass, including Unicode/lossless styling, removing divider syntax, Return, and undo. Inspected the owner's existing divider live without editing writing. |
 | EDIT-01 | Planned | **Markdown boundary behavior.** Verify caret movement, selection, deletion, and unfinished/nested formatting across hidden syntax, including Unicode. Fix reproducible failures while preserving source text and native undo. Existing formatting toggle fixes are complete; this is broader coverage. |
 | EDIT-02 | Planned | **Long-document performance.** Measure typing, styling, scrolling, and draft switching with large documents. Record realistic fixtures and results; fix observed stalls rather than assuming a performance problem. |
@@ -68,7 +71,7 @@ Explicitly deferred; recording these does not authorize implementation. See [arc
 | --- | --- | --- |
 | DIST-01 | Planned | **Clean-Mac installation verification.** Test a quarantined public download on a clean Mac and document first-launch behavior. Signed updater installation has been tested; this specific first-install scenario has not. |
 | DIST-02 | Idea | **Developer ID signing and notarization.** Optional direct-distribution improvement, not an App Store submission. Requires owner-provided membership/certificate credentials; verify the existing optional workflow with real credentials before claiming support. Current releases are ad-hoc signed and not notarized. |
-| EDIT-03 | Idea | **Tables and embedded images.** Deferred beyond the initial Markdown scope. Define minimal editing and local asset behavior before scheduling. |
+| EDIT-03 | Idea | **Tables.** Deferred beyond the initial Markdown scope. Local embedded images were delivered in EDIT-11; table editing still needs design. |
 | UI-01 | Idea | **Persist folder expansion.** Consider restoring collapsed sidebar folders between launches; currently session-only. |
 | UI-04 | Done | **Sidebar Command-Delete.** Clicking the document list gives it native keyboard focus; Command-Delete moves the active file to native Trash only while that responder owns focus. Repeated key events are ignored. Text inputs retain native deletion. All 32 tests and app build pass; sidebar Trash, editor deletion/undo, and search deletion verified live with disposable files. |
 

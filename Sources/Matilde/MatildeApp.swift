@@ -37,6 +37,9 @@ struct MatildeApp: App {
                 Divider()
                 Button(model.sidebar ? "Enter Focus Mode" : "Leave Focus Mode") { model.toggleSidebar() }.keyboardShortcut("\\", modifiers: .command)
             }
+            CommandGroup(replacing: .help) {
+                Button("Welcome to Matilde") { model.showWelcomeDocument() }.disabled(model.workspace == nil)
+            }
         }
     }
 }
@@ -314,7 +317,10 @@ struct ContentView: View {
         }
     }
     private func writing(_ draft: Draft) -> some View {
-            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 })
+            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 }, saveImage: { data in
+                guard let workspace = model.workspace else { throw WorkspaceError.message("Open a workspace first.") }
+                return try workspace.importImage(data, beside: draft)
+            }, resolveImage: { model.workspace?.image(at: $0, beside: draft) }, mediaError: { model.error = $0 })
                 .frame(maxWidth: 736).frame(maxWidth: .infinity)
         .background(PageCapture { model.capturePage = $0 })
         .overlay {

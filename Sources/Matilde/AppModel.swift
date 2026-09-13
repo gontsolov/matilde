@@ -69,6 +69,7 @@ final class AppModel: ObservableObject {
     func open(_ url: URL) throws {
         try flush()
         let newWorkspace = try Workspace(root: url)
+        _ = try newWorkspace.welcomeDocument()
         let contents = try newWorkspace.scan()
         let last = try newWorkspace.state("active")
         let selected = contents.drafts.first { $0.id == last } ?? contents.drafts.first
@@ -213,6 +214,14 @@ final class AppModel: ObservableObject {
             let draft = try workspace.createUntitled(folder: active?.folder ?? "")
             try refresh(); select(draft)
             focusTitleID = draft.id
+        }
+    }
+    func showWelcomeDocument() {
+        attempt {
+            try flush()
+            guard let workspace, let draft = try workspace.welcomeDocument(explicit: true) else { return }
+            boardVisible = false; boardFlight = nil
+            try refresh(); select(draft)
         }
     }
     func trashDraft(_ draft: Draft) {

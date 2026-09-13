@@ -18,7 +18,7 @@ The visual direction is Japanese paper: restrained, tactile, and carefully detai
 - Keep formatting symbols hidden during normal editing. The user specifically wants fewer visible symbols than Bear, with a minimal document-like experience.
 - Support typing Markdown shortcuts to apply formatting. Exact selection, cursor, and syntax-reveal behavior still needs design.
 - V1 formatting includes headings, bold, italic, links, bulleted and numbered lists, checklists, blockquotes, and code blocks.
-- Tables and embedded images are deferred beyond v1.
+- Standalone local images render inline; pasted/dropped images live in sibling `.assets` folders and remain ordinary relative Markdown references. Remote image fetching and tables remain deferred.
 - V1 layout: a collapsible folder/document sidebar, a centered editor, and a small branch switcher beside the document title.
 - Include a focus mode that hides the sidebar for uninterrupted writing.
 - Keep the interface minimal and native: standard macOS toolbar, system typography for controls, Newsreader for document titles and writing, and short functional labels without slogans. Edit the title and goal directly on the page; show a flag icon beside the goal.

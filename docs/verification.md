@@ -134,3 +134,13 @@ Hide the insertion caret on divider paragraphs and use a subtle accented rule fo
 ### Directional navigation and full-line selection
 
 Up/Left now skip divider paragraphs backward; Down/Right skip forward, including adjacent dividers. Single clicks move to the next paragraph; at a document boundary the divider is selected without inserting new content. Selected dividers get a full-width soft accent background instead of the native tiny hidden-dash selection rectangle. All 40 tests and app build/signature checks pass. Live inspection confirmed the full-width highlight, then clicked the divider and pressed Up: the caret landed on the blank paragraph above it rather than within the line. No writing was changed.
+
+## Welcome document, images, and links — 2026-09-14
+
+Implemented onboarding first: an editable welcome document with a sample goal, concise feature introduction, and a prompt to branch. It seeds once in an empty workspace. Existing writing and edited welcome documents are preserved; Help reopens the known document or creates a uniquely named replacement on explicit request. Tests cover seeding, no automatic recreation after Trash, recovery, and name collisions.
+
+Images paste as PNG assets in a hidden `.assets` folder beside the draft, referenced by ordinary relative Markdown. Assets are retained through undo and Trash for branch/snapshot safety. Standalone image paragraphs render within the column (maximum display height 500 points); code stays literal. External URLs are not fetched. Bare URLs auto-link; pasting a URL over selected text creates a link; Command-K adds/edits a link with URL validation and escaped labels.
+
+All 45 Swift tests and app build/signature checks pass. Media tests cover PNG import, invalid input, relative branch references, traversal rejection, lossless rendering attributes, code exclusions, URL paste, and escaped link labels. The first native clipboard check caught disabled Paste validation for image-only data in a plain NSTextView; fixed native command validation and repeated the check successfully.
+
+In `build/OnboardingMediaVerification`, inspected the seeded page/goal, reopened it from Help without duplication, viewed images with text below, pasted an actual image copied from Preview, used Undo/Redo, branched and reopened the image-containing draft. Also pasted a URL over selected text and changed its destination with Command-K. Restored `/Users/ftsolov/Documents/Matilde` and its original selection without editing original writing. Finder file paste/drop, image-heavy performance, and external asset replacement are not yet verified end-to-end (EDIT-12). No release or version bump.

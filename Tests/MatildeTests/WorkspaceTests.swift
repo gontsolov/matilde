@@ -28,6 +28,29 @@ final class WorkspaceTests: XCTestCase {
         _ = try reopened.create(name: branch.title, folder: "", goal: "", text: "New draft")
     }
 
+    func testWelcomeSeedsOnceAndExplicitRecoveryPreservesEdits() throws {
+        let workspace = try Workspace(root: root)
+        let welcome = try XCTUnwrap(workspace.welcomeDocument())
+        XCTAssertEqual(welcome.goal, WelcomeDocument.goal)
+        XCTAssertEqual(try workspace.read(welcome), WelcomeDocument.text)
+        XCTAssertNil(try workspace.welcomeDocument())
+        try "My own opening".write(to: workspace.url(for: welcome.path), atomically: true, encoding: .utf8)
+        XCTAssertEqual(try workspace.welcomeDocument(explicit: true)?.id, welcome.id)
+        XCTAssertEqual(try workspace.read(welcome), "My own opening")
+        try workspace.trash(welcome) { try FileManager.default.moveItem(at: $0, to: root.appendingPathComponent("removed.txt")) }
+        XCTAssertNil(try workspace.welcomeDocument())
+        XCTAssertNotNil(try workspace.welcomeDocument(explicit: true))
+    }
+
+    func testWelcomeDoesNotSeedExistingWriting() throws {
+        let workspace = try Workspace(root: root)
+        let draft = try workspace.create(name: WelcomeDocument.title, folder: "", goal: "", text: "Keep me")
+        XCTAssertNil(try workspace.welcomeDocument())
+        let welcome = try XCTUnwrap(workspace.welcomeDocument(explicit: true))
+        XCTAssertNotEqual(welcome.path, draft.path)
+        XCTAssertEqual(try workspace.read(draft), "Keep me")
+    }
+
     func testFailedTrashLeavesDraftAndRelationshipsUntouched() throws {
         let workspace = try Workspace(root: root)
         let original = try workspace.create(name: "Original", folder: "", goal: "", text: "Keep me")
