@@ -64,6 +64,7 @@ Explicitly deferred; recording these does not authorize implementation. See [arc
 | DIST-02 | Idea | **Developer ID signing and notarization.** Optional direct-distribution improvement, not an App Store submission. Requires owner-provided membership/certificate credentials; verify the existing optional workflow with real credentials before claiming support. Current releases are ad-hoc signed and not notarized. |
 | EDIT-03 | Idea | **Tables and embedded images.** Deferred beyond the initial Markdown scope. Define minimal editing and local asset behavior before scheduling. |
 | UI-01 | Idea | **Persist folder expansion.** Consider restoring collapsed sidebar folders between launches; currently session-only. |
+| UI-04 | Done | **Sidebar Command-Delete.** Clicking the document list gives it native keyboard focus; Command-Delete moves the active file to native Trash only while that responder owns focus. Repeated key events are ignored. Text inputs retain native deletion. All 32 tests and app build pass; sidebar Trash, editor deletion/undo, and search deletion verified live with disposable files. |
 
 ## Completed foundation
 

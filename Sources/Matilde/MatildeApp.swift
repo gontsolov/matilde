@@ -65,6 +65,8 @@ struct ContentView: View {
     @State private var hoveredDraft: String?
     @State private var searchVisible = false
     @FocusState private var searchFocused: Bool
+    @State private var sidebarKeyboard = SidebarKeyboardView()
+    private var sidebarFocused: Bool { sidebarKeyboard.window?.firstResponder === sidebarKeyboard }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var headerCollapsed = false
     @State private var draftsVisible = false
@@ -198,6 +200,10 @@ struct ContentView: View {
                     }
                 }.padding(.horizontal, 8).padding(.bottom, 12)
             }
+            .background(SidebarKeyboardInput(view: sidebarKeyboard) {
+                if let draft = model.active { model.trashDraft(draft) }
+            })
+            .simultaneousGesture(TapGesture().onEnded { sidebarKeyboard.window?.makeFirstResponder(sidebarKeyboard) })
         }.background(Color(red: 0.955, green: 0.949, blue: 0.933))
     }
     private func sidebarIcon(_ name: String) -> some View {
@@ -207,6 +213,7 @@ struct ContentView: View {
     private func draftRow(_ draft: Draft, indented: Bool) -> some View {
         let selected = model.active?.id == draft.id
         return Button {
+            sidebarKeyboard.window?.makeFirstResponder(sidebarKeyboard)
             if model.boardVisible { model.persistBoard(); model.boardVisible = false; model.boardFlight = nil }
             model.select(draft)
         } label: {
@@ -255,7 +262,7 @@ struct ContentView: View {
                     var transaction = Transaction(); transaction.disablesAnimations = true
                     withTransaction(transaction) { boardAmount = visible ? 1 : 0 }
                 }
-                if !visible {
+                if !visible && !sidebarFocused {
                     DispatchQueue.main.async { NSApp.keyWindow?.makeFirstResponder(findWritingView(NSApp.keyWindow?.contentView)) }
                 }
             }
@@ -290,7 +297,7 @@ struct ContentView: View {
         }
     }
     private func writing(_ draft: Draft) -> some View {
-            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 })
+            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 })
                 .frame(maxWidth: 736).frame(maxWidth: .infinity)
         .background(PageCapture { model.capturePage = $0 })
         .overlay {

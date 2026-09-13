@@ -64,6 +64,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 - Move to Trash is available in the document menu and sidebar, tray, and canvas context menus. It moves only the selected Markdown file to native macOS Trash. Children survive and reconnect to the removed parent's parent; removing a family root leaves children as roots in the same family.
 - Removed metadata is archived in `trashed_drafts`; snapshots remain. A failed filesystem move rolls back metadata changes. Restoring a file from Trash currently imports it as a new draft; automatic recovery of its archived goal/family/position is not implemented.
 - Preserve filename collision checks, workspace boundary/symlink protections, and database transaction behavior. Do not replace Trash with permanent deletion.
+- Command-Delete trashes the active file only when the sidebar document list owns native keyboard focus. Sidebar clicks keep focus there across draft loading; editor/title/goal/search inputs retain native text deletion. Never make file deletion an unconditional global shortcut. `SidebarKeyboardInput.swift` owns this routing.
 
 ## Editor invariants and pitfalls
 

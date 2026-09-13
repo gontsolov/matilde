@@ -86,3 +86,9 @@ Physical pinch delivery, cancellation, and Reduce Motion gesture behavior have n
 CAN-08 replaces the quadratic response with cubic ease-out, retains the dead zone/release safeguard, and rounds the moving page to match the board cards. Fixed the reported wrong-page zoom: the gesture previously opened `selectedID`, which could still identify the active draft. It now captures the page under the native pointer at gesture start and anchors zoom to that point; empty space selects no destination.
 
 All 31 Swift tests and the app build/signature checks pass. Added checks for deceleration, other-page/empty-space/overlap targeting, anchor stability at zoom limits, and corner continuity. Inspected rounded cards and editor focus after a keyboard round trip in `build/ContinuousPinchVerification`; restored the original workspace without editing its documents. Physical pinch delivery and feel still require CAN-07 verification.
+
+## Sidebar Command-Delete
+
+Added an explicit native sidebar keyboard responder; Command-Delete invokes existing Trash handling only when that responder has focus. Plain Delete, extra modifiers, and repeated key events do not trash another file. Draft loading no longer steals focus after a sidebar click.
+
+All 32 tests pass, including a native-window focus regression that verifies the shortcut works for the sidebar but not when an NSTextView owns focus. App build and signature verification pass. In `build/SidebarDeleteVerification`, clicked `Trash me` and used Command-Delete: the file left the sidebar through native Trash. Clicked the editor for `Keep me` and used the same shortcut: text was deleted while the file remained; Undo restored the text. Command-Delete in search cleared the query without trashing the file. Restored the original workspace and collapsed search. Only the disposable `Trash me.md` fixture was removed, recoverably through macOS Trash.
