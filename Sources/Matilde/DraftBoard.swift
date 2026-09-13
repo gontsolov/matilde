@@ -164,15 +164,17 @@ struct DraftBoard: View {
                 Color(red: 0.916, green: 0.915, blue: 0.890)
                 Canvas { context, dimensions in
                     var dots = Path()
-                    let interval: CGFloat = 28
+                    // Screen-space spacing keeps the texture quiet at every zoom.
+                    // Offset it with the viewport so panning never looks stationary.
+                    let interval: CGFloat = 20
                     let dx = CGFloat(-model.boardViewport.x * model.boardViewport.zoom).truncatingRemainder(dividingBy: interval)
                     let dy = CGFloat(-model.boardViewport.y * model.boardViewport.zoom).truncatingRemainder(dividingBy: interval)
                     for x in stride(from: dx, to: dimensions.width, by: interval) {
                         for y in stride(from: dy, to: dimensions.height, by: interval) {
-                            dots.addEllipse(in: CGRect(x: x, y: y, width: 1.1, height: 1.1))
+                            dots.addEllipse(in: CGRect(x: x, y: y, width: 1.6, height: 1.6))
                         }
                     }
-                    context.fill(dots, with: .color(Color(Paper.ink).opacity(0.12)))
+                    context.fill(dots, with: .color(Color(Paper.ink).opacity(0.25)))
                     for sheet in model.boardSheets {
                         guard let parentID = sheet.draft.parent, let parent = model.boardSheets.first(where: { $0.id == parentID }) else { continue }
                         let a = model.sheetRect(parent.id, in: size), b = model.sheetRect(sheet.id, in: size)

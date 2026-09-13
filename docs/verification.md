@@ -96,3 +96,7 @@ All 32 tests pass, including a native-window focus regression that verifies the 
 ## Public release 0.1.2
 
 Published on the owner's explicit request from commit `32574fd4ee953e5d108e9731b88c5a1e91bfa1a8`. CI run 34782878344 passed. Release run 34783029618 passed tests, universal build, packaging, archive/feed signing and verification, and publication. GitHub confirms `v0.1.2` is public and stable, with Matilde.dmg, appcast.xml, and SHA256SUMS uploaded. The unauthenticated stable DMG URL returns HTTP 200 and the latest feed advertises 0.1.2 with a 5,044,535-byte archive. No new install/relaunch test was performed for this version. Distribution remains ad-hoc signed and not Apple-notarized; physical trackpad checks remain CAN-07.
+
+## Dotted canvas
+
+Made the existing faint grid visible to match the supplied reference: 20-point spacing, 1.6-point dots, and 25% ink opacity. App build and signature verification pass. Inspected the pattern behind sheets and after scroll panning in `build/ContinuousPinchVerification`; restored the original workspace without changing writing. No additional tests were added or rerun for this visual-constant change.
