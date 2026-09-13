@@ -1,0 +1,22 @@
+Sources/Matilde/MatildeApp.swift
+  s_709d6037db8fc8::t_4db1bd549a8b1d 310-317
+  s_709d6037db8fc8::t_3fce74b0224d10 309
+ROADMAP.md
+  s_709d6037db8fc8::t_300e2702bad68e 72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c1c08b125f70a664043b886d88634c3a6fdb17dd",
+  "prompts": {},
+  "sessions": {
+    "s_709d6037db8fc8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b85-2383-7071-abb6-290961e3e098",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
