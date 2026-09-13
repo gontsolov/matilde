@@ -1,0 +1,86 @@
+Tests/MatildeTests/WorkspaceTests.swift
+  s_709d6037db8fc8::t_f06d40787bf7f7 1-71,81-110
+  s_709d6037db8fc8::t_9859b364dd63d6 72-75,77-80
+  s_709d6037db8fc8::t_d9ad322ae5a8bf 76
+Sources/CSQLite/shim.h
+  s_709d6037db8fc8::t_881389633e6bdc 1
+Sources/Matilde/AppModel.swift
+  s_709d6037db8fc8::t_f27abb07b8867a 1-36,46-48,50-201
+  s_709d6037db8fc8::t_ff0943554b6b1f 37-45,49
+docs/verification.md
+  s_709d6037db8fc8::t_dfd996c2ce9d63 1-29
+docs/architecture.md
+  s_709d6037db8fc8::t_7f7dbd128bc042 37
+  s_709d6037db8fc8::t_6b42fdc775f34b 34-35,56
+  s_709d6037db8fc8::t_159a2256cae124 1-19,26-28,32-33,38-40,42-43,46-51,55,57,59,68-69,71-85,87-94,96
+  s_709d6037db8fc8::t_dfd996c2ce9d63 24
+  s_709d6037db8fc8::t_e0903ad27db355 20-21,64
+  s_709d6037db8fc8::t_9859b364dd63d6 25
+  s_709d6037db8fc8::t_f4eccc07804a3f 22-23
+  s_709d6037db8fc8::t_ff0943554b6b1f 29-31,95
+  s_709d6037db8fc8::t_7238397a26cacc 36
+  s_709d6037db8fc8::t_04d0d7df8df0ed 41,44-45
+  s_709d6037db8fc8::t_b67b4c2768e682 52
+  s_709d6037db8fc8::t_a896d61faae168 53-54,86
+  s_709d6037db8fc8::t_82729355ee4670 58,62-63,65-67,70,97
+  s_709d6037db8fc8::t_768c95e82362bd 60-61
+Sources/Matilde/MatildeApp.swift
+  s_709d6037db8fc8::t_f27abb07b8867a 1-15,17-74,99-108,111,113-124,129-162,166-177,179-181,183-185,189-198,205-208,210-224,226-228,230-272
+  s_709d6037db8fc8::t_f6983ebc134071 125-128
+  s_709d6037db8fc8::t_ff0943554b6b1f 200-203
+  s_709d6037db8fc8::t_f92e3397bc821e 16,75-98,109-110,112,163-165,178,182,186-188,199,204,209,225,229
+README.md
+  s_709d6037db8fc8::t_ff0943554b6b1f 7-13
+  s_709d6037db8fc8::t_159a2256cae124 1-6,14-15
+Sources/Matilde/MarkdownEditor.swift
+  s_709d6037db8fc8::t_2506e55984b202 85
+  s_709d6037db8fc8::t_f6983ebc134071 206
+  s_709d6037db8fc8::t_17e2c130061f6d 286
+  s_709d6037db8fc8::t_bfbc7a38fb694f 15-18,22,27
+  s_709d6037db8fc8::t_9859b364dd63d6 20-21,23-25,28-30,43
+  s_709d6037db8fc8::t_bdb4ed10d1387a 269-271,274,276
+  s_709d6037db8fc8::t_6bbecc1a35ed51 1-14,44-79,81-84,86-116,118-205,207-218,221-268,272-273,275,277-285,289-324
+  s_709d6037db8fc8::t_fecc99459669ac 219-220,287-288
+  s_709d6037db8fc8::t_32024b962dfb10 19
+  s_709d6037db8fc8::t_de9716a620f055 26
+  s_709d6037db8fc8::t_c8e268542c4eb1 31-33,40-42
+  s_709d6037db8fc8::t_343d3627a06d70 80
+  s_709d6037db8fc8::t_e0c2f9a17df32d 117
+Sources/Matilde/Resources/Fonts/OFL.txt
+  s_709d6037db8fc8::t_938bc445710ecc 1-93
+.gitignore
+  s_709d6037db8fc8::t_f6983ebc134071 3
+  s_709d6037db8fc8::t_22686fce11ab76 1-2
+  s_709d6037db8fc8::t_de6136d7c8b951 4-6
+Sources/Matilde/Workspace.swift
+  s_709d6037db8fc8::t_f6983ebc134071 191
+  s_709d6037db8fc8::t_881389633e6bdc 1-91,100-116,120-190,192-214
+  s_709d6037db8fc8::t_c0f7fc970c2698 92-99,117-119
+Sources/CSQLite/module.modulemap
+  s_709d6037db8fc8::t_881389633e6bdc 1-5
+scripts/build-app.sh
+  s_709d6037db8fc8::t_9859b364dd63d6 10
+  s_709d6037db8fc8::t_f06d40787bf7f7 1-9,11-27
+Package.swift
+  s_709d6037db8fc8::t_881389633e6bdc 1-8,11-14
+  s_709d6037db8fc8::t_f6983ebc134071 9
+  s_709d6037db8fc8::t_9859b364dd63d6 10
+Sources/Matilde/Resources/Fonts/SOURCE.md
+  s_709d6037db8fc8::t_9859b364dd63d6 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5f18d57723c362af29345528803e1aaec62dcd3a",
+  "prompts": {},
+  "sessions": {
+    "s_709d6037db8fc8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09b85-2383-7071-abb6-290961e3e098",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
