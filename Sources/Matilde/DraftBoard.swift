@@ -7,13 +7,39 @@ struct BoardFlight: Identifiable {
     var interactive = false
 }
 
-/// A dead zone and quadratic onset keep incidental pinches close to writing.
+/// Keep the writing dead zone, then decelerate as the sheet approaches the board.
 enum WritingPinch {
     static func progress(_ magnification: CGFloat) -> CGFloat {
         let distance = max(0, -magnification - 0.03)
-        return min(1, distance * distance / (0.36 * 0.36))
+        let t = min(1, distance / 0.36)
+        return 1 - pow(1 - t, 3)
     }
     static func commits(_ magnification: CGFloat) -> Bool { magnification <= -0.18 }
+}
+
+enum BoardPageStyle {
+    static let cornerRadius: CGFloat = 16
+    static func radius(progress: CGFloat, zoom: CGFloat) -> CGFloat {
+        cornerRadius * progress * (1 + (zoom - 1) * progress)
+    }
+}
+
+/// Freeze the pointer's page and world position before zoom moves any sheets.
+struct BoardZoom {
+    let start: BoardViewport
+    let anchor: CGPoint
+    let draftID: String?
+
+    static func target(at point: CGPoint, sheets: [(String, CGRect)]) -> String? {
+        sheets.reversed().first { $0.1.contains(point) }?.0
+    }
+
+    func viewport(magnification: Double, size: CGSize) -> BoardViewport {
+        let zoom = min(max(start.zoom * magnification, 0.08), 1.4)
+        let dx = anchor.x - size.width / 2, dy = anchor.y - size.height / 2
+        return BoardViewport(x: start.x + dx / start.zoom - dx / zoom,
+                             y: start.y + dy / start.zoom - dy / zoom, zoom: zoom)
+    }
 }
 
 /// Capture the whole native gesture even after the page moves away from the pointer.
@@ -97,6 +123,7 @@ struct BoardPageSurface<Editor: View>: View, Animatable {
         let height = size.height + (target.height - size.height) * t
         let blend = min(max((t - 0.45) / 0.5, 0), 1)
         let cardOpacity = blend * blend * (3 - 2 * blend)
+        let radius = BoardPageStyle.radius(progress: t, zoom: target.width / 260)
         ZStack(alignment: .topLeading) {
             Color(Paper.background)
             editor.frame(width: size.width, height: size.height)
@@ -111,8 +138,8 @@ struct BoardPageSurface<Editor: View>: View, Animatable {
             }
         }
         .frame(width: max(width, 1), height: max(height, 1), alignment: .topLeading)
-        .clipShape(RoundedRectangle(cornerRadius: 3 * t))
-        .overlay(RoundedRectangle(cornerRadius: 3 * t)
+        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
             .strokeBorder(Color(Paper.accent).opacity(0.65 * cardOpacity), lineWidth: 2 * target.width / 260))
         .shadow(color: .black.opacity(0.12 * t), radius: 9 * t * target.width / 260,
                 x: t * target.width / 260, y: 5 * t * target.width / 260)
@@ -125,7 +152,7 @@ struct DraftBoard: View {
     let open: (Draft) -> Void
     @FocusState private var focused: Bool
     @State private var panStart: BoardViewport?
-    @State private var zoomStart: Double?
+    @State private var boardZoom: BoardZoom?
     @State private var selectedID = ""
     @State private var hoveredID: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -161,8 +188,9 @@ struct DraftBoard: View {
                         Button { selectedID = sheet.id; open(sheet.draft) } label: {
                             BoardPageContent(sheet: sheet, active: sheet.id == model.active?.id)
                                 .frame(width: 260, height: 340)
-                                .background(Color(Paper.background), in: RoundedRectangle(cornerRadius: 3))
-                                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color(Paper.accent).opacity(selectedID == sheet.id ? 0.65 : 0.12), lineWidth: selectedID == sheet.id ? 2 : 1))
+                                .background(Color(Paper.background), in: RoundedRectangle(cornerRadius: BoardPageStyle.cornerRadius, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: BoardPageStyle.cornerRadius, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: BoardPageStyle.cornerRadius, style: .continuous).strokeBorder(Color(Paper.accent).opacity(selectedID == sheet.id ? 0.65 : 0.12), lineWidth: selectedID == sheet.id ? 2 : 1))
                                 .shadow(color: .black.opacity(hoveredID == sheet.id ? 0.19 : 0.12), radius: hoveredID == sheet.id ? 16 : 9, x: 1, y: hoveredID == sheet.id ? 10 : 5)
                                 .scaleEffect(model.boardViewport.zoom, anchor: .topLeading)
                                 .frame(width: rect.width, height: rect.height, alignment: .topLeading)
@@ -187,7 +215,14 @@ struct DraftBoard: View {
                 guard model.boardFlight == nil else { return }
                 model.boardViewport.x -= dx / model.boardViewport.zoom
                 model.boardViewport.y -= dy / model.boardViewport.zoom
-            }, onEnd: { model.persistBoard() }))
+            }, onEnd: { model.persistBoard() }, onMagnifyStart: { point in
+                guard model.boardFlight == nil else { return }
+                let target = BoardZoom.target(at: point, sheets: model.boardSheets.map {
+                    ($0.id, model.sheetRect($0.id, in: size).offsetBy(dx: 0, dy: hoveredID == $0.id && !reduceMotion ? -4 : 0))
+                })
+                boardZoom = BoardZoom(start: model.boardViewport, anchor: point, draftID: target)
+                if let target { selectedID = target }
+            }))
             .simultaneousGesture(DragGesture(minimumDistance: 5).onChanged { value in
                 if panStart == nil { panStart = model.boardViewport }
                 guard let start = panStart else { return }
@@ -195,11 +230,13 @@ struct DraftBoard: View {
                 model.boardViewport.y = start.y - value.translation.height / start.zoom
             }.onEnded { _ in panStart = nil; model.persistBoard() })
             .simultaneousGesture(MagnifyGesture().onChanged { value in
-                if zoomStart == nil { zoomStart = model.boardViewport.zoom }
-                model.boardViewport.zoom = min(max((zoomStart ?? 1) * value.magnification, 0.08), 1.4)
-            }.onEnded { _ in
-                zoomStart = nil
-                if model.boardViewport.zoom > 1.2, let sheet = model.boardSheets.first(where: { $0.id == selectedID }) { open(sheet.draft) }
+                guard model.boardFlight == nil, let boardZoom else { return }
+                model.boardViewport = boardZoom.viewport(magnification: value.magnification, size: size)
+            }.onEnded { value in
+                let target = boardZoom?.draftID
+                boardZoom = nil
+                if value.magnification > 1, model.boardViewport.zoom > 1.2,
+                   let sheet = model.boardSheets.first(where: { $0.id == target }) { open(sheet.draft) }
                 else { model.persistBoard() }
             })
             .focusable().focused($focused).focusEffectDisabled()
@@ -255,17 +292,21 @@ private struct PagePointer: NSViewRepresentable {
 private struct BoardScrollInput: NSViewRepresentable {
     var onScroll: (Double, Double) -> Void
     var onEnd: () -> Void
+    var onMagnifyStart: (CGPoint) -> Void
 
     func makeNSView(context: Context) -> ScrollView { ScrollView() }
     func updateNSView(_ view: ScrollView, context: Context) {
         view.onScroll = onScroll
         view.onEnd = onEnd
+        view.onMagnifyStart = onMagnifyStart
     }
     static func dismantleNSView(_ view: ScrollView, coordinator: ()) { view.stop() }
 
     final class ScrollView: NSView {
         var onScroll: ((Double, Double) -> Void)?
         var onEnd: (() -> Void)?
+        var onMagnifyStart: ((CGPoint) -> Void)?
+        override var isFlipped: Bool { true }
         private var monitor: Any?
         private var saveWork: DispatchWorkItem?
 
@@ -274,10 +315,14 @@ private struct BoardScrollInput: NSViewRepresentable {
             super.viewDidMoveToWindow()
             stop()
             guard window != nil else { return }
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .magnify]) { [weak self] event in
                 guard let self, let window = self.window, event.window === window,
                       !self.isHiddenOrHasHiddenAncestor,
                       self.bounds.contains(self.convert(event.locationInWindow, from: nil)) else { return event }
+                if event.type == .magnify {
+                    if event.phase == .began { self.onMagnifyStart?(self.convert(event.locationInWindow, from: nil)) }
+                    return event
+                }
                 let factor = event.hasPreciseScrollingDeltas ? 1.0 : 24.0
                 self.onScroll?(event.scrollingDeltaX * factor, event.scrollingDeltaY * factor)
                 self.saveWork?.cancel()

@@ -80,3 +80,9 @@ Implemented continuous progress on the existing mounted editor surface, with a 3
 All 27 Swift tests pass with native pasteboard access, including three new resistance/reversal/threshold checks. The local app builds and passes code-signature verification. Live checks in `build/ContinuousPinchVerification` confirmed Command-0 opens the board, Escape restores editor focus, typing resumes at the cursor, branching retains text, and opening the original sheet restores its editor. No original workspace documents were edited.
 
 Physical pinch delivery, cancellation, and Reduce Motion gesture behavior have not been verified end to end: the available native UI tool cannot generate magnification gestures. CAN-07 tracks that explicit verification gap. The curve tests do not substitute for a trackpad test.
+
+## Zoom feel and pointer targeting
+
+CAN-08 replaces the quadratic response with cubic ease-out, retains the dead zone/release safeguard, and rounds the moving page to match the board cards. Fixed the reported wrong-page zoom: the gesture previously opened `selectedID`, which could still identify the active draft. It now captures the page under the native pointer at gesture start and anchors zoom to that point; empty space selects no destination.
+
+All 31 Swift tests and the app build/signature checks pass. Added checks for deceleration, other-page/empty-space/overlap targeting, anchor stability at zoom limits, and corner continuity. Inspected rounded cards and editor focus after a keyboard round trip in `build/ContinuousPinchVerification`; restored the original workspace without editing its documents. Physical pinch delivery and feel still require CAN-07 verification.

@@ -5,11 +5,11 @@ Status: implemented. Release build and 12 tests pass. Live checks cover scrollin
 ## First implementation
 
 - Current document family only, with pinned paper previews and branch connectors.
-- `⌘0` or the toolbar board button opens the board. Editor zoom-out pinches continuously move the mounted page after a 3% dead zone, with quadratic resistance near writing. Releasing at 18% outward travel settles onto the board; smaller or reversed gestures return to writing.
+- `⌘0` or the toolbar board button opens the board. Editor zoom-out pinches continuously move the mounted page after a 3% dead zone, with cubic ease-out toward the board. Releasing at 18% outward travel settles onto the board; smaller or reversed gestures return to writing. Corners round during the transition and meet the board cards' 16-point rounded corners at the current zoom.
 - The current page shrinks toward its board position. Clicking another sheet expands it into editing; cursor and scroll positions remain independent.
 - Automatic positions are stored in SQLite. New children sit down-right of their source; siblings receive separate rows without moving earlier sheets.
 - Drag the board, scroll with two fingers, or use the mouse wheel to pan. Pages lift subtly on hover and use a pointing-hand cursor. Pinch or use +/− to zoom. Fit shows the family; arrow keys move focus, Return opens a sheet, and Escape returns to the active draft.
-- Zooming beyond 120% opens the highlighted sheet. Reduce Motion skips the page-flight animation.
+- Pinching inward beyond 120% opens the sheet under the pointer at gesture start. Zoom keeps that point anchored; starting over empty space does not open a draft. Keyboard selection/Return remain independent. Reduce Motion skips the page-flight animation.
 - Board position and zoom are saved per family. The app currently reopens in editor mode; the saved board viewport is reused next time the board opens.
 - Only lightweight previews are rendered for visible sheets. Transitions keep the real editor mounted at its full layout size, animate its scale and clipping bounds, and blend into the same card view used on the board. No screenshot cache or approximate editor preview is used.
 - Flights use a 340 ms easing curve with a quick start and animation-completion callbacks. Opening another draft waits for its editor layout and saved scroll position to be ready. Input is held until the flight finishes; Reduce Motion switches directly.
