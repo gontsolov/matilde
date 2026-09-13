@@ -1,0 +1,31 @@
+Tests/MatildeTests/SidebarKeyboardTests.swift
+  s_c0cc3196221124::t_b82c23acf1d540 1-34
+AGENTS.md
+  s_c0cc3196221124::t_3ddc1aec1f0b5a 67
+Sources/Matilde/MatildeApp.swift
+  s_c0cc3196221124::t_bbfa993f2a929f 265
+  s_c0cc3196221124::t_b82c23acf1d540 68-69,203-206,216
+  s_c0cc3196221124::t_41517eb9d2eb9f 300
+ROADMAP.md
+  s_c0cc3196221124::t_3ddc1aec1f0b5a 67
+docs/verification.md
+  s_c0cc3196221124::t_3ddc1aec1f0b5a 89-94
+Sources/Matilde/SidebarKeyboardInput.swift
+  s_c0cc3196221124::t_b82c23acf1d540 1-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c000eaf51dfa877198c669b760da05184ee71987",
+  "prompts": {},
+  "sessions": {
+    "s_c0cc3196221124": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09c7e-efff-7e50-b7b4-7538770a0586",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
