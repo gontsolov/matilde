@@ -1,0 +1,33 @@
+ROADMAP.md
+  s_c0cc3196221124::t_d6d351efbc16ef 18,76
+Sources/Matilde/MarkdownEditor.swift
+  s_c0cc3196221124::t_df457f1469fd2a 52-53,56,58,106,533-535,557,588,590,601,648-650,654
+Sources/Matilde/DraftBoard.swift
+  s_c0cc3196221124::t_df457f1469fd2a 166,193
+Tests/MatildeTests/SettingsTests.swift
+  s_c0cc3196221124::t_df457f1469fd2a 1-38
+Sources/Matilde/MatildeApp.swift
+  s_c0cc3196221124::t_4fc55a394bdfd7 44,67-69,327-328
+Sources/Matilde/AppSettings.swift
+  s_c0cc3196221124::t_df457f1469fd2a 43-55
+  s_c0cc3196221124::t_4fc55a394bdfd7 1-42,56-146
+docs/verification.md
+  s_c0cc3196221124::t_50c44fdc5d3046 156
+  s_c0cc3196221124::t_d6d351efbc16ef 151-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "dfc9706b4c4d6f4ddd3cc32024f0cf710bf5c978",
+  "prompts": {},
+  "sessions": {
+    "s_c0cc3196221124": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09c7e-efff-7e50-b7b4-7538770a0586",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
