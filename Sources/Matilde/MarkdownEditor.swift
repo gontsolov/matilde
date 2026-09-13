@@ -374,7 +374,7 @@ struct MarkdownEditor: NSViewRepresentable {
         view.isAutomaticQuoteSubstitutionEnabled = false
         view.isAutomaticDashSubstitutionEnabled = false
         view.isAutomaticTextReplacementEnabled = true
-        view.isContinuousSpellCheckingEnabled = true
+        view.isContinuousSpellCheckingEnabled = false
         view.isGrammarCheckingEnabled = false
         view.allowsUndo = true
         view.isVerticallyResizable = true

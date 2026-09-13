@@ -118,3 +118,7 @@ The owner reported the first pass felt excessively slow. Reduced smoothing from 
 ## Top-anchored wrapping header
 
 The hosting view's unconstrained fitting measurement underestimated wrapped title height. Constrained the SwiftUI header to the editor width before measuring its vertical fitting size, retaining the header at y=0 and updating the body's inset with its full height. Added a native layout regression for short-to-long-to-short title changes and matching body displacement. All 36 tests and app build/signature checks pass. Live screenshots of the owner's existing one-line and two-line examples confirm identical draft-control/title top positions, with the goal and body moving down for the extra line. No writing was edited; restored the original draft selection.
+
+## Quiet spelling
+
+Disabled continuous spell checking in the writing editor; grammar checking was already disabled. Native manual spelling behavior is unchanged. All 36 tests and app build/signature checks pass. Relaunched and confirmed no red underline on the existing non-word. Right-click still exposes spelling guesses (No Guesses Found for that non-word), Ignore/Learn Spelling, and Check Document Now. No text was changed.
