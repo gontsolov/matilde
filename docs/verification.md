@@ -49,3 +49,11 @@ Release build and 12 tests pass. New tests cover stable automatic sheet position
 - Replaced screenshot/preview swapping and timer completion with one mounted editor surface, a shared board card, and animation completion.
 - Live UI checks: editor to board and back at 140%; opening a different draft from the board at 36%; correct destination title and editable body after completion. No document text was changed.
 - Scroll panning verified in the live app. Continuous finger-tracked zoom and frame-rate profiling remain follow-ups.
+
+## First public release and updater (0.1.0)
+
+- GitHub CI passed; Release workflow 34778365601 built and published version 0.1.0.
+- Unauthenticated downloads from the stable latest URLs succeeded. The downloaded DMG's SHA-256 checksum matched; archive and feed Ed25519 signatures verified against the committed public key. A locally tampered archive was rejected.
+- End-to-end Sparkle smoke test: copied the updater-enabled app into `build/updater-test`, changed its bundle version to 0.0.9, and re-signed the disposable copy ad hoc. The native Check for Updates command discovered 0.1.0, downloaded it, offered Install and Relaunch, replaced the test copy, and reopened the current document. The resulting app reports 0.1.0, passes deep signature verification, and contains x86_64 and arm64 slices.
+- No document content was edited during the test. Returned to the normal build afterward.
+- This verifies update installation from an artificially older development copy. Apple notarization and first launch of a quarantined download on a clean Mac remain unverified; this release is not Developer ID signed or notarized.
