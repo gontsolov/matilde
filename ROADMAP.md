@@ -15,7 +15,7 @@ Last updated: 2026-09-14.
 
 ## In progress
 
-UI-05: implementation complete; live Settings inspection is blocked by the locked Mac.
+UI-05: implementation and restart/layout checks complete; live preference changes and persistence still need verification.
 
 ## Writing quality and fixes to investigate
 
@@ -73,7 +73,7 @@ Explicitly deferred; recording these does not authorize implementation. See [arc
 | DIST-02 | Idea | **Developer ID signing and notarization.** Optional direct-distribution improvement, not an App Store submission. Requires owner-provided membership/certificate credentials; verify the existing optional workflow with real credentials before claiming support. Current releases are ad-hoc signed and not notarized. |
 | EDIT-03 | Idea | **Tables.** Deferred beyond the initial Markdown scope. Local embedded images were delivered in EDIT-11; table editing still needs design. |
 | UI-01 | Idea | **Persist folder expansion.** Consider restoring collapsed sidebar folders between launches; currently session-only. |
-| UI-05 | In progress | **Settings foundation.** Implemented native Command-comma Settings with Writing (size, line spacing, spelling, reset), Canvas (dots), and Connections (Langdock Keychain save/replace/remove). Preferences update the editor without rewriting Markdown. Build/signature checks and automated tests pass, including an isolated dummy Keychain lifecycle. Live layout, focus, persistence, and control checks are blocked until the owner unlocks the Mac. No provider requests or AI integration. Themes and custom motion controls remain uncommitted. |
+| UI-05 | In progress | **Settings foundation.** Implemented native Command-comma Settings with Writing (size, line spacing, spelling, reset), Canvas (dots), and Connections (Langdock Keychain save/replace/remove). All 48 tests and build/signature checks pass. Normal restart, Command-comma, Writing layout, and Connections secure-field focus checked live. Preference-change/persistence checks remain; stopped manipulating controls when the owner began interacting. No provider requests or AI integration. Themes and custom motion controls remain uncommitted. |
 | UI-04 | Done | **Sidebar Command-Delete.** Clicking the document list gives it native keyboard focus; Command-Delete moves the active file to native Trash only while that responder owns focus. Repeated key events are ignored. Text inputs retain native deletion. All 32 tests and app build pass; sidebar Trash, editor deletion/undo, and search deletion verified live with disposable files. |
 
 ## Completed foundation
