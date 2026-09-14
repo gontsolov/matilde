@@ -1,0 +1,50 @@
+README.md
+  s_a7fd880ef59afd::t_f7f2c6e5f3eed9 5-6
+  s_a7fd880ef59afd::t_ffe69158a9fa58 7
+release-notes/0.1.9.md
+  s_a7fd880ef59afd::t_ffe69158a9fa58 1-4
+docs/releases.md
+  s_a7fd880ef59afd::t_ffe69158a9fa58 8,18,22
+  s_a7fd880ef59afd::t_007f4aef05238f 53,61-62
+AGENTS.md
+  s_a7fd880ef59afd::t_f7f2c6e5f3eed9 111,127
+docs/verification.md
+  s_a7fd880ef59afd::t_f7f2c6e5f3eed9 347-353
+  s_a7fd880ef59afd::t_9be3df4357585e 342-346
+  s_a7fd880ef59afd::t_0fdb116fa42aaa 354-356
+ROADMAP.md
+  s_a7fd880ef59afd::t_ffe69158a9fa58 127
+  s_a7fd880ef59afd::t_a3f978690d9d5d 77,122-126
+Config/release.json
+  s_a7fd880ef59afd::t_999bce231dd894 2
+Sources/Matilde/WritingReview.swift
+  s_a7fd880ef59afd::t_37f3f6b8f0562c 256,308-315,323
+.github/workflows/ci.yml
+  s_a7fd880ef59afd::t_a2c6c623216cf3 23
+.github/workflows/release.yml
+  s_a7fd880ef59afd::t_663c7eed86ae2c 46
+scripts/build-app.sh
+  s_a7fd880ef59afd::t_ace1c5fb9de9e0 9-11,15
+scripts/package-release.sh
+  s_a7fd880ef59afd::t_e7733cd208adea 6-7
+scripts/publish-release.sh
+  s_a7fd880ef59afd::t_9ac72e7005248a 10-11
+scripts/verify-appcast.py
+  s_a7fd880ef59afd::t_245343f0a622c2 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "72c59803e99e27e38d9afa35a509f0aa3a72d8c8",
+  "prompts": {},
+  "sessions": {
+    "s_a7fd880ef59afd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc4-66f7-7a50-a052-6f864d09a4cf",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
