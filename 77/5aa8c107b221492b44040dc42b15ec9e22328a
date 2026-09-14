@@ -1,0 +1,21 @@
+Tests/MatildeTests/WritingAssistFollowupTests.swift
+  s_a7fd880ef59afd::t_779b18bafed4f0 2,118-122
+docs/verification.md
+  s_a7fd880ef59afd::t_779b18bafed4f0 431-433
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "775aa8c107b221492b44040dc42b15ec9e22328a",
+  "prompts": {},
+  "sessions": {
+    "s_a7fd880ef59afd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc4-66f7-7a50-a052-6f864d09a4cf",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
