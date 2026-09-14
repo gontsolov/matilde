@@ -12,7 +12,7 @@ The owner's supplied reference is a small corner note emerging over the current 
 
 - A small paper lip at the bottom-right of the **writing area**, outside the text column—not the display corner or sidebar. It stays available when the sidebar is hidden and does not move with canvas panning.
 - Hover reveals a little more of the lip and the label “Stash.” It never steals keyboard focus or opens the full editor by itself. A short dwell and a forgiving hit area should prevent flicker; timings need hands-on tuning.
-- Click opens a warm-paper panel upward from that corner. It overlays the writing surface without reflowing the document or becoming a canvas sheet. Starting size: roughly 360 × 360 points, clamped to the available window; final dimensions are provisional.
+- Click opens a warm-paper panel upward from that corner. It overlays the writing surface without reflowing the document or becoming a canvas sheet. Starting size: roughly 420 × 360 points, clamped to the available window; final dimensions are provisional.
 - Open by click or a keyboard command, then type immediately at the stash's remembered caret. Offer a menu action as well; choose a conflict-free shortcut during implementation, not an unverified binding now.
 - The panel stays open when the pointer leaves. Clicking the document lets you work in the draft with the stash still visible. Escape while the stash owns focus, its close control, or the toggle command tucks it away and restores the previous writing caret/scroll.
 - Keep controls minimal: “Stash” and close. One Markdown editing surface with bullets, checklists, emphasis, and links. No collection browser, tabs, artificial note cards, or required title in the first version.
@@ -78,7 +78,7 @@ Use disposable workspaces. Check bullet typing, Unicode, links, undo/redo, rapid
 
 ## Implementation and verification — 2026-09-14
 
-The first implementation is built locally. `Stash.swift` contains validated sidecar storage, independent save/buffer/position state, and the mounted corner editor. The editor stays mounted while tucked, retaining native undo across close/reopen. Position uses family-keyed SQLite state. Hover peeks after 100 ms; opening/closing use a reversible spring (240 ms response, 0.78 damping). Reduce Motion disables the slide. The Writing menu exposes ⇧⌘J, Reveal Stash, Show All Stashes, and Reload Stash from Disk.
+The first implementation is built locally. `Stash.swift` contains validated sidecar storage, independent save/buffer/position state, and the mounted corner editor. The editor stays mounted while tucked, retaining native undo across close/reopen. Position uses family-keyed SQLite state. Hover peeks after 100 ms; opening/closing use a reversible spring (320 ms response, 0.82 damping). Reduce Motion disables the slide. The Writing menu exposes ⇧⌘J, Reveal Stash, Show All Stashes, and Reload Stash from Disk.
 
 Orphan recovery is file-based: Show All Stashes opens the retained sidecars even when no documents remain. Files use stable family UUID names. External clean changes reload; overlapping unsaved changes block saving, closing, switching and quitting. Reload Stash from Disk first preserves local changes in a unique recovery Markdown file alongside the stashes and reveals it in Finder, then loads the external version. Failed writes retain the buffer. There is no automatic deletion of orphan or recovery files.
 
@@ -91,3 +91,12 @@ Remaining acceptance work is STASH-02: physical trackpad isolation, Reduce Motio
 
 
 2026-09-14 interaction refinement: panel height increased from 300 to 360 points, clamped to the available height. Removed the bottom outer inset and bottom corner radii so the panel meets the window edge. Open/close now uses a fast, lightly underdamped spring; hover uses a 200 ms spring. Reduce Motion still disables both animations.
+
+
+2026-09-14 pull-tab refinement: replaced the document icon and asymmetric lip with a compact Stash tag and small grip, 4-point upper corners and square lower corners. The tab is inset an extra 16 points from the right so the native window corner cannot round its base. Open/close spring response is now 320 ms with 0.82 damping; hover uses 260 ms with 0.84 damping.
+
+
+2026-09-14 typography refinement: stash width increased to 420 points. Stash and document editors share the Writing line-spacing preference, defaulting to 9 points. Lists no longer override line spacing; list-item paragraph spacing is 6 points. Continuation lines use measured rendered prefix widths for bullet, numbered, and checklist markers. Explicit saved spacing preferences remain respected.
+
+
+2026-09-14 adaptive-height refinement: starts at 420 points tall and grows to fit native text layout plus header and text insets. Maximum height is the writing-area height minus a 16-point top margin; content scrolls after reaching that limit. Width stays fixed at up to 420 points. Shrinking text can reduce height back toward the minimum. Native layout reports include the trailing empty line and update after wrapping/width changes.

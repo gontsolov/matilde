@@ -2,6 +2,7 @@ import SwiftUI
 import Security
 
 enum SettingKeys {
+    static let appearance = "appearance.mode"
     static let textSize = "writing.textSize"
     static let lineSpacing = "writing.lineSpacing"
     static let spellChecking = "writing.spellChecking"
@@ -72,8 +73,9 @@ struct APIKeyStore {
 }
 
 struct AppSettingsView: View {
+    @AppStorage(SettingKeys.appearance) private var appearance = AppAppearance.system.rawValue
     @AppStorage(SettingKeys.textSize) private var textSize = 19.0
-    @AppStorage(SettingKeys.lineSpacing) private var lineSpacing = 7.0
+    @AppStorage(SettingKeys.lineSpacing) private var lineSpacing = 9.0
     @AppStorage(SettingKeys.spellChecking) private var spellChecking = false
     @AppStorage(SettingKeys.canvasDots) private var canvasDots = true
     @State private var key = ""
@@ -84,6 +86,13 @@ struct AppSettingsView: View {
 
     var body: some View {
         TabView {
+            Form {
+                Picker("Appearance", selection: $appearance) {
+                    ForEach(AppAppearance.allCases) { mode in Text(mode.title).tag(mode.rawValue) }
+                }.pickerStyle(.segmented)
+            }.formStyle(.grouped)
+                .tabItem { Label("General", systemImage: "gearshape") }
+
             Form {
                 Section {
                     LabeledContent("Text size") {
@@ -103,7 +112,7 @@ struct AppSettingsView: View {
                         .font(Font(Paper.body(CGFloat(textSize)))).lineSpacing(lineSpacing)
                         .foregroundStyle(Color(Paper.ink)).padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading).background(Color(Paper.background))
-                    Button("Restore Writing Defaults") { textSize = 19; lineSpacing = 7; spellChecking = false }
+                    Button("Restore Writing Defaults") { textSize = 19; lineSpacing = 9; spellChecking = false }
                 }
             }.formStyle(.grouped)
                 .tabItem { Label("Writing", systemImage: "textformat") }
@@ -132,7 +141,7 @@ struct AppSettingsView: View {
                 .tabItem { Label("Connections", systemImage: "key") }
         }
         .padding(12).frame(width: 540, height: 380)
-        .tint(Color(Paper.accent)).preferredColorScheme(.light)
+        .tint(Color(Paper.accent)).modifier(AppAppearanceModifier())
         .onAppear { perform { hasKey = try keyStore.containsKey() } }
         .onDisappear { key = "" }
         .confirmationDialog("Remove the saved Langdock API key?", isPresented: $removingKey) {

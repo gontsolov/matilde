@@ -82,6 +82,7 @@ final class AppModel: ObservableObject {
         workspace = newWorkspace; drafts = contents.drafts; folders = contents.folders
         sidebar = try newWorkspace.state("sidebar") != "false"
         active = selected; text = content; savedText = content
+        if let selected { try newWorkspace.rememberFamilyDraft(selected) }
         boardVisible = false; boardSheets = []; boardFlight = nil; editorReadyID = nil
         try loadHeader()
         cursor = selected?.cursor ?? 0; scroll = selected?.scroll ?? 0
@@ -133,8 +134,21 @@ final class AppModel: ObservableObject {
             try loadHeader()
             cursor = current.cursor; scroll = current.scroll; status = "Saved"
             try workspace.setState("active", draft.id)
+            try workspace.rememberFamilyDraft(current)
         }
     }
+    func selectFamily(_ family: String) {
+        attempt {
+            guard let workspace else { return }
+            try flush()
+            let destination = active?.family == family ? active : try workspace.lastFamilyDraft(family, among: drafts)
+            guard let destination else { return }
+            select(destination)
+            guard active?.id == destination.id else { return }
+            if boardVisible { persistBoard(); boardVisible = false; boardFlight = nil }
+        }
+    }
+
     func edited(_ value: String) {
         text = value; status = "Saving…"
         saveTask?.cancel()
@@ -158,6 +172,7 @@ final class AppModel: ObservableObject {
         if let workspace, let active {
             try workspace.position(active, cursor: cursor, scroll: scroll)
             try workspace.setState("active", active.id)
+            try workspace.rememberFamilyDraft(active)
             try workspace.setState("sidebar", String(sidebar))
         }
     }
@@ -328,6 +343,13 @@ final class AppModel: ObservableObject {
     func setGoal(_ value: String) throws {
         if let workspace, let active { try workspace.goal(active, text: value); headerGoal = value; try refresh() }
     }
+    func copyMarkdown() {
+        guard active != nil else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+
     func reveal() {
         if let workspace, let active, let url = try? workspace.url(for: active.path) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
     }

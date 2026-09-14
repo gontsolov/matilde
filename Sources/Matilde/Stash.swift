@@ -132,15 +132,30 @@ final class StashModel: ObservableObject {
     }
 }
 
+enum StashLayout {
+    static func height(content: CGFloat, header: CGFloat, available: CGFloat) -> CGFloat {
+        max(1, min(max(420, content + header), available - 16))
+    }
+}
+
+private struct StashHeaderHeight: PreferenceKey {
+    static var defaultValue: CGFloat = 32
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
 struct StashPocket: View {
     @ObservedObject var stash: StashModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(SettingKeys.lineSpacing) private var lineSpacing = 9.0
+    @State private var contentHeight: CGFloat = 0
+    @State private var headerHeight: CGFloat = 32
     @State private var hovering = false
     @State private var peeking = false
     var size: CGSize
     var body: some View {
-        let width = max(1, min(360, size.width - 32))
-        let height = max(1, min(360, size.height - 16))
+        let width = max(1, min(420, size.width - 32))
+        let height = StashLayout.height(content: contentHeight, header: headerHeight, available: size.height)
+        let family = stash.family
         let panelShape = UnevenRoundedRectangle(topLeadingRadius: 12, topTrailingRadius: 12)
         ZStack(alignment: .bottomTrailing) {
             VStack(spacing: 0) {
@@ -150,13 +165,22 @@ struct StashPocket: View {
                     Button { stash.toggle() } label: { Image(systemName: "xmark").font(.system(size: 11)) }
                         .buttonStyle(.plain).accessibilityLabel("Close Stash")
                 }.padding(.horizontal, 16).padding(.top, 16)
+                    .background(GeometryReader { geometry in
+                        Color.clear.preference(key: StashHeaderHeight.self, value: geometry.size.height)
+                    })
                 MarkdownEditor(draftID: "stash:" + (stash.family ?? ""), text: stash.text,
                                initialCursor: stash.cursor, initialScroll: stash.scroll,
                                onChange: stash.edited, onPosition: { stash.cursor = $0; stash.scroll = $1 },
-                               focusOnLoad: false, textSize: 17, lineSpacing: 5,
+                               focusOnLoad: false, textSize: 17, lineSpacing: lineSpacing,
                                accessibilityName: "Stash editor", onMount: { stash.editor = $0 },
                                onEscape: { stash.toggle() },
-                               textInsets: NSSize(width: 16, height: 16), fragmentPadding: 0)
+                               textInsets: NSSize(width: 16, height: 16), fragmentPadding: 0,
+                               onContentHeight: { measured in
+                                   DispatchQueue.main.async {
+                                       guard stash.family == family, abs(contentHeight - measured) > 0.5 else { return }
+                                       contentHeight = measured
+                                   }
+                               })
                     .overlay(alignment: .topLeading) {
                         if stash.text.isEmpty {
                             Text("Loose thoughts, cut passages…").font(.custom("Newsreader", size: 17))
@@ -175,20 +199,25 @@ struct StashPocket: View {
             .allowsHitTesting(stash.isOpen).accessibilityHidden(!stash.isOpen)
 
             Button { stash.toggle() } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "note.text")
-                    Text("Stash")
-                }.font(.system(size: 12)).padding(.horizontal, 14).padding(.vertical, peeking ? 12 : 9)
-                    .background(Color(Paper.background), in: UnevenRoundedRectangle(topLeadingRadius: 12, topTrailingRadius: 7))
-                    .overlay(alignment: .top) { Rectangle().fill(Color(Paper.ink).opacity(0.15)).frame(height: 1).padding(.horizontal, 8) }
-                    .shadow(color: .black.opacity(peeking ? 0.12 : 0.06), radius: 5)
+                VStack(spacing: 5) {
+                    Capsule().fill(Color(Paper.ink).opacity(0.25)).frame(width: 18, height: 2)
+                    Text("Stash").font(.system(size: 12, weight: .medium))
+                }
+                .frame(width: 76)
+                .padding(.top, peeking ? 11 : 8).padding(.bottom, 8)
+                .background(Color(Paper.background), in: UnevenRoundedRectangle(topLeadingRadius: 4, topTrailingRadius: 4))
+                .overlay(UnevenRoundedRectangle(topLeadingRadius: 4, topTrailingRadius: 4)
+                    .stroke(Color(Paper.ink).opacity(0.14), lineWidth: 1))
+                .shadow(color: .black.opacity(peeking ? 0.10 : 0.05), radius: 4, x: 0, y: -2)
             }.buttonStyle(.plain).onHover { hovering = $0 }
+                .padding(.trailing, 16)
                 .accessibilityLabel("Open Stash").help("Stash · ⇧⌘J")
                 .opacity(stash.isOpen ? 0 : 1).allowsHitTesting(!stash.isOpen).accessibilityHidden(stash.isOpen)
         }
+        .onPreferenceChange(StashHeaderHeight.self) { headerHeight = $0 }
         .foregroundStyle(Color(Paper.ink))
-        .animation(reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.78), value: stash.isOpen)
-        .animation(reduceMotion ? nil : .spring(response: 0.20, dampingFraction: 0.80), value: peeking)
+        .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.82), value: stash.isOpen)
+        .animation(reduceMotion ? nil : .spring(response: 0.26, dampingFraction: 0.84), value: peeking)
         .task(id: hovering) {
             if hovering {
                 do { try await Task.sleep(for: .milliseconds(100)) } catch { return }

@@ -10,7 +10,7 @@ struct MatildeApp: App {
         Window("Matilde", id: "main") {
             ContentView(model: model)
                 .frame(minWidth: 760, minHeight: 520)
-                .preferredColorScheme(.light)
+                .modifier(AppAppearanceModifier())
                 .onAppear { delegate.model = model; NSApp.activate(ignoringOtherApps: true) }
         }
         .defaultSize(width: 1180, height: 820)
@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 struct ContentView: View {
     @AppStorage(SettingKeys.textSize) private var writingTextSize = 19.0
-    @AppStorage(SettingKeys.lineSpacing) private var writingLineSpacing = 7.0
+    @AppStorage(SettingKeys.lineSpacing) private var writingLineSpacing = 9.0
     @AppStorage(SettingKeys.spellChecking) private var writingSpellChecking = false
     @ObservedObject var model: AppModel
     @State private var collapsedFolders: Set<String> = []
@@ -130,6 +130,7 @@ struct ContentView: View {
                         Button("Rename…") { model.sheet = .rename }
                         Button("Writing Goal…") { model.sheet = .goal }
                         Divider()
+                        Button("Copy Markdown", systemImage: "doc.on.doc") { model.copyMarkdown() }
                         Button("Show in Finder") { model.reveal() }
                         Divider()
                         Button("Move to Trash", role: .destructive) {
@@ -181,8 +182,11 @@ struct ContentView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
                     ForEach(model.folders, id: \.self) { folder in
-                        let items = model.drafts.filter { $0.folder == folder && (model.search.isEmpty || $0.title.localizedCaseInsensitiveContains(model.search)) }
-                        if !items.isEmpty || model.search.isEmpty {
+                        let items = model.drafts.filter { $0.folder == folder }
+                        let groups = SidebarOrder.groups(items).filter { group in
+                            model.search.isEmpty || ([group.root] + group.branches).contains { $0.title.localizedCaseInsensitiveContains(model.search) }
+                        }
+                        if !groups.isEmpty || model.search.isEmpty {
                             VStack(alignment: .leading, spacing: 1) {
                                 if !folder.isEmpty {
                                     Button {
@@ -199,22 +203,8 @@ struct ContentView: View {
                                     }.buttonStyle(.plain).help(folder)
                                 }
                                 if folder.isEmpty || !collapsedFolders.contains(folder) || !model.search.isEmpty {
-                                    ForEach(items.filter { candidate in
-                                        let family = items.filter { $0.family == candidate.family }
-                                        return (family.first { $0.parent == nil } ?? family.first)?.id == candidate.id
-                                    }) { root in
-                                        draftRow(root, indented: false)
-                                        let branches = items.filter { $0.family == root.family && $0.id != root.id }
-                                        if !branches.isEmpty {
-                                            VStack(spacing: 1) {
-                                                ForEach(branches) { branch in draftRow(branch, indented: true) }
-                                            }
-                                            .overlay(alignment: .leading) {
-                                                Rectangle().fill(Color(Paper.muted).opacity(0.25))
-                                                    .frame(width: 1).padding(.leading, 13).padding(.bottom, 9)
-                                                    .allowsHitTesting(false).accessibilityHidden(true)
-                                            }
-                                        }
+                                    ForEach(groups) { group in
+                                        draftRow(group)
                                     }
                                 }
                             }
@@ -226,43 +216,59 @@ struct ContentView: View {
                 if let draft = model.active { model.trashDraft(draft) }
             })
             .simultaneousGesture(TapGesture().onEnded { sidebarKeyboard.window?.makeFirstResponder(sidebarKeyboard) })
-        }.background(Color(red: 0.955, green: 0.949, blue: 0.933))
+            HStack {
+                SettingsLink { Image(systemName: "gearshape").font(.system(size: 14)) }
+                    .buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
+                    .help("Settings · ⌘,").accessibilityLabel("Settings")
+                Spacer()
+            }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 14)
+        }.background(Color(Paper.sidebar))
     }
     private func sidebarIcon(_ name: String) -> some View {
         Image(systemName: name).font(.system(size: 13, weight: .regular))
             .frame(width: 18, height: 18).foregroundStyle(Color(Paper.muted))
     }
-    private func draftRow(_ draft: Draft, indented: Bool) -> some View {
-        let selected = model.active?.id == draft.id
+    private func draftRow(_ group: SidebarDraftGroup) -> some View {
+        let draft = group.root
+        let selected = model.active?.family == group.id
+        var datedDraft = draft
+        datedDraft.editedAt = group.latestEdit
         return Button {
             sidebarKeyboard.window?.makeFirstResponder(sidebarKeyboard)
-            if model.boardVisible { model.persistBoard(); model.boardVisible = false; model.boardFlight = nil }
-            model.select(draft)
+            model.selectFamily(group.id)
         } label: {
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
                     Text(draft.title)
                         .font(.system(size: 13, weight: selected ? .semibold : .medium))
-                        .lineLimit(1)
-                    HStack(spacing: 5) {
-                        DraftTimestamp(draft: draft, compact: true).fixedSize()
-                        if !indented && draft.parent == nil && !draft.goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            if draft.editedAt != nil {
-                                Text("·").font(.system(size: 11)).foregroundStyle(Color(Paper.muted))
-                            }
-                            Text(draft.goal.replacingOccurrences(of: "\n", with: " "))
-                                .font(.system(size: 11)).foregroundStyle(Color(Paper.muted))
-                                .lineLimit(1)
+                        .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                    if !group.branches.isEmpty {
+                        HStack(spacing: 3) {
+                            Image(systemName: "arrow.triangle.branch")
+                            Text("\(group.branches.count)")
                         }
-                    }.frame(height: 14, alignment: .leading)
-                }.frame(maxWidth: .infinity, alignment: .leading)
-            }.padding(.leading, indented ? 26 : 8).padding(.trailing, 8).padding(.vertical, 9)
+                            .font(.system(size: 11)).foregroundStyle(Color(Paper.muted)).fixedSize()
+                            .accessibilityLabel("\(group.branches.count) alternate drafts")
+                            .help("\(group.branches.count) alternate drafts · Switch drafts above the document title")
+                    }
+                }
+                HStack(spacing: 8) {
+                    Text(draft.goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                         ? "No goal set" : draft.goal.replacingOccurrences(of: "\n", with: " "))
+                        .font(.system(size: 12)).foregroundStyle(Color(Paper.muted))
+                        .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                    DraftTimestamp(draft: datedDraft, compact: true).fixedSize()
+                }.frame(height: 14, alignment: .leading)
+            }.padding(.horizontal, 8).padding(.vertical, 9)
                 .background(Color(Paper.ink).opacity(selected ? 0.075 : hoveredDraft == draft.id ? 0.035 : 0), in: RoundedRectangle(cornerRadius: 5))
                 .contentShape(Rectangle())
-        }.buttonStyle(.plain).help(draft.path + "\n" + DraftDateFormat.details(draft))
+        }.buttonStyle(.plain).help(draft.path + "\n" + DraftDateFormat.details(datedDraft))
             .contextMenu {
-                Button("Move to Trash", systemImage: "trash", role: .destructive) { model.trashDraft(draft) }
-                    .disabled(model.isBranching || model.boardFlight != nil)
+                let target = selected ? model.active : (try? model.workspace?.lastFamilyDraft(group.id, among: model.drafts))
+                if let target {
+                    Button("Move ‘\(target.title)’ to Trash", systemImage: "trash", role: .destructive) { model.trashDraft(target) }
+                        .disabled(model.isBranching || model.boardFlight != nil)
+                }
             }
             .onHover { hoveredDraft = $0 ? draft.id : nil }
             .accessibilityAddTraits(selected ? .isSelected : [])
@@ -384,26 +390,13 @@ struct ContentView: View {
                         }.help("Branch draft · ⇧⌘B").accessibilityLabel("Branch draft").disabled(model.isBranching)
                     }.buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
                     Spacer()
-                    DraftTimestamp(draft: draft)
                 }.padding(.bottom, 12)
-                InlineTitle(model: model, draftID: draft.id).id(draft.id)
-                HStack(alignment: .firstTextBaseline, spacing: 9) {
-                    Image(systemName: "flag").font(.system(size: 13)).foregroundStyle(Color(Paper.muted))
-                    TextField("What do you want to write?", text: Binding(
-                        get: { model.headerGoal }, set: { model.editHeader(goal: $0) }
-                    ), axis: .vertical)
-                    .textFieldStyle(.plain).font(Font(Paper.body())).lineLimit(1...5)
-                    .foregroundStyle(Color(Paper.muted)).accessibilityLabel("Writing goal")
-                    .onKeyPress(.return, phases: .down) { press in
-                        guard !press.modifiers.contains(.shift) else { return .ignored }
-                        model.attempt { try model.flush() }
-                        guard let window = NSApp.keyWindow,
-                              let editor = findWritingView(window.contentView) as? WritingTextView else { return .ignored }
-                        window.makeFirstResponder(editor)
-                        editor.scrollRangeToVisible(editor.selectedRange())
-                        return .handled
-                    }
-                }
+                InlineTitle(model: model, draftID: draft.id) {
+                    guard let window = NSApp.keyWindow,
+                          let editor = findWritingView(window.contentView) as? WritingTextView else { return }
+                    window.makeFirstResponder(editor)
+                    editor.scrollRangeToVisible(editor.selectedRange())
+                }.id(draft.id)
             }.padding(.horizontal, 28).padding(.top, 29).padding(.bottom, 10).frame(maxWidth: 736)
             if draftsVisible {
                 DraftTray(model: model) {
@@ -441,21 +434,51 @@ struct ContentView: View {
 struct InlineTitle: View {
     @ObservedObject var model: AppModel
     let draftID: String
-    @FocusState private var focused: Bool
+    var focusBody: () -> Void
+    enum Field: Hashable { case title, goal }
+    @FocusState private var focused: Field?
     var body: some View {
-        TextField("Untitled", text: Binding(
-            get: { model.headerTitle }, set: { model.editHeader(title: $0) }
-        ), axis: .vertical)
-        .textFieldStyle(.plain).font(Font(Paper.body(31, bold: true)))
-        .fixedSize(horizontal: false, vertical: true)
-        .focused($focused).accessibilityLabel("Document title")
-        .onAppear {
-            if model.focusTitleID == draftID {
-                DispatchQueue.main.async { focused = true }
+        VStack(alignment: .leading, spacing: 15) {
+            TextField("Untitled", text: Binding(
+                get: { model.headerTitle }, set: { model.editHeader(title: $0) }
+            ), axis: .vertical)
+            .textFieldStyle(.plain).font(Font(Paper.body(31, bold: true)))
+            .fixedSize(horizontal: false, vertical: true)
+            .focused($focused, equals: .title).accessibilityLabel("Document title")
+            .onKeyPress(keys: [.downArrow, .return, .tab], phases: .down) { press in
+                guard press.modifiers.isEmpty else { return .ignored }
+                focused = .goal
+                return .handled
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 9) {
+                Image(systemName: "flag").font(.system(size: 13)).foregroundStyle(Color(Paper.muted))
+                TextField("What do you want to write?", text: Binding(
+                    get: { model.headerGoal }, set: { model.editHeader(goal: $0) }
+                ), axis: .vertical)
+                .textFieldStyle(.plain).font(Font(Paper.body())).lineLimit(1...5)
+                .foregroundStyle(Color(Paper.muted)).accessibilityLabel("Writing goal")
+                .focused($focused, equals: .goal)
+                .onKeyPress(keys: [.upArrow, .downArrow, .return, .tab], phases: .down) { press in
+                    guard press.modifiers.isEmpty else { return .ignored }
+                    if press.key == .upArrow { focused = .title }
+                    else {
+                        model.attempt { try model.flush() }
+                        focused = nil
+                        focusBody()
+                    }
+                    return .handled
+                }
             }
         }
-        .onChange(of: focused) { _, value in
-            if !value { model.focusTitleID = nil; model.attempt { try model.flush() } }
+        .onAppear {
+            if model.focusTitleID == draftID {
+                DispatchQueue.main.async { focused = .title }
+            }
+        }
+        .onChange(of: focused) { old, value in
+            if old == .title && value != .title {
+                model.focusTitleID = nil; model.attempt { try model.flush() }
+            }
         }
     }
 }
@@ -489,7 +512,7 @@ struct DocumentSheet: View {
             if kind == .document || kind == .goal {
                 VStack(alignment: .leading, spacing: 7) {
                     Text("Writing goal · optional").font(.system(size: 11)).foregroundStyle(.secondary)
-                    TextEditor(text: $goal).font(.system(size: 13)).scrollContentBackground(.hidden).padding(7).frame(height: 90).background(.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+                    TextEditor(text: $goal).font(.system(size: 13)).scrollContentBackground(.hidden).padding(7).frame(height: 90).background(Color(Paper.background), in: RoundedRectangle(cornerRadius: 6))
                 }
             }
             if let error { Text(error).font(.system(size: 12)).foregroundStyle(.red) }

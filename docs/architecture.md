@@ -113,3 +113,12 @@ The first build's high-level scope is agreed above; continue resolving its imple
 Move to Trash is available in the document menu and the sidebar, draft tray, and canvas context menus. It flushes pending edits, moves only the selected Markdown file to macOS Trash, and selects a remaining draft if needed. Children survive and reconnect to the removed draft’s parent; deleting a family root leaves its children as roots in the same family. Metadata is archived in `trashed_drafts`, and snapshots remain intact. A failed filesystem move rolls back metadata changes.
 
 Recover the Markdown file from macOS Trash. Returning it to the workspace currently imports it as a new draft; automatic restoration of archived goal, position, and family metadata is a follow-up.
+
+
+Sidebar refinement (2026-09-14): one row per document family, no expanded branch rows. Stable family title with a quiet alternate-draft count at right; second line places the goal and timestamp in matching 12-point type, timestamp right-aligned. Families sort by newest member edit. Opening a row restores the per-family last-used draft saved in SQLite state, falling back to the most recently edited visible member if missing. Search matches all family member titles while retaining the family row. The editor switcher and canvas remain the ways to choose other drafts. Context-menu Trash names the individual target draft; it never removes a whole family.
+
+
+Header interaction refinement (2026-09-14): the editor header omits edited-time text. Title Down/Enter/Tab moves to goal; goal Up returns to title, while Down/Enter/Tab moves to the body. Modified key combinations retain native behavior. Standalone divider completion advances to a new empty line in one undoable edit.
+
+
+Appearance (2026-09-14): General settings offers System (default), Light, and Dark, persisted in app preferences. Both SwiftUI windows and native AppKit controls follow the choice. Paper colors are adaptive, with neutral charcoal surfaces, soft near-white ink and desaturated accents in dark mode; sidebar, canvas, code backgrounds, stash and curl underside share the palette. Sidebar has a native Settings link anchored at bottom-left.

@@ -3,6 +3,7 @@ import AppKit
 import CoreText
 
 extension NSAttributedString.Key {
+    static let inlineCode = NSAttributedString.Key("MatildeInlineCode")
     static let codeBlock = NSAttributedString.Key("MatildeCodeBlock")
     static let divider = NSAttributedString.Key("MatildeDivider")
     static let quoteBlock = NSAttributedString.Key("MatildeQuoteBlock")
@@ -11,10 +12,27 @@ extension NSAttributedString.Key {
 }
 
 enum Paper {
-    static let background = NSColor(calibratedRed: 0.976, green: 0.965, blue: 0.938, alpha: 1)
-    static let ink = NSColor(calibratedRed: 0.24, green: 0.25, blue: 0.22, alpha: 1)
-    static let muted = NSColor(calibratedRed: 0.48, green: 0.48, blue: 0.43, alpha: 1)
-    static let accent = NSColor(calibratedRed: 0.48, green: 0.32, blue: 0.23, alpha: 1)
+    private static func adaptive(_ name: String, light: NSColor, dark: NSColor) -> NSColor {
+        NSColor(name: NSColor.Name("Matilde." + name)) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+        }
+    }
+    static let background = adaptive("paper", light: NSColor(calibratedRed: 0.976, green: 0.965, blue: 0.938, alpha: 1),
+                                     dark: NSColor(calibratedRed: 0.13, green: 0.132, blue: 0.135, alpha: 1))
+    static let ink = adaptive("ink", light: NSColor(calibratedRed: 0.24, green: 0.25, blue: 0.22, alpha: 1),
+                              dark: NSColor(calibratedRed: 0.87, green: 0.87, blue: 0.86, alpha: 1))
+    static let muted = adaptive("muted", light: NSColor(calibratedRed: 0.48, green: 0.48, blue: 0.43, alpha: 1),
+                                dark: NSColor(calibratedRed: 0.62, green: 0.625, blue: 0.63, alpha: 1))
+    static let accent = adaptive("accent", light: NSColor(calibratedRed: 0.48, green: 0.32, blue: 0.23, alpha: 1),
+                                 dark: NSColor(calibratedRed: 0.69, green: 0.65, blue: 0.60, alpha: 1))
+    static let sidebar = adaptive("sidebar", light: NSColor(calibratedRed: 0.955, green: 0.949, blue: 0.933, alpha: 1),
+                                  dark: NSColor(calibratedRed: 0.105, green: 0.107, blue: 0.11, alpha: 1))
+    static let canvas = adaptive("canvas", light: NSColor(calibratedRed: 0.916, green: 0.915, blue: 0.890, alpha: 1),
+                                 dark: NSColor(calibratedRed: 0.085, green: 0.087, blue: 0.09, alpha: 1))
+    static let underside = adaptive("underside", light: NSColor(calibratedRed: 0.955, green: 0.940, blue: 0.900, alpha: 1),
+                                    dark: NSColor(calibratedRed: 0.18, green: 0.182, blue: 0.185, alpha: 1))
+    static let codeBackground = adaptive("code", light: NSColor.black.withAlphaComponent(0.04),
+                                         dark: NSColor.white.withAlphaComponent(0.06))
     private static let fontBundle: Bundle = {
         if let url = Bundle.main.url(forResource: "Matilde_Matilde", withExtension: "bundle"), let bundle = Bundle(url: url) { return bundle }
         return Bundle.module
@@ -49,7 +67,7 @@ enum Paper {
 /// The text storage remains lossless Markdown; only glyphs and attributes change.
 /// Hidden delimiters consume no space, so no render/serialize cycle can rewrite a file.
 enum MarkdownStyler {
-    static func style(_ storage: NSMutableAttributedString, textSize: CGFloat = 19, lineSpacing: CGFloat = 7) {
+    static func style(_ storage: NSMutableAttributedString, textSize: CGFloat = 19, lineSpacing: CGFloat = 9) {
         let textSize = min(26, max(16, textSize))
         let full = NSRange(location: 0, length: storage.length)
         let paragraph = NSMutableParagraphStyle()
@@ -83,7 +101,7 @@ enum MarkdownStyler {
             }
             if fence != nil {
                 storage.addAttribute(.codeBlock, value: true, range: range)
-                storage.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: 15, weight: .regular), .backgroundColor: NSColor.black.withAlphaComponent(0.035)], range: range)
+                storage.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: 15, weight: .regular), .backgroundColor: Paper.codeBackground], range: range)
                 codeRanges.append(range)
                 continue
             }
@@ -93,11 +111,25 @@ enum MarkdownStyler {
                 storage.addAttributes([.divider: true, .foregroundColor: NSColor.clear], range: range)
                 continue
             }
-            if first("^(\\s*)([-*+] |[0-9]+[.)] )", in: line) != nil {
+            if let marker = first("^(\\s*)([-*+] |[0-9]+[.)] )", in: line) {
                 let listStyle = paragraph.mutableCopy() as! NSMutableParagraphStyle
-                listStyle.lineSpacing = 3
-                listStyle.paragraphSpacing = 3
-                listStyle.headIndent = 22
+                listStyle.paragraphSpacing = 6
+                // Match the rendered marker, not an arbitrary hanging indent.
+                // Replacement glyphs and concealed task syntax change its width.
+                let font = Paper.body(textSize)
+                let indentation = (line as NSString).substring(with: marker.range(at: 1))
+                let prefix: String
+                if first("^(\\s*)[-*+] \\[([ xX])\\] ", in: line) != nil {
+                    let symbolFont = NSFont(name: "Apple Symbols", size: 23) ?? NSFont.systemFont(ofSize: 19)
+                    let checked = first("^(\\s*)[-*+] \\[[xX]\\] ", in: line) != nil
+                    listStyle.headIndent = (indentation as NSString).size(withAttributes: [.font: font]).width
+                        + ((checked ? "☑" : "☐") as NSString).size(withAttributes: [.font: symbolFont]).width
+                        + (" " as NSString).size(withAttributes: [.font: font]).width
+                } else {
+                    prefix = first("^(\\s*)[-*+] ", in: line) != nil
+                        ? indentation + "• " : (line as NSString).substring(with: marker.range)
+                    listStyle.headIndent = (prefix as NSString).size(withAttributes: [.font: font]).width
+                }
                 storage.addAttribute(.paragraphStyle, value: listStyle, range: paragraphRange)
             }
             if let match = first("^(#{1,6}) ", in: line) {
@@ -128,7 +160,9 @@ enum MarkdownStyler {
         matches("`([^`\\n]+)`", in: storage.string).forEach { match in
             guard !codeRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return }
             let content = match.range(at: 1)
-            storage.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: 15, weight: .regular), .backgroundColor: NSColor.black.withAlphaComponent(0.04)], range: content)
+            let codeFont = NSFont.monospacedSystemFont(ofSize: textSize * 15 / 19, weight: .regular)
+            let baselineOffset = (Paper.body(textSize).xHeight - codeFont.xHeight) / 2
+            storage.addAttributes([.font: codeFont, .inlineCode: true, .baselineOffset: baselineOffset], range: content)
             conceal(NSRange(location: match.range.location, length: 1), in: storage)
             conceal(NSRange(location: NSMaxRange(content), length: 1), in: storage)
             codeRanges.append(match.range)
@@ -259,6 +293,11 @@ final class WritingTextView: NSTextView {
         }
         return super.performDragOperation(sender)
     }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+        layoutManager?.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: (string as NSString).length))
+    }
     private var ordinarySelectionAttributes: [NSAttributedString.Key: Any]?
     override func setSelectedRange(_ range: NSRange, affinity: NSSelectionAffinity, stillSelecting flag: Bool) {
         if ordinarySelectionAttributes == nil { ordinarySelectionAttributes = selectedTextAttributes }
@@ -274,6 +313,14 @@ final class WritingTextView: NSTextView {
         var children = super.accessibilityChildren() ?? []
         if let scrollingHeader { children.append(scrollingHeader) }
         return children
+    }
+    var onContentHeight: ((CGFloat) -> Void)?
+    func reportContentHeight() {
+        guard let onContentHeight, let layoutManager, let textContainer else { return }
+        layoutManager.ensureLayout(for: textContainer)
+        let used = max(layoutManager.usedRect(for: textContainer).maxY,
+                       layoutManager.extraLineFragmentRect.maxY)
+        onContentHeight(ceil(used + textContainerInset.height * 2))
     }
     private(set) var headerHeight: CGFloat = 0
     override func layout() {
@@ -293,6 +340,7 @@ final class WritingTextView: NSTextView {
             }
         }
         super.layout()
+        reportContentHeight()
     }
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -393,9 +441,24 @@ final class WritingTextView: NSTextView {
     override func moveLeft(_ sender: Any?) { super.moveLeft(sender); skipDivider(forward: false) }
     override func moveRight(_ sender: Any?) { super.moveRight(sender); skipDivider(forward: true) }
 
+    func alignedCaretRect(_ rect: NSRect) -> NSRect {
+        guard let storage = textStorage, let layoutManager, storage.length > 0 else { return rect }
+        let position = min(selectedRange().location, storage.length)
+        // Native geometry remains appropriate for the trailing empty paragraph.
+        guard position < storage.length || !(string.hasSuffix("\n")) else { return rect }
+        let character = min(position, storage.length - 1)
+        let glyph = layoutManager.glyphIndexForCharacter(at: character)
+        guard glyph < layoutManager.numberOfGlyphs else { return rect }
+        let line = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+        let font = storage.attribute(.font, at: character, effectiveRange: nil) as? NSFont ?? Paper.body()
+        let offset = storage.attribute(.baselineOffset, at: character, effectiveRange: nil) as? CGFloat ?? 0
+        let baseline = textContainerOrigin.y + line.minY + layoutManager.location(forGlyphAt: glyph).y - offset
+        return NSRect(x: rect.minX, y: baseline - font.capHeight - 2,
+                      width: rect.width, height: font.capHeight - font.descender + 4)
+    }
     override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
         guard dividerRange(at: selectedRange().location) == nil else { return }
-        super.drawInsertionPoint(in: rect, color: color, turnedOn: flag)
+        super.drawInsertionPoint(in: alignedCaretRect(rect), color: color, turnedOn: flag)
     }
 
     override func deleteBackward(_ sender: Any?) {
@@ -413,6 +476,28 @@ final class WritingTextView: NSTextView {
 
     override func magnify(with event: NSEvent) {
         // The writing-space boundary owns pinch navigation, including tail events.
+    }
+
+    override func insertText(_ insertString: Any, replacementRange: NSRange) {
+        let inserted = (insertString as? String) ?? (insertString as? NSAttributedString)?.string
+        let range = replacementRange.location == NSNotFound ? selectedRange() : replacementRange
+        if !hasMarkedText(), let inserted, ["-", "---"].contains(inserted), range.length == 0,
+           NSMaxRange(range) <= (string as NSString).length {
+            let proposed = (string as NSString).replacingCharacters(in: range, with: inserted)
+            let caret = range.location + (inserted as NSString).length
+            let source = proposed as NSString
+            let line = source.lineRange(for: NSRange(location: max(0, caret - 1), length: 0))
+            if source.substring(with: line).trimmingCharacters(in: .whitespacesAndNewlines) == "---",
+               caret == NSMaxRange(line) || (caret == NSMaxRange(line) - 1 && source.character(at: caret) == 10) {
+                let styled = NSMutableAttributedString(string: proposed)
+                MarkdownStyler.style(styled)
+                if styled.attribute(.divider, at: line.location, effectiveRange: nil) != nil {
+                    super.insertText(inserted + "\n", replacementRange: replacementRange)
+                    return
+                }
+            }
+        }
+        super.insertText(insertString, replacementRange: replacementRange)
     }
 
     override func insertNewline(_ sender: Any?) {
@@ -536,7 +621,7 @@ struct MarkdownEditor: NSViewRepresentable {
     var resolveImage: ((String) -> NSImage?)? = nil
     var mediaError: (String) -> Void = { _ in }
     var textSize: Double = 19
-    var lineSpacing: Double = 7
+    var lineSpacing: Double = 9
     var spellChecking = false
 
     var accessibilityName = "Writing editor"
@@ -544,11 +629,12 @@ struct MarkdownEditor: NSViewRepresentable {
     var onEscape: (() -> Void)? = nil
     var textInsets = NSSize(width: 28, height: 20)
     var fragmentPadding: CGFloat = 5
+    var onContentHeight: ((CGFloat) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
         let storage = NSTextStorage()
-        let layout = NSLayoutManager()
+        let layout = WritingLayoutManager()
         layout.delegate = context.coordinator
         let container = NSTextContainer(containerSize: NSSize(width: 680, height: CGFloat.greatestFiniteMagnitude))
         container.widthTracksTextView = true
@@ -583,6 +669,7 @@ struct MarkdownEditor: NSViewRepresentable {
         view.delegate = context.coordinator
         view.setAccessibilityLabel(accessibilityName)
         view.onEscape = onEscape
+        view.onContentHeight = onContentHeight
         onMount(view)
         let scroll = NSScrollView()
         scroll.documentView = view
@@ -601,6 +688,7 @@ struct MarkdownEditor: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         let styleChanged = context.coordinator.parent.textSize != textSize || context.coordinator.parent.lineSpacing != lineSpacing
         context.coordinator.parent = self
+        context.coordinator.view?.onContentHeight = onContentHeight
         context.coordinator.view?.isContinuousSpellCheckingEnabled = spellChecking
         context.coordinator.view?.saveImage = saveImage
         context.coordinator.view?.resolveImage = resolveImage
@@ -665,6 +753,7 @@ struct MarkdownEditor: NSViewRepresentable {
             view.layoutManager?.invalidateGlyphs(forCharacterRange: NSRange(location: 0, length: storage.length), changeInLength: 0, actualCharacterRange: nil)
             view.layoutManager?.ensureLayout(for: view.textContainer!)
             view.sizeToFit()
+            view.reportContentHeight()
             view.typingAttributes = [.font: Paper.body(CGFloat(parent.textSize)), .foregroundColor: Paper.ink]
         }
         func textDidChange(_ notification: Notification) {
@@ -704,6 +793,39 @@ struct MarkdownEditor: NSViewRepresentable {
                 }
             }
             return glyphRange.length
+        }
+    }
+}
+
+
+/// Draw inline-code backgrounds around letters, excluding line/paragraph spacing.
+final class WritingLayoutManager: NSLayoutManager {
+    func inlineCodeRects(forGlyphRange visible: NSRange) -> [NSRect] {
+        guard let storage = textStorage else { return [] }
+        var result: [NSRect] = []
+        let characters = characterRange(forGlyphRange: visible, actualGlyphRange: nil)
+        storage.enumerateAttribute(.inlineCode, in: characters) { value, range, _ in
+            guard value != nil else { return }
+            let codeGlyphs = glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            enumerateLineFragments(forGlyphRange: codeGlyphs) { line, _, container, fragment, _ in
+                let run = NSIntersectionRange(fragment, codeGlyphs)
+                guard run.length > 0 else { return }
+                let character = self.characterIndexForGlyph(at: run.location)
+                let font = storage.attribute(.font, at: character, effectiveRange: nil) as? NSFont ?? Paper.body()
+                let offset = storage.attribute(.baselineOffset, at: character, effectiveRange: nil) as? CGFloat ?? 0
+                let baseline = line.minY + self.location(forGlyphAt: run.location).y - offset
+                let bounds = self.boundingRect(forGlyphRange: run, in: container)
+                result.append(NSRect(x: bounds.minX - 2, y: baseline - font.capHeight - 2,
+                                     width: bounds.width + 4, height: font.capHeight - font.descender + 4))
+            }
+        }
+        return result
+    }
+    override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
+        super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
+        Paper.codeBackground.setFill()
+        for rect in inlineCodeRects(forGlyphRange: glyphsToShow) {
+            NSBezierPath(roundedRect: rect.offsetBy(dx: origin.x, dy: origin.y), xRadius: 2, yRadius: 2).fill()
         }
     }
 }

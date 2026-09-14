@@ -126,7 +126,7 @@ final class CurlSceneView: SCNView {
     private static func underside(_ image: NSImage) -> NSImage {
         let result = NSImage(size: image.size)
         result.lockFocus()
-        NSColor(calibratedRed: 0.955, green: 0.940, blue: 0.900, alpha: 1).setFill()
+        Paper.underside.setFill()
         NSRect(origin: .zero, size: image.size).fill()
         image.draw(in: NSRect(origin: .zero, size: image.size), from: .zero, operation: .sourceOver, fraction: 0.045)
         result.unlockFocus()

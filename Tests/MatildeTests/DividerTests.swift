@@ -40,6 +40,28 @@ final class DividerTests: XCTestCase {
         XCTAssertEqual(view.string, "---\n")
     }
 
+    @MainActor
+    func testCompletingDividerMovesCaretBelowAndUndoesAsOneEdit() {
+        let view = WritingTextView(frame: NSRect(x: 0, y: 0, width: 680, height: 500))
+        let delegate = DividerUndoDelegate()
+        view.delegate = delegate; view.allowsUndo = true
+        view.string = "日本語\n--"
+        view.setSelectedRange(NSRange(location: (view.string as NSString).length, length: 0))
+        delegate.history.beginUndoGrouping()
+        view.insertText("-", replacementRange: view.selectedRange())
+        delegate.history.endUndoGrouping()
+        XCTAssertEqual(view.string, "日本語\n---\n")
+        XCTAssertEqual(view.selectedRange(), NSRange(location: (view.string as NSString).length, length: 0))
+        delegate.history.undo()
+        XCTAssertEqual(view.string, "日本語\n--")
+        for source in ["```\n--", "ordinary --"] {
+            view.string = source
+            view.setSelectedRange(NSRange(location: (source as NSString).length, length: 0))
+            view.insertText("-", replacementRange: view.selectedRange())
+            XCTAssertEqual(view.string, source + "-")
+        }
+    }
+
     func testDividerIsLosslessAndOnlyStandaloneOutsideCode() {
         let source = "日本語 🌱\n---\nAfter\ntext --- text\n--\n```\n---\n```\n`---`\n  ---  "
         let text = NSMutableAttributedString(string: source)

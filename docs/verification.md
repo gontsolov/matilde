@@ -200,3 +200,61 @@ Stash is 360 points tall (previously 300), meets the bottom window edge, and rou
 ## 2026-09-14 — Version 0.1.6 release preparation
 
 Owner explicitly requested committing, pushing, and a new version. Local default set to 0.1.6 with stash release notes. Existing STASH-02 verification gaps remain tracked; release automation will rerun tests, build universal binaries, and verify signed artifacts before publication.
+
+
+## 2026-09-14 — Stash pull-tab refinement
+
+Replaced the tucked document-icon button with a 76-point-wide Stash pull tab, small grip, symmetric 4-point upper corners and square lower corners. Extra right inset keeps the tab clear of native window-corner clipping. Spring response increased from 0.24 to 0.32 seconds with 0.82 damping, and hover from 0.20 to 0.26 seconds with 0.84 damping. Production build/signature and diff whitespace checks passed. Live inspection/restart was blocked by the locked Mac; no UI verification is claimed.
+
+
+## 2026-09-14 — Roomier lines and list alignment
+
+55 Swift tests ran, one opt-in Keychain skip, no failures; production build/signature and whitespace checks passed. A native glyph-layout regression verifies first-word/continuation alignment for bullets, numbered lists, and both checklist states at 17, 19, and 24 points, along with preference preservation and unchanged Markdown. Restarted normally and visually inspected existing writing without editing it: roomier lists in both editors, aligned wraps, and the wider 420-point stash. Existing custom line-spacing preferences are preserved; default is now 9 points.
+
+
+## 2026-09-14 — Adaptive stash height
+
+56 Swift tests ran with one opt-in Keychain skip and no failures; production app/signature checks passed. Native measurement test covers short content, long wrapping content, narrower container reflow, available-window clamping, and clearing content back to minimum height. Live restart/inspection was deferred when computer use detected owner activity and fresh state showed ongoing stash writing; no text was edited by the agent. Updated build is ready for the next normal restart.
+
+
+## 2026-09-14 — Sidebar newest first
+
+Sidebar-only grouping sorts document families by their latest member edit and branches newest-first beneath a stable representative. Folder order remains unchanged. Regression tests cover recent branch activity, parent preservation, standalone ordering, filtered/orphan groups and deterministic ties. 58 Swift tests ran with one opt-in skip and no failures; build/signature checks passed. Restarted normally and confirmed Plugins changelog first, Matilde product inspiration second, then older families. No writing was edited.
+
+
+## 2026-09-14 — Compact family sidebar
+
+59 Swift tests ran, one opt-in Keychain skip, no failures; production build/signature and whitespace checks passed. New persistence regression covers remembering a branch independently of another family, reopening the workspace, missing remembered drafts, and selecting the original again. Restarted normally and inspected one row per family, alternate counts, matching goal/timestamp typography and right alignment. Owner text was not edited. Per-family persistence is regression-tested; no manual draft-switch exercise was performed on owner writing.
+
+
+## 2026-09-14 — Sidebar fallback and count spacing
+
+Empty/whitespace-only sidebar goals display “No goal set”. Branch icon/count use an explicit 3-point gap. Production build/signature checks passed; normal restart and screenshot inspection confirmed both changes without editing writing.
+
+
+## 2026-09-14 — Header navigation and divider entry
+
+Removed the editor-header timestamp. Title and goal now share a focus scope: unmodified Down/Return/Tab advance, Up from goal returns to title; modified keys retain native behavior. Completing a standalone divider by typing the third hyphen (or inserting three hyphens) inserts the following newline in the same native edit, leaving an empty caret below. Inline dashes and fenced code stay literal. 60 Swift tests ran with one opt-in skip and no failures, including Unicode divider completion/caret, undo, and code exclusion. Production build/signature checks passed. Live restart was deferred when computer use reported owner interaction; keyboard UI verification remains EDIT-14.
+
+
+## 2026-09-14 — Dark mode and sidebar Settings
+
+61 Swift tests ran with one opt-in Keychain skip and no failures; production build/signature checks passed. New palette test resolves light/dark colors and verifies body-text contrast above 7:1. Live verification opened Settings via the sidebar gear, selected General → Dark, inspected native writing/code text, sidebar, stash and canvas previews, then quit/relaunched to verify persistence. Left Dark selected. No writing was edited. System-following uses native appearance inheritance; automatic OS switching and branch-curl appearance remain unverified live.
+
+
+## 2026-09-14 — Neutral dark palette
+
+Reduced dark-mode saturation across paper, sidebar, canvas, underside, ink and accents. Light palette unchanged. Palette/contrast test and production build/signature checks passed. Normal restart and live visual inspection confirmed neutral charcoal surfaces and less yellow text; no writing edited.
+
+
+### 2026-09-14 — Caret and inline-code alignment
+
+- Caret drawing now uses the current glyph baseline and font cap height/descender instead of the full native insertion rectangle. Empty trailing paragraphs retain native geometry.
+- Inline code uses a custom layout-manager background fitted to each wrapped run, avoiding highlights that extend through paragraph spacing. Its monospaced font scales with writing size and aligns by x-height.
+- Added regression coverage for wrapped inline code, Unicode source preservation, three font sizes, and two line-spacing values. `swift test --disable-sandbox`: 62 tests, one existing skip, no failures. App assembly and signature verification passed.
+- Relaunched normally and inspected the existing document without changing its text: dark-mode inline-code highlight is compact and the caret sits beside the letters. Light-mode visual inspection was not repeated for this change.
+
+
+### 2026-09-14 — Copy current draft
+
+Added Copy Markdown to the document actions menu. It writes the live model body to the native clipboard as a string, preserving Markdown and including edits before autosave. Title, goal, and stash are excluded. Build/signature checks passed; restarted normally and confirmed the enabled menu entry. Cross-app paste was not exercised, and owner writing was not modified.

@@ -178,7 +178,7 @@ struct DraftBoard: View {
         GeometryReader { geometry in
             let size = geometry.size
             ZStack {
-                Color(red: 0.916, green: 0.915, blue: 0.890)
+                Color(Paper.canvas)
                 Canvas { context, dimensions in
                     var dots = Path()
                     // Screen-space spacing keeps the texture quiet at every zoom.

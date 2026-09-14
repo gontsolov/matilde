@@ -30,6 +30,94 @@ final class EditorInteractionTests: XCTestCase {
         XCTAssertEqual(view.headerHeight, shortHeight, accuracy: 1)
     }
 
+    func testListWrapsAlignWithFirstWordAndHonorSpacing() throws {
+        for size in [17.0, 19.0, 24.0] {
+            for prefix in ["- ", "12. ", "- [ ] ", "- [x] "] {
+                let source = prefix + String(repeating: "sample words for wrapping ", count: 6)
+                let parent = MarkdownEditor(draftID: "list", text: source, initialCursor: 0, initialScroll: 0,
+                                            onChange: { _ in }, onPosition: { _, _ in })
+                let coordinator = parent.makeCoordinator()
+                let view = editor(source)
+                let layout = try XCTUnwrap(view.layoutManager)
+                let container = try XCTUnwrap(view.textContainer)
+                container.widthTracksTextView = false
+                container.containerSize = NSSize(width: 220, height: 2000)
+                container.lineFragmentPadding = 0
+                layout.delegate = coordinator
+                MarkdownStyler.style(view.textStorage!, textSize: size, lineSpacing: 9)
+                layout.ensureLayout(for: container)
+                let firstWord = layout.glyphIndexForCharacter(at: (prefix as NSString).length)
+                var firstLine = NSRange()
+                _ = layout.lineFragmentRect(forGlyphAt: firstWord, effectiveRange: &firstLine)
+                let firstX = layout.location(forGlyphAt: firstWord).x
+                let secondRect = layout.lineFragmentRect(forGlyphAt: NSMaxRange(firstLine), effectiveRange: nil)
+                let secondX = secondRect.minX + layout.location(forGlyphAt: NSMaxRange(firstLine)).x
+                XCTAssertEqual(firstX, secondX, accuracy: 1, "\(prefix) at \(size)")
+                let style = try XCTUnwrap(view.textStorage?.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
+                XCTAssertEqual(style.lineSpacing, 9)
+                XCTAssertEqual(view.string, source)
+            }
+        }
+    }
+
+    func testStashMeasuresWrappedContentAndGrowsUntilWindowLimit() throws {
+        let view = editor("A short note")
+        let container = try XCTUnwrap(view.textContainer)
+        container.widthTracksTextView = false
+        container.containerSize = NSSize(width: 380, height: 100000)
+        var measured: CGFloat = 0
+        view.onContentHeight = { measured = $0 }
+        MarkdownStyler.style(view.textStorage!)
+        view.reportContentHeight()
+        XCTAssertEqual(StashLayout.height(content: measured, header: 32, available: 800), 420)
+        view.string = String(repeating: "A disposable line that wraps across the writing space.\n", count: 12)
+        MarkdownStyler.style(view.textStorage!)
+        view.reportContentHeight()
+        let expanded = StashLayout.height(content: measured, header: 32, available: 1400)
+        XCTAssertGreaterThan(expanded, 420)
+        let wideHeight = measured
+        container.containerSize.width = 180
+        view.reportContentHeight()
+        XCTAssertGreaterThan(measured, wideHeight)
+        XCTAssertEqual(StashLayout.height(content: measured, header: 32, available: 500), 484)
+        view.string = ""
+        view.reportContentHeight()
+        XCTAssertEqual(StashLayout.height(content: measured, header: 32, available: 800), 420)
+    }
+
+    func testCaretAndInlineCodeExcludeExtraLineSpacing() throws {
+        let source = "Some 日本語 with `sample code that wraps across lines` here."
+        for size in [17.0, 19.0, 24.0] {
+            var previousHeight: CGFloat?
+            for spacing in [3.0, 15.0] {
+                let storage = NSTextStorage(string: source)
+                let layout = WritingLayoutManager()
+                let container = NSTextContainer(size: NSSize(width: 220, height: 2000))
+                storage.addLayoutManager(layout)
+                layout.addTextContainer(container)
+                let view = WritingTextView(frame: NSRect(x: 0, y: 0, width: 220, height: 2000), textContainer: container)
+                container.widthTracksTextView = false
+                MarkdownStyler.style(storage, textSize: size, lineSpacing: spacing)
+                layout.ensureLayout(for: container)
+                let range = (source as NSString).range(of: "sample")
+                XCTAssertNotNil(storage.attribute(.inlineCode, at: range.location, effectiveRange: nil))
+                XCTAssertNil(storage.attribute(.backgroundColor, at: range.location, effectiveRange: nil))
+                let backgrounds = layout.inlineCodeRects(forGlyphRange: NSRange(location: 0, length: layout.numberOfGlyphs))
+                XCTAssertGreaterThan(backgrounds.count, 1)
+                let height = try XCTUnwrap(backgrounds.first).height
+                if let previousHeight { XCTAssertEqual(height, previousHeight, accuracy: 0.01) }
+                previousHeight = height
+                for rect in backgrounds { XCTAssertEqual(rect.height, height, accuracy: 0.01) }
+                view.setSelectedRange(NSRange(location: range.location, length: 0))
+                let caret = view.alignedCaretRect(NSRect(x: 42, y: 0, width: 1, height: 100))
+                XCTAssertEqual(caret.height, height, accuracy: 0.01)
+                XCTAssertEqual(caret.minY, backgrounds[0].minY + view.textContainerOrigin.y, accuracy: 0.01)
+                XCTAssertEqual(caret.minX, 42)
+                XCTAssertEqual(storage.string, source)
+            }
+        }
+    }
+
     private func editor(_ text: String, selection: NSRange? = nil) -> WritingTextView {
         let view = WritingTextView(frame: NSRect(x: 0, y: 0, width: 680, height: 500))
         view.isRichText = false
