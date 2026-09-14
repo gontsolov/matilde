@@ -9,6 +9,8 @@ struct Draft: Identifiable, Hashable {
     var goal: String
     var cursor: Int
     var scroll: Double
+    var createdAt: Date?
+    var editedAt: Date?
     var title: String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
     var folder: String {
         let value = (path as NSString).deletingLastPathComponent
@@ -38,6 +40,7 @@ final class Database {
         try execute("CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, source TEXT NOT NULL, child TEXT NOT NULL, path TEXT NOT NULL, created TEXT NOT NULL)")
         try execute("CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         try execute("PRAGMA user_version = 1")
+        try execute("CREATE TABLE IF NOT EXISTS draft_dates (id TEXT PRIMARY KEY, created REAL NOT NULL, edited REAL NOT NULL)")
     }
     deinit { sqlite3_close(handle) }
 
@@ -132,8 +135,28 @@ final class Workspace {
 
     func allDrafts() throws -> [Draft] {
         try db.execute("SELECT * FROM drafts").map {
-            Draft(id: $0["id"]!, path: $0["path"]!, family: $0["family"]!, parent: $0["parent"], goal: $0["goal"] ?? "", cursor: Int($0["cursor"] ?? "0") ?? 0, scroll: Double($0["scroll"] ?? "0") ?? 0)
+            try dated(Draft(id: $0["id"]!, path: $0["path"]!, family: $0["family"]!, parent: $0["parent"], goal: $0["goal"] ?? "", cursor: Int($0["cursor"] ?? "0") ?? 0, scroll: Double($0["scroll"] ?? "0") ?? 0))
         }
+    }
+    // Preserve the imported creation date across atomic saves. File modification
+    // dates remain authoritative for external edits; metadata edits are tracked separately.
+    private func dated(_ draft: Draft) throws -> Draft {
+        var result = draft
+        let values = try? url(for: draft.path).resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
+        if let created = values?.creationDate ?? values?.contentModificationDate {
+            try db.execute("INSERT OR IGNORE INTO draft_dates VALUES (?,?,?)", [draft.id, String(created.timeIntervalSince1970), String((values?.contentModificationDate ?? created).timeIntervalSince1970)])
+        }
+        if let row = try db.execute("SELECT * FROM draft_dates WHERE id=?", [draft.id]).first {
+            result.createdAt = Double(row["created"] ?? "").map(Date.init(timeIntervalSince1970:))
+            result.editedAt = Double(row["edited"] ?? "").map(Date.init(timeIntervalSince1970:))
+        }
+        if let modified = values?.contentModificationDate {
+            result.editedAt = max(result.editedAt ?? modified, modified)
+        }
+        return result
+    }
+    private func touch(_ draft: Draft) throws {
+        try db.execute("UPDATE draft_dates SET edited=? WHERE id=?", [String(Date().timeIntervalSince1970), draft.id])
     }
     func read(_ draft: Draft) throws -> String { try String(contentsOf: url(for: draft.path), encoding: .utf8) }
     /// Trash only this file. Keep its metadata and snapshots as history, and reconnect children.
@@ -154,7 +177,12 @@ final class Workspace {
             throw error
         }
     }
-    func save(_ draft: Draft, text: String) throws { try text.write(to: url(for: draft.path), atomically: true, encoding: .utf8) }
+    func save(_ draft: Draft, text: String) throws {
+        _ = try dated(draft)
+        // Branching/explicit saves of unchanged writing must not reset its age.
+        guard try read(draft) != text else { return }
+        try text.write(to: url(for: draft.path), atomically: true, encoding: .utf8)
+    }
 
     func validName(_ name: String) throws -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -176,7 +204,7 @@ final class Workspace {
         try text.write(to: file, atomically: true, encoding: .utf8)
         do { try db.execute("INSERT INTO drafts (id,path,family,goal) VALUES (?,?,?,?)", [id, path, id, goal]) }
         catch { try? fm.removeItem(at: file); throw error }
-        return Draft(id: id, path: path, family: id, parent: nil, goal: goal, cursor: 0, scroll: 0)
+        return try dated(Draft(id: id, path: path, family: id, parent: nil, goal: goal, cursor: 0, scroll: 0))
     }
     func createUntitled(folder: String) throws -> Draft {
         var name = "Untitled"
@@ -220,18 +248,26 @@ final class Workspace {
         } catch {
             try? fm.removeItem(at: snapshotURL); try? fm.removeItem(at: childURL); throw error
         }
-        return Draft(id: child, path: path, family: source.family, parent: source.id, goal: source.goal, cursor: source.cursor, scroll: source.scroll)
+        return try dated(Draft(id: child, path: path, family: source.family, parent: source.id, goal: source.goal, cursor: source.cursor, scroll: source.scroll))
     }
     func rename(_ draft: Draft, name: String) throws {
         let path = try filePath(name: name, folder: draft.folder)
         if path == draft.path { return }
+        _ = try dated(draft)
         let old = try url(for: draft.path), new = try url(for: path)
         guard !fm.fileExists(atPath: new.path) else { throw WorkspaceError.message("A file with that name already exists.") }
         try fm.moveItem(at: old, to: new)
         do { try db.execute("UPDATE drafts SET path=? WHERE id=?", [path, draft.id]) }
         catch { try? fm.moveItem(at: new, to: old); throw error }
+        try touch(draft)
     }
-    func goal(_ draft: Draft, text: String) throws { try db.execute("UPDATE drafts SET goal=? WHERE id=?", [text, draft.id]) }
+    func goal(_ draft: Draft, text: String) throws {
+        _ = try dated(draft)
+        let current = try db.execute("SELECT goal FROM drafts WHERE id=?", [draft.id]).first?["goal"]
+        guard current != text else { return }
+        try db.execute("UPDATE drafts SET goal=? WHERE id=?", [text, draft.id])
+        try touch(draft)
+    }
     func position(_ draft: Draft, cursor: Int, scroll: Double) throws {
         try db.execute("UPDATE drafts SET cursor=?, scroll=? WHERE id=?", [String(cursor), String(scroll), draft.id])
     }

@@ -106,7 +106,13 @@ final class AppModel: ObservableObject {
     func refresh() throws {
         guard let workspace else { return }
         let contents = try workspace.scan()
-        if drafts != contents.drafts { drafts = contents.drafts }
+        if drafts != contents.drafts {
+            drafts = contents.drafts
+            let current = Dictionary(uniqueKeysWithValues: drafts.map { ($0.id, $0) })
+            boardSheets = boardSheets.map { sheet in
+                BoardSheet(draft: current[sheet.id] ?? sheet.draft, excerpt: sheet.excerpt, position: sheet.position)
+            }
+        }
         if folders != contents.folders { folders = contents.folders }
         if let id = active?.id, let updated = drafts.first(where: { $0.id == id }), updated != active { active = updated }
     }

@@ -159,4 +159,19 @@ After the owner unlocked the Mac, quit normally and relaunched the built app. Co
 
 ## Public release 0.1.4 — 2026-09-14
 
+
 Published on the owner's explicit request from `9464112`. CI 34786903569 passed tests, app build, and packaging. Release run 34787070147 passed tests, universal build, packaging, archive/feed signing and verification, and publication. GitHub confirms v0.1.4 is public and stable with all three assets uploaded. The stable feed advertises 0.1.4; the public DMG returns HTTP 200 at 5,212,431 bytes. A fresh updater install/relaunch was not performed for this release. Settings live-control/persistence checks remain open as documented above. Distribution remains ad-hoc signed, not Apple-notarized. The non-fatal Node 20 action-runtime deprecation warning remains.
+
+## Document timestamps — 2026-09-14
+
+
+Added relative edited dates to compact sidebar rows, document header, and canvas footer, refreshing every minute. Hover/accessibility exposes exact creation and edit dates. A separate `draft_dates` table preserves imported filesystem creation dates across atomic saves and tracks goal/title edits; filesystem modification dates expose external edits. Navigation, unchanged saves, and branching unchanged source text do not reset its age. Existing files cannot recover creation history already lost before import.
+
+50 Swift tests ran with one opt-in Keychain test skipped and no failures. Timestamp tests cover relative labels, future-date clamping, imported dates, unchanged saves, navigation, branching, edits, rename, goal changes, reopening, and external modification. App build/signature checks pass. Quit normally and relaunched the built app; visually confirmed timestamps in sidebar, document header, and canvas without editing owner writing. No release or version bump.
+
+## Two-line sidebar — 2026-09-14
+
+
+Expanded document rows from 30 points to approximately 53 points. Titles occupy their own line; relative timestamps and optional main-document goals share a muted second line. Branches retain indentation and omit goals, including when search promotes a branch into the top row. Blank goals add no placeholder or separator. Existing selection, context menus, and keyboard handlers are unchanged. Build/signature checks pass; quit normally, relaunched, and visually checked populated/empty main rows and branches without changing writing. Unit tests were not rerun for this layout-only change. No release/version bump.
+
+Follow-up: removed document and branch icons, increased sidebar timestamps from 10 to 12 points, and grouped each family's branches under one continuous 1-point muted vertical guide. The guide is decorative and does not intercept clicks or accessibility. Build/signature checks pass; restarted normally and visually verified guides under two parents, standalone items without guides, and larger timestamps. No writing edited; unit tests not rerun for this presentation-only refinement.

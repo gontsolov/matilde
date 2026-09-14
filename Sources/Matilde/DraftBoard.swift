@@ -376,8 +376,12 @@ struct BoardPageContent: View {
             Text(sheet.draft.title).font(Font(Paper.body(23, bold: true))).lineLimit(3)
             Text(sheet.excerpt.isEmpty ? "" : sheet.excerpt).font(Font(Paper.body(16))).lineSpacing(4).lineLimit(8).foregroundStyle(Color(Paper.ink).opacity(0.85))
             Spacer(minLength: 0)
-            if active {
-                Image(systemName: "pencil.tip").font(.system(size: 11)).foregroundStyle(Color(Paper.accent)).frame(maxWidth: .infinity, alignment: .trailing)
+            HStack {
+                DraftTimestamp(draft: sheet.draft)
+                Spacer(minLength: 4)
+                if active {
+                    Image(systemName: "pencil.tip").font(.system(size: 11)).foregroundStyle(Color(Paper.accent))
+                }
             }
         }.padding(23).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }

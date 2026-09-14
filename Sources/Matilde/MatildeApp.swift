@@ -200,7 +200,17 @@ struct ContentView: View {
                                         return (family.first { $0.parent == nil } ?? family.first)?.id == candidate.id
                                     }) { root in
                                         draftRow(root, indented: false)
-                                        ForEach(items.filter { $0.family == root.family && $0.id != root.id }) { branch in draftRow(branch, indented: true) }
+                                        let branches = items.filter { $0.family == root.family && $0.id != root.id }
+                                        if !branches.isEmpty {
+                                            VStack(spacing: 1) {
+                                                ForEach(branches) { branch in draftRow(branch, indented: true) }
+                                            }
+                                            .overlay(alignment: .leading) {
+                                                Rectangle().fill(Color(Paper.muted).opacity(0.25))
+                                                    .frame(width: 1).padding(.leading, 13).padding(.bottom, 9)
+                                                    .allowsHitTesting(false).accessibilityHidden(true)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -225,14 +235,27 @@ struct ContentView: View {
             if model.boardVisible { model.persistBoard(); model.boardVisible = false; model.boardFlight = nil }
             model.select(draft)
         } label: {
-            HStack(spacing: 8) {
-                sidebarIcon(indented ? "arrow.turn.down.right" : "doc.text")
-                Text(draft.title).font(.system(size: 13, weight: selected ? .medium : .regular)).lineLimit(1)
-                Spacer(minLength: 0)
-            }.padding(.leading, indented ? 26 : 8).padding(.trailing, 8).frame(height: 30)
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(draft.title)
+                        .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        DraftTimestamp(draft: draft, compact: true).fixedSize()
+                        if !indented && draft.parent == nil && !draft.goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            if draft.editedAt != nil {
+                                Text("·").font(.system(size: 11)).foregroundStyle(Color(Paper.muted))
+                            }
+                            Text(draft.goal.replacingOccurrences(of: "\n", with: " "))
+                                .font(.system(size: 11)).foregroundStyle(Color(Paper.muted))
+                                .lineLimit(1)
+                        }
+                    }.frame(height: 14, alignment: .leading)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }.padding(.leading, indented ? 26 : 8).padding(.trailing, 8).padding(.vertical, 9)
                 .background(Color(Paper.ink).opacity(selected ? 0.075 : hoveredDraft == draft.id ? 0.035 : 0), in: RoundedRectangle(cornerRadius: 5))
                 .contentShape(Rectangle())
-        }.buttonStyle(.plain).help(draft.path)
+        }.buttonStyle(.plain).help(draft.path + "\n" + DraftDateFormat.details(draft))
             .contextMenu {
                 Button("Move to Trash", systemImage: "trash", role: .destructive) { model.trashDraft(draft) }
                     .disabled(model.isBranching || model.boardFlight != nil)
@@ -352,6 +375,7 @@ struct ContentView: View {
                         }.help("Branch draft · ⇧⌘B").accessibilityLabel("Branch draft").disabled(model.isBranching)
                     }.buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
                     Spacer()
+                    DraftTimestamp(draft: draft)
                 }.padding(.bottom, 12)
                 InlineTitle(model: model, draftID: draft.id).id(draft.id)
                 HStack(alignment: .firstTextBaseline, spacing: 9) {
