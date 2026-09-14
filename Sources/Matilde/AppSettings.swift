@@ -14,6 +14,9 @@ struct APIKeyStore {
     init(service: String = "app.matilde.credentials", account: String = "langdock") {
         self.service = service; self.account = account
     }
+    private static let session = CredentialSessionCache()
+    private var cacheID: String { "\(service.utf8.count):\(service)\(account)" }
+    var cachedKey: String? { Self.session.cached(for: cacheID) }
     private var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
          kSecAttrService as String: service, kSecAttrAccount as String: account]
@@ -31,6 +34,7 @@ struct APIKeyStore {
     func save(_ key: String) throws {
         let cleaned = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty else { throw KeyError.empty }
+        Self.session.store(nil, for: cacheID)
         let changes = [kSecValueData as String: Data(cleaned.utf8)]
         let status = SecItemUpdate(query as CFDictionary, changes as CFDictionary)
         if status == errSecItemNotFound {
@@ -39,10 +43,14 @@ struct APIKeyStore {
             item[kSecAttrLabel as String] = "Matilde — Langdock API key"
             try check(SecItemAdd(item as CFDictionary, nil))
         } else { try check(status) }
+        Self.session.store(cleaned, for: cacheID)
     }
     /// Only callers making an authorized provider request should retrieve the key.
     /// Settings uses an attributes-only query and never loads it into the UI.
     func load() throws -> String? {
+        try Self.session.load(for: cacheID) { try readKeychain() }
+    }
+    private func readKeychain() throws -> String? {
         var request = query
         request[kSecReturnData as String] = true
         request[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -54,6 +62,7 @@ struct APIKeyStore {
         return key
     }
     func remove() throws {
+        Self.session.store(nil, for: cacheID)
         let status = SecItemDelete(query as CFDictionary)
         if status != errSecItemNotFound { try check(status) }
     }
@@ -147,7 +156,7 @@ struct AppSettingsView: View {
                         Button(loadingModels ? "Loading…" : "Load models") { loadModels() }.disabled(!hasKey || loadingModels)
                     }
                     if let connectionMessage { Text(connectionMessage).font(.caption).foregroundStyle(.secondary) }
-                    Text("Review now sends the active draft’s title, goal and text to Langdock. Stash, other drafts and image files are excluded. Reviews stay in your workspace; rewrites change your text only when you accept them. Your API key stays in Keychain.")
+                    Text("Reviews send the active draft’s title, goal and text to Langdock, manually or after 30 seconds without typing. Pause automatic reviews from Writing assist. Replies include the relevant comment thread. Stash, other drafts and image files are excluded. Reviews stay in your workspace; rewrites change your text only when you accept them. Your API key stays in Keychain.")
                         .font(.callout).foregroundStyle(.secondary)
                     if let keyError { Text(keyError).foregroundStyle(.red).font(.callout) }
                 }

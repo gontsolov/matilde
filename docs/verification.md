@@ -380,3 +380,51 @@ Seven review tests and the ARM app/signature build passed. Restarted and verifie
 ### 2026-09-14 — 0.1.11 release preparation
 
 Final header name is Writing assist, including accessibility/help text and current product documentation. Normal restart confirmed the new name. Owner requested publication: version set to 0.1.11 with release notes covering the always-visible header and aligned Review action. Full Swift suite passed (80 tests, one opt-in skip), both Python release tests and ARM app/signature build passed.
+
+## Writing assist follow-up and comparison persistence — 2026-09-14
+
+- 86 Swift tests passed, one existing opt-in test skipped; app build and signature verification passed.
+- Added regression coverage for Unicode anchors moving around edits, only-overlap invalidation, old review decoding, persisted reply/rewrite data, stale reply cancellation, automatic review debounce/pause/switch cancellation and Unicode line differences.
+- Disposable `build/assist-ui` fixture: thirty sections, two editable drafts, two nearby review cards. Verified line highlights on both sides, compact scrollable reply popovers, expanded cards without overlap and comments leaving view when scrolling.
+- Sent a synthetic question through the configured Langdock connection. Received and persisted a reply plus optional rewrite; draft remained unchanged. Thread restored after normal quit/relaunch.
+- Native split initially failed to save because macOS includes its divider decoration in subviews. Corrected discovery to use arrangedSubviews. Verified saved 57% restoration, then dragged to 51.888% and relaunched at the same 769.5-point position.
+- Original workspace and original active draft restored without editing owner writing. No version bump or release.
+- Dark-mode comment contrast and extended-use automatic review quality/cost remain explicit roadmap verification follow-ups; timer behavior is covered with deterministic tests.
+
+## Selection threads and optimistic replies — 2026-09-14
+
+- 87 Swift tests passed with one existing skip; app build/signature and diff whitespace checks passed.
+- Added exact repeated-phrase/Unicode selection coverage and assertions for immediate pending publication, cancellation retaining the question, retry without duplicates and successful sent/assistant state. Updated cancellation regression to expect the preserved failed message.
+- In disposable `build/selection-ui`, mouse-selected a sentence and clicked Ask Writing assist. The anchored composer opened with keyboard focus. A live Langdock request returned an optional rewrite without editing the draft, and its thread survived relaunch.
+- Fixed a shortcut conflict discovered during verification: Shift-Command-L remains Checkbox; Shift-Command-A is Ask about Selection. Verified the final shortcut focuses a composer on another selected passage, and the native context-menu action is enabled.
+- Loading/cancellation/retry transitions are covered by deterministic model tests; the live request completed before the automation snapshot, so its transient Thinking indicator was not separately captured.
+- Restored the owner's current workspace and active “EU Flip Linkedin post — No image” draft. No owner writing was edited. No release/version change.
+
+### Selection action placement correction
+
+Moved Ask Writing assist from a text-view subview to a nonactivating child panel above the first selected line, eight points away. An opaque native-drawn paper surface prevents underlying text showing through; scrolling, resizing, selection changes and focus loss dismiss it. App/signature build passed. Verified above-selection placement and click-to-focused-thread with a multiline selection in `build/selection-ui`; original workspace and active draft restored. No writing or release changes.
+
+### Conversation layout — 2026-09-15
+
+User messages now use a muted accent surface and label; assistant messages use a neutral surface. Expanded conversation transcripts scroll independently above a fixed composer/actions footer. Removed Collapse; an event boundary collapses on outside clicks, Escape, keyboard focus leaving via Tab, or window blur. Build/signature passed. With a disposable eight-message thread, visually verified role distinction, unchanged composer position after scrolling, retained focus on composer clicks, and collapse when clicking the document. Original workspace/draft restored. No live requests or owner-text edits were needed for this layout check.
+
+### Conversation focus refinement — 2026-09-15
+
+Removed Dismiss from conversation controls; blur preserves the thread as a shortened card. Added a 280ms spring for expand/collapse and changing transcript height, disabled under Reduce Motion; previews have scoped native pointing-hand cursor regions and a hover tint, while selected cards have an accent border/shadow. Input focus is requested after mounting on every open, including reopening existing threads. App/signature build and diff check passed. Disposable-thread UI checks verified first-open and reopen autofocus, focused border, absent Dismiss/Collapse controls, and outside-click shortening without removal. Original workspace/draft restored. Animation timing and native pointer appearance were not captured frame-by-frame by the UI automation.
+
+### Keychain prompt reduction — 2026-09-15
+
+API requests previously performed a Keychain data read every time. Added a locked, process-only shared cache, populated only on successful reads/saves and invalidated by save/remove. Background automatic reviews now use cached credentials exclusively, so cannot initiate a Keychain password prompt. They wait for the first manual request or key save in each app session. 89 Swift tests passed, one opt-in Keychain test skipped. New synthetic tests verify reuse, identity isolation, replacement/removal and uncached authorization errors. Real secrets and Keychain access controls were not read or altered for testing. App/signature build passed. First-access prompts across ad-hoc rebuilds remain possible; Apple TN3127 documents their version-specific designated requirements. Stable Developer ID signing remains the cross-build solution.
+
+
+### 2026-09-15 — Plain chat messages and streamed replies
+- Removed per-message background/padding; preserved role label colors, outer card and sticky composer.
+- Added bounded SSE reply transport, transient incremental text, Thinking/Writing states and final validated JSON before persistence/rewrite availability.
+- 93 Swift tests passed, one existing opt-in Keychain test skipped. Synthetic transport verifies incremental callbacks and stream/JSON request flags; parser tests cover split escapes/surrogates, refusal, truncation, malformed payloads and size limits.
+- App build/signature passed. Restarted normally and inspected an existing conversation read-only: plain aligned messages and distinct labels are visible. No writing or credentials edited, and no live API request sent. Live provider streaming remains unverified.
+
+### 2026-09-15 — Conversation corner seam
+Removed nested transcript card decoration in expanded threads while preserving history cards. App/signature build passed; restarted normally and inspected an existing conversation read-only, including scrolling to its end. The transcript/composer boundary is straight and only the outer card rounds at the bottom. No writing changed or requests sent.
+
+### 2026-09-15 — Inline thinking shimmer
+Thinking appears in the pending assistant response, replaced by incremental answer text. The footer no longer includes a spinner/loading row; Cancel occupies Send’s position during the request. Added a masked 1.6-second linear highlight with static Reduce Motion fallback and scroll-to-pending-response. App/signature build passed. Inspected the actual SwiftUI shimmer component in a disposable native preview using synthetic labels; no writing or API access. Preview closed normally. Matilde quit normally, but relaunch verification was blocked by the Mac locking. Integrated request/Reduce Motion checks not performed.

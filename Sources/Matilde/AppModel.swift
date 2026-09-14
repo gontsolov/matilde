@@ -1,16 +1,23 @@
 import SwiftUI
 import AppKit
+import Combine
 
 @MainActor
 final class AppModel: ObservableObject {
     let stash = StashModel()
     let review = WritingReviewModel()
-    @Published var comparison: DraftComparison?
+    @Published var comparison: DraftComparison? { didSet { observeComparison() } }
+    @Published private(set) var comparisonDifferences: [NSRange] = []
+    @Published var showsComparisonChanges = true { didSet { updateComparisonDifferences() } }
+    var comparisonFraction = 0.5
+    private var comparisonObservation: AnyCancellable?
+    private var differenceTask: Task<Void, Never>?
+
     @Published var workspace: Workspace?
     @Published var drafts: [Draft] = []
     @Published var folders: [String] = [""]
     @Published var active: Draft?
-    @Published var text = "" { didSet { if text != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput) } } }
+    @Published var text = "" { didSet { if text != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput); updateComparisonDifferences() } } }
     @Published var sidebar = true
     @Published var status = "Saved"
     @Published var error: String?
@@ -42,6 +49,10 @@ final class AppModel: ObservableObject {
 
     init() {
         stash.reportError = { [weak self] in self?.error = $0 }
+        review.automaticAllowed = { [weak self] in
+            guard let self else { return false }
+            return NSApp.isActive && !self.boardVisible && !self.isBranching && self.boardFlight == nil && self.sheet == nil
+        }
         restore()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.poll() }
@@ -89,6 +100,12 @@ final class AppModel: ObservableObject {
         boardVisible = false; boardSheets = []; boardFlight = nil; editorReadyID = nil
         try loadHeader()
         cursor = selected?.cursor ?? 0; scroll = selected?.scroll ?? 0
+        comparisonFraction = Double(try newWorkspace.state("comparisonFraction") ?? "") ?? 0.5
+        showsComparisonChanges = try newWorkspace.state("comparisonChanges") != "false"
+        if let id = try newWorkspace.state("comparisonDraft"), id != selected?.id,
+           let draft = contents.drafts.first(where: { $0.id == id }) {
+            comparison = try? DraftComparison(workspace: newWorkspace, draft: draft)
+        }
         status = "Saved"
         UserDefaults.standard.set(url.path, forKey: "workspacePath")
         if let bookmark = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) {
@@ -133,12 +150,31 @@ final class AppModel: ObservableObject {
             let content = try workspace.read(current)
             try stash.load(workspace: workspace, family: current.family)
             editorReadyID = nil
-            if comparison?.draft.id == current.id { comparison = nil }
+            if comparison?.draft.id == current.id { comparison = nil; try workspace.setState("comparisonDraft", "") }
             active = current; text = content; savedText = content
             try loadHeader()
             cursor = current.cursor; scroll = current.scroll; status = "Saved"
             try workspace.setState("active", draft.id)
             try workspace.rememberFamilyDraft(current)
+        }
+    }
+    private func observeComparison() {
+        comparisonObservation = comparison?.$text.dropFirst().sink { [weak self] value in
+            self?.updateComparisonDifferences(right: value)
+        }
+        updateComparisonDifferences()
+    }
+    private func updateComparisonDifferences(right: String? = nil) {
+        differenceTask?.cancel()
+        comparisonDifferences = []; comparison?.differences = []
+        guard showsComparisonChanges, let comparison else { return }
+        let left = text, right = right ?? comparison.text
+        differenceTask = Task { [weak self, weak comparison] in
+            do { try await Task.sleep(for: .milliseconds(150)) } catch { return }
+            let difference = await Task.detached(priority: .utility) { ComparisonDifferences.between(left, right) }.value
+            guard !Task.isCancelled, let self, let comparison, self.comparison === comparison,
+                  self.text == left, comparison.text == right else { return }
+            self.comparisonDifferences = difference.left; comparison.differences = difference.right
         }
     }
     func compare(_ draft: Draft) {
@@ -149,10 +185,11 @@ final class AppModel: ObservableObject {
             let next = try DraftComparison(workspace: workspace, draft: draft)
             boardVisible = false
             comparison = next
+            try workspace.setState("comparisonDraft", next.draft.id)
         }
     }
     func closeComparison() {
-        attempt { try comparison?.flush(); comparison = nil }
+        attempt { try comparison?.flush(); try workspace?.setState("comparisonDraft", ""); comparison = nil }
     }
     func selectFamily(_ family: String) {
         attempt {
@@ -219,6 +256,9 @@ final class AppModel: ObservableObject {
     }
     func flush() throws {
         try comparison?.flush()
+        try workspace?.setState("comparisonDraft", comparison?.draft.id ?? "")
+        try workspace?.setState("comparisonFraction", String(comparisonFraction))
+        try workspace?.setState("comparisonChanges", String(showsComparisonChanges))
         try stash.flush()
         try save()
         if boardVisible, let workspace, let active { try workspace.saveBoardViewport(family: active.family, viewport: boardViewport) }

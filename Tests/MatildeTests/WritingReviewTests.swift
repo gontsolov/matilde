@@ -8,6 +8,28 @@ final class WritingReviewTests: XCTestCase {
     private let suggestion = ReviewSuggestion(quote: "very fast", prefix: "It is ", suffix: ".", explanation: "Use a precise comparison.", replacement: "twice as fast")
     private let configuration = LangdockConfiguration(baseURL: "https://api.langdock.com", region: "eu", model: "test-chat")
 
+    func testStreamedReplyTransportUsesJSONModeAndDeliversText() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [ReviewURLProtocol.self]
+        let client = LangdockClient(session: URLSession(configuration: config))
+        ReviewURLProtocol.status = 200
+        func event(_ text: String, finish: String? = nil) throws -> String {
+            var choice: [String: Any] = ["index": 0, "delta": ["content": text]]
+            if let finish { choice["finish_reason"] = finish }
+            return "data: " + String(decoding: try JSONSerialization.data(withJSONObject: ["choices": [choice]]), as: UTF8.self) + "\n\n"
+        }
+        ReviewURLProtocol.body = Data((try event(#"{"answer":"Hello"#) + event(#" there","replacement":null}"#, finish: "stop") + "data: [DONE]\n\n").utf8)
+        var updates: [String] = []
+        let answer = try await client.streamReply(input, suggestion: suggestion, messages: [], question: "Explain",
+            configuration: configuration, key: "synthetic-key") { updates.append($0) }
+        XCTAssertEqual(answer.answer, "Hello there")
+        XCTAssertEqual(updates.first, "Hello")
+        XCTAssertEqual(updates.last, "Hello there")
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: ReviewURLProtocol.requestBody) as? [String: Any])
+        XCTAssertEqual(payload["stream"] as? Bool, true)
+        XCTAssertEqual((payload["response_format"] as? [String: String])?["type"], "json_object")
+    }
+
     func testAnchorsUseUTF16AndRejectAmbiguityAndOverlap() throws {
         let anchor = try XCTUnwrap(WritingReview.anchor(suggestion, in: input.body))
         XCTAssertEqual((input.body as NSString).substring(with: anchor), "very fast")
@@ -45,7 +67,7 @@ final class WritingReviewTests: XCTestCase {
         delegate.undo.endUndoGrouping()
         XCTAssertEqual(editor.string, "Hello 🌱. It is twice as fast.")
         XCTAssertEqual(model.history[0].comments[0].status, "accepted")
-        XCTAssertTrue(model.history[0].stale)
+        XCTAssertFalse(model.history[0].stale)
         delegate.undo.undo()
         XCTAssertEqual(editor.string, input.body)
         let updated = ReviewInput(title: input.title, goal: input.goal, body: input.body + " Changed.")

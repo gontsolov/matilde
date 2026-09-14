@@ -250,17 +250,40 @@ final class WritingHeaderView: NSHostingView<AnyView> {
 }
 
 final class WritingTextView: NSTextView {
+    var onAskSelection: ((NSRange) -> Void)?
+    var selectionAssistPanel: SelectionAssistPanel?
+    override func mouseUp(with event: NSEvent) {
+        super.mouseUp(with: event)
+        showSelectionAssist()
+    }
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = super.menu(for: event) ?? NSMenu()
+        if onAskSelection != nil, selectedRange().length > 0 {
+            let item = NSMenuItem(title: "Ask Writing assist…", action: #selector(askAboutSelection), keyEquivalent: "")
+            item.target = self
+            menu.insertItem(.separator(), at: 0)
+            menu.insertItem(item, at: 0)
+        }
+        return menu
+    }
+
     lazy var slashMenu: SlashMenuController = {
         let menu = SlashMenuController()
         menu.editor = self
         return menu
     }()
     override func keyDown(with event: NSEvent) {
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command, .shift],
+           event.charactersIgnoringModifiers?.lowercased() == "a", onAskSelection != nil, selectedRange().length > 0 {
+            askAboutSelection(); return
+        }
         if slashMenu.handle(event) { return }
         super.keyDown(with: event)
         slashMenu.update()
+        showSelectionAssist()
     }
     override func resignFirstResponder() -> Bool {
+        hideSelectionAssist()
         slashMenu.dismiss()
         return super.resignFirstResponder()
     }
@@ -325,6 +348,7 @@ final class WritingTextView: NSTextView {
         selectedTextAttributes = isDivider ? [.backgroundColor: NSColor.clear, .foregroundColor: NSColor.clear]
             : ordinarySelectionAttributes ?? selectedTextAttributes
         super.setSelectedRange(range, affinity: affinity, stillSelecting: flag)
+        hideSelectionAssist()
         needsDisplay = true
     }
     var onPosition: ((Int, Double) -> Void)?
@@ -621,6 +645,7 @@ final class WritingTextView: NSTextView {
         } else { super.insertNewline(sender) }
     }
     override func mouseDown(with event: NSEvent) {
+        defer { showSelectionAssist() }
         super.mouseDown(with: event)
         if selectedRange().length == 0, let divider = dividerRange(at: selectedRange().location) {
             if event.clickCount == 1 { skipDivider(forward: true) }
@@ -713,6 +738,9 @@ struct MarkdownEditor: NSViewRepresentable {
     var fragmentPadding: CGFloat = 5
     var onContentHeight: ((CGFloat) -> Void)? = nil
 
+    var differenceRanges: [NSRange] = []
+    var onAskSelection: ((NSRange) -> Void)? = nil
+
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
         let storage = NSTextStorage()
@@ -750,6 +778,7 @@ struct MarkdownEditor: NSViewRepresentable {
         view.font = Paper.body()
         view.delegate = context.coordinator
         view.setAccessibilityLabel(accessibilityName)
+        view.onAskSelection = onAskSelection
         view.onEscape = onEscape
         view.onContentHeight = onContentHeight
         onMount(view)
@@ -768,8 +797,9 @@ struct MarkdownEditor: NSViewRepresentable {
         return scroll
     }
     func updateNSView(_ nsView: NSScrollView, context: Context) {
-        let styleChanged = context.coordinator.parent.textSize != textSize || context.coordinator.parent.lineSpacing != lineSpacing
+        let styleChanged = context.coordinator.parent.textSize != textSize || context.coordinator.parent.lineSpacing != lineSpacing || context.coordinator.parent.differenceRanges != differenceRanges
         context.coordinator.parent = self
+        context.coordinator.view?.onAskSelection = onAskSelection
         context.coordinator.view?.onContentHeight = onContentHeight
         context.coordinator.view?.isContinuousSpellCheckingEnabled = spellChecking
         context.coordinator.view?.saveImage = saveImage
@@ -833,6 +863,11 @@ struct MarkdownEditor: NSViewRepresentable {
             guard let view, let storage = view.textStorage else { return }
             storage.beginEditing()
             MarkdownStyler.style(storage, textSize: CGFloat(parent.textSize), lineSpacing: CGFloat(parent.lineSpacing))
+            if view.string == parent.text {
+                for range in parent.differenceRanges where range.location >= 0 && NSMaxRange(range) <= storage.length {
+                    storage.addAttribute(.backgroundColor, value: Paper.accent.withAlphaComponent(0.11), range: range)
+                }
+            }
             view.styleImages(); storage.endEditing()
             view.layoutManager?.invalidateGlyphs(forCharacterRange: NSRange(location: 0, length: storage.length), changeInLength: 0, actualCharacterRange: nil)
             view.layoutManager?.ensureLayout(for: view.textContainer!)

@@ -8,6 +8,7 @@ final class DraftComparison: ObservableObject {
     @Published private(set) var draft: Draft
     @Published private(set) var text: String
     @Published var error: String?
+    @Published var differences: [NSRange] = []
     private var savedText: String
     var cursor: Int
     var scroll: Double
@@ -82,6 +83,7 @@ struct DraftComparisonPane: View {
                     }
                 } label: { Label(comparison.draft.title, systemImage: "rectangle.split.2x1") }
                 Spacer()
+                Toggle("Show changes", isOn: $model.showsComparisonChanges).toggleStyle(.button)
                 Button { model.closeComparison() } label: { Image(systemName: "xmark") }
                     .buttonStyle(.plain).accessibilityLabel("Close comparison")
             }.padding(14)
@@ -100,7 +102,7 @@ struct DraftComparisonPane: View {
                            saveImage: { try comparison.workspace.importImage($0, beside: comparison.draft) },
                            resolveImage: { comparison.workspace.image(at: $0, beside: comparison.draft) },
                            mediaError: { comparison.error = $0 }, textSize: textSize, lineSpacing: lineSpacing,
-                           spellChecking: spellChecking, accessibilityName: "Comparison editor", onEscape: {})
+                           spellChecking: spellChecking, accessibilityName: "Comparison editor", onEscape: {}, differenceRanges: comparison.differences)
                 .id(comparison.draft.id)
                 .frame(maxWidth: 736).frame(maxWidth: .infinity)
         }.background(Color(Paper.background))

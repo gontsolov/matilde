@@ -129,3 +129,11 @@ Appearance (2026-09-14): General settings offers System (default), Light, and Da
 Compare Side by Side opens another document or draft in a native resizable split, available from the document menu and draft/sidebar/canvas context menus. The main AppModel keeps workspace navigation; DraftComparison owns the other draft’s body buffer, cursor/scroll and autosave. Each MarkdownEditor coordinator supplies its own undo manager. Selecting the comparison draft in the main editor closes the duplicate pane after saving. Switching comparison/workspace, closing the pane and quitting flush both buffers. External changes preserve dirty comparison text in recovery before reload; missing files block save rather than being recreated.
 
 The comparison body is editable; its title and goal are displayed as context. The comparison selector can switch drafts. Comparison selection is currently session-only, with independent scrolling; separate windows and synchronized scrolling are not implemented.
+
+## Writing assist and comparison follow-up — 2026-09-14
+
+The authorized follow-up adds passage tracking, persisted replies, automatic reviews after thirty seconds of meaningful-edit inactivity, and pause/resume. See `langdock-integration.md` for context boundaries and verification. Rewrites require explicit acceptance. Title/goal edits invalidate context; body edits preserve unaffected exact quotes.
+
+Editable comparisons now restore the other draft and native divider proportion per workspace. Asynchronous line differences add only display attributes and can be toggled. UTF-16 ranges preserve Unicode; documents beyond 2,000 lines use one coarse changed span. Native split restoration uses arrangedSubviews, excluding macOS divider decoration views.
+
+Selected body text can start an exact-range thread via a native floating action, context menu or Shift-Command-A. Thread creation is local; sending is explicit. Messages are saved optimistically with pending/sent/failed delivery state, local loading/cancel and retry controls. Interrupted requests preserve the question, and retries replace the failed attempt rather than append duplicates. Selection threads survive automatic-review refreshes.

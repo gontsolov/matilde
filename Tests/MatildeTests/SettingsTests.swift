@@ -3,6 +3,30 @@ import AppKit
 @testable import Matilde
 
 final class SettingsTests: XCTestCase {
+    func testCredentialSessionReusesSuccessAndInvalidatesOnReplacementOrRemoval() throws {
+        let cache = CredentialSessionCache()
+        var reads = 0
+        func read() -> String? { reads += 1; return "test-secret" }
+        XCTAssertNil(cache.cached(for: "a"))
+        XCTAssertEqual(cache.load(for: "a", using: read), "test-secret")
+        XCTAssertEqual(cache.load(for: "a", using: read), "test-secret")
+        XCTAssertEqual(reads, 1)
+        XCTAssertNil(cache.cached(for: "b"))
+        cache.store("replacement", for: "a")
+        XCTAssertEqual(cache.load(for: "a", using: read), "replacement")
+        XCTAssertEqual(reads, 1)
+        cache.store(nil, for: "a")
+        XCTAssertNil(cache.cached(for: "a"))
+        _ = cache.load(for: "a", using: read)
+        XCTAssertEqual(reads, 2)
+    }
+    func testCredentialSessionDoesNotCacheDenials() {
+        let cache = CredentialSessionCache()
+        enum Denied: Error { case denied }
+        XCTAssertThrowsError(try cache.load(for: "a") { throw Denied.denied })
+        XCTAssertNil(cache.cached(for: "a"))
+        XCTAssertEqual(cache.load(for: "a") { "authorized" }, "authorized")
+    }
     func testWritingPreferencesChangeOnlyPresentation() {
         let source = "# Heading\n日本語 **bold** and ordinary writing."
         let text = NSMutableAttributedString(string: source)

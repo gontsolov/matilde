@@ -36,6 +36,9 @@ struct MatildeApp: App {
                 }.keyboardShortcut("l", modifiers: [.command, .shift])
                     .disabled(model.active == nil || model.boardVisible)
                 Divider()
+                Button("Ask about Selection…") {
+                    NSApp.sendAction(#selector(WritingTextView.askAboutSelection), to: nil, from: nil)
+                }.keyboardShortcut("a", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
                 Button("Branch Draft") { model.branch() }.keyboardShortcut("b", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
                 Button(model.boardVisible ? "Return to Draft" : "Show Draft Board") { model.boardRequest += 1 }.keyboardShortcut("0").disabled(model.active == nil)
                 Button("Toggle Stash") { model.stash.toggle() }.keyboardShortcut("j", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardFlight != nil || model.isBranching)
@@ -108,6 +111,9 @@ struct ContentView: View {
                 DraftComparisonPane(comparison: comparison, model: model).frame(minWidth: 360, maxWidth: .infinity)
             }
             }
+            .background(ComparisonSplitPosition(enabled: model.comparison != nil, fraction: model.comparisonFraction,
+                                                changed: { model.comparisonFraction = $0 }))
+            .id(model.workspace?.root.path)
         }
         .background(Color(Paper.background))
         .foregroundStyle(Color(Paper.ink))
@@ -137,7 +143,10 @@ struct ContentView: View {
                         .help(model.boardVisible ? "Return to draft · ⌘0" : "Show draft board · ⌘0")
                         .accessibilityLabel(model.boardVisible ? "Return to draft" : "Show draft board")
                     Menu {
-                        Button("Branch Draft") { model.branch() }
+                        Button("Ask about Selection…") {
+                    NSApp.sendAction(#selector(WritingTextView.askAboutSelection), to: nil, from: nil)
+                }.keyboardShortcut("a", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
+                Button("Branch Draft") { model.branch() }
                         Button("Rename…") { model.sheet = .rename }
                         Button("Writing Goal…") { model.sheet = .goal }
                         Divider()
@@ -385,7 +394,8 @@ struct ContentView: View {
                 guard let workspace = model.workspace else { throw WorkspaceError.message("Open a workspace first.") }
                 return try workspace.importImage(data, beside: draft)
             }, resolveImage: { model.workspace?.image(at: $0, beside: draft) }, mediaError: { model.error = $0 },
-                           textSize: writingTextSize, lineSpacing: writingLineSpacing, spellChecking: writingSpellChecking)
+                           textSize: writingTextSize, lineSpacing: writingLineSpacing, spellChecking: writingSpellChecking, differenceRanges: model.comparisonDifferences,
+                           onAskSelection: { model.review.beginSelection($0, input: model.reviewInput) })
                 .frame(maxWidth: 736).frame(maxWidth: .infinity)
         .background(PageCapture { model.capturePage = $0 })
         .overlay {

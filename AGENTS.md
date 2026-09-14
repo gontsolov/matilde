@@ -72,7 +72,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 - Supported scope: headings, emphasis, links, lists, checklists, blockquotes, dividers, fenced code, and standalone local Markdown images. The small Markdown renderer is not a complete CommonMark parser. Tables and remote image fetching are deferred.
 - Empty workspaces receive a welcome document once, with a sample goal. Help can reopen or explicitly recreate it; never overwrite edited welcome content or reseed after deletion automatically.
 - Image paste/drop stores immutable PNG files in `.assets` beside the draft, using relative Markdown references shared by branches. Do not delete assets on undo or draft Trash because other drafts/snapshots may reference them. Images are limited to 32 MB input and 40 megapixels; automatic unused-asset cleanup is not implemented. Bare URLs auto-link, pasting a URL over text creates a Markdown link, and Command-K adds/edits links.
-- Side-by-side comparison uses an independent DraftComparison session, flushed on close/switch/quit. MarkdownEditor coordinators own separate undo managers; never fall back to a shared window undo history across panes. Comparison state is session-only.
+- Side-by-side comparison uses an independent DraftComparison session, flushed on close/switch/quit. MarkdownEditor coordinators own separate undo managers; never fall back to a shared window undo history across panes. Comparison selection, divider proportion and difference visibility persist per workspace. Difference highlighting is display-only; keep both undo histories independent.
 - Styling must not rewrite the source text. Keep UTF-16 `NSRange` handling correct for Unicode and preserve native selection and undo behavior.
 - Command-B/Command-I toggle formatting, including nested emphasis. List continuation resets task checkboxes, exits empty lists, respects code fences, and handles numeric overflow.
 - Checklist clicks must hit the actual glyph, not nearby whitespace or an active text selection.
@@ -90,15 +90,16 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 - Do not reintroduce screenshot swapping, approximate replacement editors, fixed completion timers, or layout reflow during board flights. In-memory capture remains appropriate for the separate branch curl.
 - Future refinements: physical trackpad/resistance verification, dragging/re-pinning individual sheets, large-family usability, and stronger spatial connection between the curl and board placement.
 
-## AI: documented future scope
+## AI: Writing assist
 
-Do not implement this without a new request. Planned provider is Langdock with a user API key; integration details still require investigation.
+The owner authorized Langdock reviews, replies and automatic review. See `docs/langdock-integration.md` and ROADMAP.md for current scope and verification gaps.
 
-- Supply the editable writing goal as context.
-- After meaningful edits and approximately 30 seconds of inactivity, offer quiet Google Docs-style margin comments. Support review, reply, acceptance, removal, pause, and manual Review now.
-- Suggest directions for the writing and optional automatic naming/renaming.
-- Never apply suggested text changes without acceptance. Persist comments/history locally and keep histories independent across drafts.
-- Resolve anchors under edits, stale reviews, acceptance semantics, credentials, and what content leaves the machine before building integration.
+- Keep AI quiet and optional: automatic reviews follow meaningful edits plus thirty seconds idle, with persistent pause/resume in the title menu. Never send on opening a draft alone.
+- Requests supply the active title, goal and body; replies additionally include the relevant thread. Exclude stash, other drafts and image files; preserve image/path scrubbing and Keychain credential storage.
+- Exact UTF-16 quote anchors track unaffected edits. Overlapping edits invalidate the comment; title/goal edits invalidate context. Edits and switches cancel pending requests and discard late responses.
+- Selection help uses the floating Ask Writing assist action, context menu and Shift-Command-A. It creates an exact anchored thread and focuses the composer without sending until submission. Messages persist optimistically with pending/sent/failed state; cancellation and retries must preserve questions without duplication.
+- Persist histories and replies locally; branches start independent histories. Rewrites always require acceptance and native undo.
+- Follow-up directions and automatic naming remain separate requested/planned work; do not expand AI scope unasked.
 
 ## Development and verification
 
