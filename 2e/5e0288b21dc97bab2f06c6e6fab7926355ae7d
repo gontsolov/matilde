@@ -1,0 +1,93 @@
+Sources/Matilde/LangdockClient.swift
+  s_a7fd880ef59afd::t_07a3064f0ef684 1-56,62-69,71-163
+  s_1a2bc0e7c0b59e::t_66ce70851c6deb 57-61,70
+docs/architecture.md
+  s_a7fd880ef59afd::t_8509897a22eb45 81,83,87,98
+docs/langdock-integration.md
+  s_a7fd880ef59afd::t_8467814a077118 9
+  s_a7fd880ef59afd::t_f7932296b07157 27
+  s_a7fd880ef59afd::t_8509897a22eb45 3,5,7,11,13,15,17,19,21,23,25
+Sources/Matilde/MatildeApp.swift
+  s_a7fd880ef59afd::t_0672dc294f901c 45,139-140
+  s_a7fd880ef59afd::t_123b85ac430621 34-38,299-301
+docs/verification.md
+  s_a7fd880ef59afd::t_8509897a22eb45 309-317
+  s_1a2bc0e7c0b59e::t_be58e7acdf7c75 302-308
+  s_a7fd880ef59afd::t_8b907a9ad4021f 283-289
+  s_1a2bc0e7c0b59e::t_18e8be097e60fe 290-296
+  s_a7fd880ef59afd::t_4c6706c79f49ff 323-329
+  s_a7fd880ef59afd::t_94ecf730080adc 318-322
+  s_a7fd880ef59afd::t_8467814a077118 330-336
+  s_a7fd880ef59afd::t_364145b7152d54 271-277
+  s_1a2bc0e7c0b59e::t_0903d8322873e2 297-301
+  s_a7fd880ef59afd::t_ab1792d867c9a0 278-282
+  s_a7fd880ef59afd::t_8b0f17642451d9 337-339
+Sources/Matilde/WritingReview.swift
+  s_a7fd880ef59afd::t_0672dc294f901c 1-84,86-98,103,105,107-112,114-127,129-185,192-193,205,223,270-278,291,296,305-308,312-314,319,322,329-336,342-350,440-441
+  s_a7fd880ef59afd::t_48d9f4651471d1 289-290,309,316-318,320,323,325,327-328,338-341,351-363,375,389,410-411,439
+  s_1a2bc0e7c0b59e::t_66ce70851c6deb 99-102
+  s_a7fd880ef59afd::t_783391e0247584 384-387
+  s_a7fd880ef59afd::t_dc66f08f29b7df 85,104,106,113,128
+  s_a7fd880ef59afd::t_6792476f5ef479 186-191,194-204,206-222,224-269,279-288,292-295,297-304,310-311,315,321,324,326,337,364-374,376-383,388,390-409,412-438
+ROADMAP.md
+  s_a7fd880ef59afd::t_364145b7152d54 38
+  s_a7fd880ef59afd::t_ab1792d867c9a0 37
+  s_a7fd880ef59afd::t_8509897a22eb45 76,97
+  s_1a2bc0e7c0b59e::t_be58e7acdf7c75 36
+  s_a7fd880ef59afd::t_024fbae9bfccb9 77
+Sources/Matilde/AppModel.swift
+  s_1a2bc0e7c0b59e::t_66ce70851c6deb 12,18-19
+  s_a7fd880ef59afd::t_0672dc294f901c 7,153-162,299
+Sources/Matilde/SlashMenu.swift
+  s_1a2bc0e7c0b59e::t_d2e35455632857 39,41-52,62-147,161-167,169,171-177,182-183,185-196,199,206,220,225,231,238,242,252,268
+  s_a7fd880ef59afd::t_8b907a9ad4021f 168,170,178-181,184,200-205,209-211,213-214,217-219,221-222,224,226-229,236-237,239-240
+  s_a7fd880ef59afd::t_e5a18d360b64c3 53,55-58,154,156-157,230,234-235,241,253,266,269
+  s_1a2bc0e7c0b59e::t_49ccaec171b41e 1-38,40,54,59-61,148-153,155,158-160,197-198,207-208,212,215-216,223,232-233,243-251,254-265,267
+Sources/Matilde/MarkdownEditor.swift
+  s_a7fd880ef59afd::t_28578485fa2132 638-639
+  s_a7fd880ef59afd::t_655363a7058372 146,253-271,383-408,559-560,581
+  s_a7fd880ef59afd::t_680b6ae3069697 556-558
+  s_a7fd880ef59afd::t_c3f9e49087704d 578-580
+  s_a7fd880ef59afd::t_4af7a206757a86 582-583
+  s_8e20498dc00a25::t_5c1167304fe758 546-555,564-577,851
+Sources/Matilde/AppSettings.swift
+  s_1a2bc0e7c0b59e::t_66ce70851c6deb 79-85,131,137-150,160-162,164-183
+Config/release.json
+  s_a7fd880ef59afd::t_efe0d3b67af213 2
+Tests/MatildeTests/EditorInteractionTests.swift
+  s_a7fd880ef59afd::t_8364798228d873 121-188
+Tests/MatildeTests/WritingReviewTests.swift
+  s_8e20498dc00a25::t_2672f7b9e3f189 1-208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2e5e0288b21dc97bab2f06c6e6fab7926355ae7d",
+  "prompts": {},
+  "sessions": {
+    "s_1a2bc0e7c0b59e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a138-78fa-7391-9c1f-26e2757eebbd",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    },
+    "s_8e20498dc00a25": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a10d-5419-7ed1-a40c-82d21854f4bc",
+        "model": "unknown"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    },
+    "s_a7fd880ef59afd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc4-66f7-7a50-a052-6f864d09a4cf",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
