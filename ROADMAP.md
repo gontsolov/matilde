@@ -72,6 +72,7 @@ Explicitly deferred; recording these does not authorize implementation. See [arc
 
 | ID | Status | Item and completion criteria |
 | --- | --- | --- |
+| ICON-01 | Done | **Refined app icon.** Kept the warm ivory/brown Matilde palette and centered tilde while adding a thicker, raised mark, directional lighting, and a restrained contact shadow. Replaced `assets/AppIcon.png` with a 1254px RGBA source; checked 32/64/256px legibility and true alpha, rebuilt the `.icns`, passed deep signature verification, and inspected the built app in Finder Quick Look. |
 | DIST-01 | Planned | **Clean-Mac installation verification.** Test a quarantined public download on a clean Mac and document first-launch behavior. Signed updater installation has been tested; this specific first-install scenario has not. |
 | DIST-02 | Idea | **Developer ID signing and notarization.** Optional direct-distribution improvement, not an App Store submission. Requires owner-provided membership/certificate credentials; verify the existing optional workflow with real credentials before claiming support. Current releases are ad-hoc signed and not notarized. |
 | EDIT-03 | Idea | **Tables.** Deferred beyond the initial Markdown scope. Local embedded images were delivered in EDIT-11; table editing still needs design. |
