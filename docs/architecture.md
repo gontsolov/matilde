@@ -84,7 +84,7 @@ The user explicitly requested documenting AI behavior without building the AI pa
 
 Future direction:
 
-- Connect to Langdock using a user-provided API key. API details have not yet been investigated.
+- Connect to Langdock using a user-provided API key. Initial API research and a proposed implementation are recorded in [Langdock integration](langdock-integration.md); no live provider calls or AI functionality have been added.
 - Use the document's writing goal as context.
 - Review the active branch after a meaningful edit followed by approximately 30 seconds of inactivity. This is the agreed starting behavior; what counts as a meaningful edit remains to be defined.
 - Place comments quietly in the margin without stealing focus.
