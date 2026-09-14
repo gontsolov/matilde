@@ -1,0 +1,21 @@
+Config/release.json
+  s_1a74a3ee0d658b::t_6b1b49bd214b1f 2
+ROADMAP.md
+  s_1a74a3ee0d658b::t_47efdf5806c215 75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f47b560661ce239c99e38c7f2ca6ccc047ab9b3b",
+  "prompts": {},
+  "sessions": {
+    "s_1a74a3ee0d658b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fb2-1261-7ed2-8452-8633e102c8b9",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
