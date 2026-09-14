@@ -4,6 +4,8 @@ Investigated 2026-09-14. This is a proposal for discussion, not an implemented f
 
 ## Recommended first experience
 
+Owner direction (2026-09-14): combine margin feedback and concrete rewrites. Present one comment explaining the issue, with an optional replacement to accept or dismiss. The owner expressed a tentative preference for both; exact interaction design remains open.
+
 Start with a manual **Review now** action that returns at most three useful margin comments about the active draft. Use the writing goal to judge clarity, structure, missing support, and whether the draft achieves its intent. Preserve the author's voice; an empty result is valid when there is nothing worthwhile to flag. A comment may ask a question or suggest a direction, rather than always offering replacement text.
 
 Example using synthetic writing: for a draft announcing a faster export feature, a comment could say “This promises faster exports, but gives no comparison. Could you add a typical before/after time?” Anchor it to the exact claim.
@@ -43,6 +45,6 @@ Use disposable synthetic writing to check auth failures, missing scopes, model a
 
 ## Decisions for the next conversation
 
-1. Is the first useful result critique/questions, concrete rewrite suggestions, or both? Recommendation: critique first, optional small replacements.
+1. Owner tentatively prefers both feedback and rewrites. Refine a single comment design with an optional replacement and acceptance control.
 2. Which Langdock deployment and model should be evaluated? Discover accessible models using the existing Settings credential when authorized.
 3. Approve the proposed context boundary and independent branch review history.

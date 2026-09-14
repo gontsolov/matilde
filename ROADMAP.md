@@ -71,7 +71,7 @@ Explicitly deferred; recording these does not authorize implementation. See [arc
 | ID | Status | Item and completion criteria |
 | --- | --- | --- |
 | AI-01 | In progress | **Langdock foundation.** Documentation investigation completed; existing Keychain storage reviewed. Proposed Completion API client, context boundary, comment anchors, and staged delivery are in [Langdock integration](docs/langdock-integration.md). No provider requests or AI implementation yet. Confirm deployment/model, test on synthetic writing, and settle the proposal before implementation. |
-| AI-02 | Planned | **Review comments.** Quiet margin threads after meaningful edits and roughly 30 seconds of inactivity, plus pause and Review now. Support replies, acceptance, removal, and local history. Define anchors, stale review handling, and branch history semantics first; never apply edits without acceptance. Depends on AI-01. |
+| AI-02 | Planned | **Review comments.** Owner tentatively prefers combining feedback with optional concrete rewrites in the first iteration. Quiet margin threads after meaningful edits and roughly 30 seconds of inactivity, plus pause and Review now. Support replies, acceptance, removal, and local history. Define anchors, stale review handling, and branch history semantics first; never apply edits without acceptance. Depends on AI-01. |
 | AI-03 | Planned | **Follow-up directions.** Suggest ways to continue or explore a text without interrupting writing. Exact presentation remains open. Depends on AI-01. |
 | AI-04 | Planned | **Automatic naming and renaming.** Offer useful document/draft names with user control and safe filename collision handling. Triggers and controls remain open. Depends on AI-01. |
 
