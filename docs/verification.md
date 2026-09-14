@@ -175,3 +175,28 @@ Added relative edited dates to compact sidebar rows, document header, and canvas
 Expanded document rows from 30 points to approximately 53 points. Titles occupy their own line; relative timestamps and optional main-document goals share a muted second line. Branches retain indentation and omit goals, including when search promotes a branch into the top row. Blank goals add no placeholder or separator. Existing selection, context menus, and keyboard handlers are unchanged. Build/signature checks pass; quit normally, relaunched, and visually checked populated/empty main rows and branches without changing writing. Unit tests were not rerun for this layout-only change. No release/version bump.
 
 Follow-up: removed document and branch icons, increased sidebar timestamps from 10 to 12 points, and grouped each family's branches under one continuous 1-point muted vertical guide. The guide is decorative and does not intercept clicks or accessibility. Build/signature checks pass; restarted normally and visually verified guides under two parents, standalone items without guides, and larger timestamps. No writing edited; unit tests not rerun for this presentation-only refinement.
+
+
+## 2026-09-14 — Stash first implementation
+
+54 Swift tests, with one opt-in Keychain skip and no failures; production bundle/signature verification passed. New storage/model tests cover shared family ownership, retained orphans, unchanged draft dates, Unicode, position persistence, conflicts, symlinks, and failed saves. Live disposable-workspace checks covered the welcome exercise, typing/list continuation, Unicode paste, undo/redo, close/focus return, branch sharing, canvas scroll/close, rapid toggles, and quit/relaunch. Original workspace restored. See [stash implementation notes](stash.md) and STASH-02 for remaining acceptance checks; no release.
+
+
+## 2026-09-14 — Stash spacing refinement
+
+Removed the ownership subtitle and set stash text/placeholder to the header’s 16-point inset, eliminating native extra line-fragment padding in this panel. Production build and signature checks passed. Restarted normally and visually confirmed the title and existing stash text align, with no subtitle; no writing was edited.
+
+
+## 2026-09-14 — Stash corner placement
+
+Moved the stash panel and tucked entry point to the bottom-right of the writing area, mirroring the lip shape and outer inset. Updated future welcome-document copy without rewriting existing documents. Production build/signature checks passed; normal restart and live visual inspection confirmed the open panel at the bottom-right. No writing was edited.
+
+
+## 2026-09-14 — Stash edge and spring refinement
+
+Stash is 360 points tall (previously 300), meets the bottom window edge, and rounds only its upper corners. Open/close uses a spring with 0.24-second response and 0.78 damping; hover uses 0.20/0.80. Reduce Motion retains immediate transitions. Production build/signature checks passed. Normal restart, screenshot inspection, and quick close/reopen confirmed bottom-flush layout, increased height, and reliable focus. Subjective spring feel remains for owner review; no writing was edited.
+
+
+## 2026-09-14 — Version 0.1.6 release preparation
+
+Owner explicitly requested committing, pushing, and a new version. Local default set to 0.1.6 with stash release notes. Existing STASH-02 verification gaps remain tracked; release automation will rerun tests, build universal binaries, and verify signed artifacts before publication.

@@ -33,6 +33,10 @@ struct MatildeApp: App {
             CommandMenu("Writing") {
                 Button("Branch Draft") { model.branch() }.keyboardShortcut("b", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
                 Button(model.boardVisible ? "Return to Draft" : "Show Draft Board") { model.boardRequest += 1 }.keyboardShortcut("0").disabled(model.active == nil)
+                Button("Toggle Stash") { model.stash.toggle() }.keyboardShortcut("j", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardFlight != nil || model.isBranching)
+                Button("Reveal Stash in Finder") { model.stash.reveal() }.disabled(model.active == nil)
+                Button("Reload Stash from Disk") { model.stash.reloadPreservingChanges() }.disabled(model.active == nil)
+                Button("Show All Stashes in Finder") { model.stash.reveal(all: true) }.disabled(model.workspace == nil)
                 Button("Writing Goal…") { model.sheet = .goal }.disabled(model.active == nil)
                 Divider()
                 Button(model.sidebar ? "Enter Focus Mode" : "Leave Focus Mode") { model.toggleSidebar() }.keyboardShortcut("\\", modifiers: .command)
@@ -278,6 +282,11 @@ struct ContentView: View {
                     .allowsHitTesting(!model.boardVisible)
                     .accessibilityHidden(model.boardVisible)
             }
+            .overlay(alignment: .bottomTrailing) {
+                StashPocket(stash: model.stash, size: geometry.size)
+                    .opacity(model.boardFlight == nil && !model.isBranching ? 1 : 0)
+                    .allowsHitTesting(model.boardFlight == nil && !model.isBranching)
+            }
             .clipped()
             .background(WritingPinchInput(enabled: !model.boardVisible && !model.isBranching && model.boardFlight == nil,
                                           changed: updateWritingPinch))
@@ -408,7 +417,7 @@ struct ContentView: View {
     }
     private func findWritingView(_ root: NSView?) -> NSView? {
         guard let root else { return nil }
-        if root is WritingTextView { return root }
+        if let editor = root as? WritingTextView, editor.onEscape == nil { return editor }
         return root.subviews.lazy.compactMap { findWritingView($0) }.first
     }
     private var welcome: some View {

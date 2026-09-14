@@ -3,6 +3,7 @@ import AppKit
 
 @MainActor
 final class AppModel: ObservableObject {
+    let stash = StashModel()
     @Published var workspace: Workspace?
     @Published var drafts: [Draft] = []
     @Published var folders: [String] = [""]
@@ -38,6 +39,7 @@ final class AppModel: ObservableObject {
     enum Sheet: String, Identifiable { case document, folder, rename, goal; var id: String { rawValue } }
 
     init() {
+        stash.reportError = { [weak self] in self?.error = $0 }
         restore()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.poll() }
@@ -74,6 +76,7 @@ final class AppModel: ObservableObject {
         let last = try newWorkspace.state("active")
         let selected = contents.drafts.first { $0.id == last } ?? contents.drafts.first
         let content = try selected.map { try newWorkspace.read($0) } ?? ""
+        try stash.load(workspace: newWorkspace, family: selected?.family)
         scopedURL?.stopAccessingSecurityScopedResource()
         scopedURL = url.startAccessingSecurityScopedResource() ? url : nil
         workspace = newWorkspace; drafts = contents.drafts; folders = contents.folders
@@ -124,6 +127,7 @@ final class AppModel: ObservableObject {
             // Position may have changed since the menu/list was constructed.
             let current = try workspace.allDrafts().first { $0.id == draft.id } ?? draft
             let content = try workspace.read(current)
+            try stash.load(workspace: workspace, family: current.family)
             editorReadyID = nil
             active = current; text = content; savedText = content
             try loadHeader()
@@ -176,6 +180,7 @@ final class AppModel: ObservableObject {
         } catch { status = "Couldn’t save"; throw error }
     }
     func flush() throws {
+        try stash.flush()
         try save()
         if boardVisible, let workspace, let active { try workspace.saveBoardViewport(family: active.family, viewport: boardViewport) }
         else { try persistPosition() }
@@ -195,6 +200,7 @@ final class AppModel: ObservableObject {
     private func poll() {
         guard let workspace, error == nil, sheet == nil else { return }
         attempt {
+            try stash.poll()
             try refresh()
             if let active {
                 if !drafts.contains(where: { $0.id == active.id }) {
@@ -248,10 +254,12 @@ final class AppModel: ObservableObject {
                     ?? drafts.first(where: { $0.family == current.family }) ?? drafts.first {
                     select(next)
                 } else {
+                    try stash.load(workspace: workspace, family: nil)
                     try workspace.setState("active", "")
                 }
             }
             if boardVisible, let active, active.family == previousFamily {
+                try stash.close(restoreFocus: false)
                 let positions = try workspace.boardPositions(for: related)
                 boardSheets = try related.map {
                     BoardSheet(draft: $0, excerpt: DraftTray.excerpt(try workspace.read($0)), position: positions[$0.id]!)
@@ -291,6 +299,7 @@ final class AppModel: ObservableObject {
         attempt {
             try flush()
             guard let workspace, let active else { return }
+            try stash.close(restoreFocus: false)
             let image = capturePage?()
             var source = active
             source.cursor = cursor; source.scroll = scroll
@@ -337,6 +346,7 @@ final class AppModel: ObservableObject {
             boardSheets = try related.map { draft in
                 BoardSheet(draft: draft, excerpt: DraftTray.excerpt(try workspace.read(draft)), position: positions[draft.id]!)
             }.sorted { a, b in a.position.x == b.position.x ? a.position.y < b.position.y : a.position.x < b.position.x }
+            try stash.close(restoreFocus: false)
             if let saved = try workspace.boardViewport(family: active.family) { boardViewport = saved }
             else { fitBoard(size: boardSize) }
             let rect = sheetRect(active.id, in: boardSize)
@@ -350,6 +360,7 @@ final class AppModel: ObservableObject {
     }
     func openBoardDraft(_ draft: Draft) {
         guard boardFlight == nil else { return }
+        do { try stash.close(restoreFocus: false) } catch { self.error = error.localizedDescription; return }
         select(draft)
         guard active?.id == draft.id else { return }
         persistBoard()

@@ -406,6 +406,11 @@ final class WritingTextView: NSTextView {
         }
     }
 
+    var onEscape: (() -> Void)?
+    override func cancelOperation(_ sender: Any?) {
+        if !hasMarkedText(), let onEscape { onEscape() } else { super.cancelOperation(sender) }
+    }
+
     override func magnify(with event: NSEvent) {
         // The writing-space boundary owns pinch navigation, including tail events.
     }
@@ -534,6 +539,12 @@ struct MarkdownEditor: NSViewRepresentable {
     var lineSpacing: Double = 7
     var spellChecking = false
 
+    var accessibilityName = "Writing editor"
+    var onMount: (WritingTextView) -> Void = { _ in }
+    var onEscape: (() -> Void)? = nil
+    var textInsets = NSSize(width: 28, height: 20)
+    var fragmentPadding: CGFloat = 5
+
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
         let storage = NSTextStorage()
@@ -541,6 +552,7 @@ struct MarkdownEditor: NSViewRepresentable {
         layout.delegate = context.coordinator
         let container = NSTextContainer(containerSize: NSSize(width: 680, height: CGFloat.greatestFiniteMagnitude))
         container.widthTracksTextView = true
+        container.lineFragmentPadding = fragmentPadding
         storage.addLayoutManager(layout); layout.addTextContainer(container)
         let view = WritingTextView(frame: .zero, textContainer: container)
         view.saveImage = saveImage; view.resolveImage = resolveImage; view.mediaError = mediaError
@@ -562,14 +574,16 @@ struct MarkdownEditor: NSViewRepresentable {
         view.minSize = NSSize(width: 0, height: 0)
         view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         view.autoresizingMask = [.width]
-        view.textContainerInset = NSSize(width: 28, height: 20)
+        view.textContainerInset = textInsets
         view.backgroundColor = Paper.background
         view.insertionPointColor = Paper.accent
         view.selectedTextAttributes = [.backgroundColor: Paper.accent.withAlphaComponent(0.16)]
         view.linkTextAttributes = [.foregroundColor: Paper.accent, .underlineStyle: NSUnderlineStyle.single.rawValue]
         view.font = Paper.body()
         view.delegate = context.coordinator
-        view.setAccessibilityLabel("Writing editor")
+        view.setAccessibilityLabel(accessibilityName)
+        view.onEscape = onEscape
+        onMount(view)
         let scroll = NSScrollView()
         scroll.documentView = view
         scroll.hasVerticalScroller = true

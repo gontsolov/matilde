@@ -9,6 +9,9 @@ enum WelcomeDocument {
     ## Try another direction
     Branch a draft to explore a different opening, a bolder argument, or a completely different ending. Your original stays yours. Both versions stay editable.
 
+    ## Keep the loose bits
+    Open Stash in the bottom-right corner. Add a bullet with an idea you want to try, then tuck it away. Branch this page and open Stash again—your notes come with you. Every draft shares the same stash; nothing extra lands on the canvas.
+
     ## See the bigger picture
     Pinch out or press ⌘0 to see your drafts together on the canvas. Open any page to keep writing.
 

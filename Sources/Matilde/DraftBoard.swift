@@ -86,6 +86,7 @@ struct WritingPinchInput: NSViewRepresentable {
             }
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.magnify, .keyDown]) { [weak self] event in
                 guard let self, event.window === self.window else { return event }
+                if StashEventBoundary.Boundary.contains(event) { return event.type == .magnify ? nil : event }
                 if event.type == .keyDown {
                     if self.tracking {
                         self.tracking = false
@@ -337,6 +338,7 @@ private struct BoardScrollInput: NSViewRepresentable {
                 guard let self, let window = self.window, event.window === window,
                       !self.isHiddenOrHasHiddenAncestor,
                       self.bounds.contains(self.convert(event.locationInWindow, from: nil)) else { return event }
+                if StashEventBoundary.Boundary.contains(event) { return event.type == .magnify ? nil : event }
                 if event.type == .magnify {
                     if event.phase == .began { self.onMagnifyStart?(self.convert(event.locationInWindow, from: nil)) }
                     return event

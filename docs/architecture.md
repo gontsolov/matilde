@@ -99,6 +99,8 @@ Before implementing AI, resolve comment anchoring as text changes, stale reviews
 
 ## Next architecture questions
 
+Planned writing stash: see [Stash design](stash.md), tracked as STASH-01. The owner confirmed one scratchpad shared across a draft family, kept off the canvas, with polished corner open/close motion and a hands-on welcome-document exercise. The first implementation is available locally: family-keyed Markdown sidecars, an independent native editor, corner reveal, keyboard toggle, save protection, and Finder access to retained/orphan notes. Remaining interaction acceptance checks are STASH-02.
+
 Resolve these one at a time, recording decisions here:
 
 1. How should file identity, snapshots, database recovery, and detailed editing interactions evolve beyond the first build?
