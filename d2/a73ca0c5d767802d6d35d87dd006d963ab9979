@@ -1,0 +1,75 @@
+docs/verification.md
+  s_a7fd880ef59afd::t_9a5be1c0761cd0 193-197
+  s_a7fd880ef59afd::t_4297fb8dbf7a3b 178-182
+  s_a7fd880ef59afd::t_3e54bc773eec81 183-187
+  s_a7fd880ef59afd::t_96e50fa1e56e09 198-202
+  s_a7fd880ef59afd::t_14e8427c9227bc 188-192
+Sources/Matilde/WelcomeDocument.swift
+  s_a7fd880ef59afd::t_a496365ff101be 12-14
+ROADMAP.md
+  s_a7fd880ef59afd::t_9a5be1c0761cd0 38
+  s_a7fd880ef59afd::t_4297fb8dbf7a3b 39
+Sources/Matilde/MarkdownEditor.swift
+  s_a7fd880ef59afd::t_aab95f2bfef968 409-413,542-547,555,577,584-586
+Sources/Matilde/Stash.swift
+  s_a7fd880ef59afd::t_aab95f2bfef968 148-163
+  s_a7fd880ef59afd::t_a496365ff101be 145,182
+  s_a7fd880ef59afd::t_b7cf9dcfb73c82 143-144,170-171,190-198
+  s_a7fd880ef59afd::t_69b585eb4b571e 1-142,146-147,164-169,172-181,183-189,199-217
+release-notes/0.1.6.md
+  s_a7fd880ef59afd::t_96e50fa1e56e09 1-8
+docs/architecture.md
+  s_a7fd880ef59afd::t_4297fb8dbf7a3b 102
+  s_a7fd880ef59afd::t_8b67db1f584d70 101
+Sources/Matilde/MatildeApp.swift
+  s_a7fd880ef59afd::t_a496365ff101be 285
+  s_a7fd880ef59afd::t_e8f8c544c4bfd1 36-39,286-289,420
+docs/stash.md
+  s_c0cc3196221124::t_a0a9ad483aa7ed 1-2,4-12,14,16-17,19-21,23,25,27,29,31,51-54,56-61,63-69,71-76
+  s_a7fd880ef59afd::t_a496365ff101be 13,33,45
+  s_a7fd880ef59afd::t_2af62c74584344 3
+  s_a7fd880ef59afd::t_b7cf9dcfb73c82 15,81,91-93
+  s_a7fd880ef59afd::t_4297fb8dbf7a3b 77-80,82-87
+  s_a7fd880ef59afd::t_aab95f2bfef968 18,24,88-90
+  s_c0cc3196221124::t_31d1545bcb51bd 22,26,28,30,32,34-44,46-50,55,62,70
+Config/release.json
+  s_a7fd880ef59afd::t_a8c49ec313e21a 2
+Sources/Matilde/AppModel.swift
+  s_3d59759e92a9ed::t_149abdfe083e1d 6,42,79,130,183,203,257,262,302,349,363
+Sources/Matilde/DraftBoard.swift
+  s_3d59759e92a9ed::t_fd973814616aa3 89,341
+Tests/MatildeTests/StashTests.swift
+  s_a7fd880ef59afd::t_56df9a6352473f 1-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d2a73ca0c5d767802d6d35d87dd006d963ab9979",
+  "prompts": {},
+  "sessions": {
+    "s_3d59759e92a9ed": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc7-48cc-7061-af99-8fe6aae251c6",
+        "model": "unknown"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    },
+    "s_a7fd880ef59afd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc4-66f7-7a50-a052-6f864d09a4cf",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    },
+    "s_c0cc3196221124": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09c7e-efff-7e50-b7b4-7538770a0586",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
