@@ -164,7 +164,6 @@ struct BoardPageSurface<Editor: View>: View, Animatable {
 }
 
 struct DraftBoard: View {
-    @AppStorage(SettingKeys.canvasDots) private var showDots = true
     @ObservedObject var model: AppModel
     let open: (Draft) -> Void
     @FocusState private var focused: Bool
@@ -191,7 +190,7 @@ struct DraftBoard: View {
                             dots.addEllipse(in: CGRect(x: x, y: y, width: 1.6, height: 1.6))
                         }
                     }
-                    if showDots { context.fill(dots, with: .color(Color(Paper.ink).opacity(0.25))) }
+                    context.fill(dots, with: .color(Color(Paper.ink).opacity(0.25)))
                     for sheet in model.boardSheets {
                         guard let parentID = sheet.draft.parent, let parent = model.boardSheets.first(where: { $0.id == parentID }) else { continue }
                         let a = model.sheetRect(parent.id, in: size), b = model.sheetRect(sheet.id, in: size)

@@ -446,7 +446,7 @@ struct InlineTitle: View {
             .fixedSize(horizontal: false, vertical: true)
             .focused($focused, equals: .title).accessibilityLabel("Document title")
             .onKeyPress(keys: [.downArrow, .return, .tab], phases: .down) { press in
-                guard press.modifiers.isEmpty else { return .ignored }
+                guard press.modifiers.intersection([.shift, .control, .option, .command]).isEmpty else { return .ignored }
                 focused = .goal
                 return .handled
             }
@@ -459,12 +459,13 @@ struct InlineTitle: View {
                 .foregroundStyle(Color(Paper.muted)).accessibilityLabel("Writing goal")
                 .focused($focused, equals: .goal)
                 .onKeyPress(keys: [.upArrow, .downArrow, .return, .tab], phases: .down) { press in
-                    guard press.modifiers.isEmpty else { return .ignored }
+                    guard press.modifiers.intersection([.shift, .control, .option, .command]).isEmpty else { return .ignored }
                     if press.key == .upArrow { focused = .title }
                     else {
                         model.attempt { try model.flush() }
                         focused = nil
-                        focusBody()
+                        // Let SwiftUI resign the field before claiming the native editor.
+                        DispatchQueue.main.async { focusBody() }
                     }
                     return .handled
                 }

@@ -258,3 +258,13 @@ Reduced dark-mode saturation across paper, sidebar, canvas, underside, ink and a
 ### 2026-09-14 — Copy current draft
 
 Added Copy Markdown to the document actions menu. It writes the live model body to the native clipboard as a string, preserving Markdown and including edits before autosave. Title, goal, and stash are excluded. Build/signature checks passed; restarted normally and confirmed the enabled menu entry. Cross-app paste was not exercised, and owner writing was not modified.
+
+
+### 2026-09-14 — Remove canvas appearance option
+
+Removed the dotted-canvas toggle, Canvas Settings tab, and stored-preference dependency. Board dots now always render. App build/signature and diff checks passed; after a normal restart, Settings exposes only General, Writing, and Connections. No release triggered.
+
+
+### 2026-09-14 — Header arrow-key routing correction
+
+The previous modifier check rejected arrow events carrying non-user modifier flags. It now checks only Shift/Control/Option/Command. Goal-to-body focus runs on the next main-queue turn so SwiftUI can resign its field first. Normal restart and live focus-only checks confirmed title Down → goal, goal Up → title, and goal Down → writing editor without changing document text. Build/signature and 62 Swift tests passed (one existing skip). Enter/Tab and divider live acceptance remain recorded under EDIT-14.

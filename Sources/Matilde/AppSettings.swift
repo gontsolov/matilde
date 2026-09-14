@@ -6,7 +6,6 @@ enum SettingKeys {
     static let textSize = "writing.textSize"
     static let lineSpacing = "writing.lineSpacing"
     static let spellChecking = "writing.spellChecking"
-    static let canvasDots = "canvas.showDots"
 }
 
 struct APIKeyStore {
@@ -77,7 +76,6 @@ struct AppSettingsView: View {
     @AppStorage(SettingKeys.textSize) private var textSize = 19.0
     @AppStorage(SettingKeys.lineSpacing) private var lineSpacing = 9.0
     @AppStorage(SettingKeys.spellChecking) private var spellChecking = false
-    @AppStorage(SettingKeys.canvasDots) private var canvasDots = true
     @State private var key = ""
     @State private var hasKey = false
     @State private var keyError: String?
@@ -116,10 +114,6 @@ struct AppSettingsView: View {
                 }
             }.formStyle(.grouped)
                 .tabItem { Label("Writing", systemImage: "textformat") }
-            Form {
-                Toggle("Show dotted canvas", isOn: $canvasDots)
-            }.formStyle(.grouped)
-                .tabItem { Label("Canvas", systemImage: "square.grid.2x2") }
             Form {
                 Section("Langdock") {
                     LabeledContent("API key", value: hasKey ? "Saved in Keychain" : "Not configured")
