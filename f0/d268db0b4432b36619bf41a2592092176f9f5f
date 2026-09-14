@@ -1,0 +1,21 @@
+docs/langdock-integration.md
+  s_a7fd880ef59afd::t_5c20281ea9b028 7-8,48
+ROADMAP.md
+  s_a7fd880ef59afd::t_5c20281ea9b028 74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f0d268db0b4432b36619bf41a2592092176f9f5f",
+  "prompts": {},
+  "sessions": {
+    "s_a7fd880ef59afd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc4-66f7-7a50-a052-6f864d09a4cf",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
