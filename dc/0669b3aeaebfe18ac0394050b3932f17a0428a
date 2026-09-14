@@ -1,0 +1,23 @@
+ROADMAP.md
+  s_a7fd880ef59afd::t_649427b89df2af 73
+docs/architecture.md
+  s_a7fd880ef59afd::t_f4adb52d65d7e9 87
+docs/langdock-integration.md
+  s_a7fd880ef59afd::t_f4adb52d65d7e9 1-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "dc0669b3aeaebfe18ac0394050b3932f17a0428a",
+  "prompts": {},
+  "sessions": {
+    "s_a7fd880ef59afd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc4-66f7-7a50-a052-6f864d09a4cf",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
