@@ -1,0 +1,137 @@
+ROADMAP.md
+  s_a7fd880ef59afd::t_51c823def9db18 84
+  s_a7fd880ef59afd::t_2d0e0ee95283cb 85
+  s_a7fd880ef59afd::t_e2fd87f1bb200b 80,83
+  s_a7fd880ef59afd::t_4e4bc515dded5e 81
+  s_a7fd880ef59afd::t_43765c77284b77 5
+  s_a7fd880ef59afd::t_3a9f21aa04b820 82
+  s_a7fd880ef59afd::t_e6ab75c9f156b1 72,76-77,135
+Sources/Matilde/SelectionAssist.swift
+  s_a7fd880ef59afd::t_1f4e19180ca4de 3-9,34
+  s_a7fd880ef59afd::t_3fb9c6ca7c8255 1-2,51,53,55,61-62,64-66,73-76,78-80
+  s_a7fd880ef59afd::t_f1dff286ab7afc 10-33,35-50,52,54,56-60,63,67-72,77
+Tests/MatildeTests/WritingAssistFollowupTests.swift
+  s_a7fd880ef59afd::t_2bb752a6d139c9 13,16,31,33,41,46-47,51,57,61,65,68,70-74,83-94,122-141
+  s_a7fd880ef59afd::t_6dd4fcb0f8acb1 10-12
+  s_a7fd880ef59afd::t_47e2d0a9b12192 14-15
+  s_a7fd880ef59afd::t_40261d1a75163c 17-19,28-30
+  s_a7fd880ef59afd::t_fedf164ace19f1 32
+  s_a7fd880ef59afd::t_7f4fe26af1a056 34-36,38-40
+  s_a7fd880ef59afd::t_9d1fa976accf93 42-45
+  s_a7fd880ef59afd::t_57113539376917 48-50
+  s_a7fd880ef59afd::t_438d468dc90959 52-56
+  s_a7fd880ef59afd::t_a97c986cb8771f 58-60
+  s_a7fd880ef59afd::t_4b04f7035cdfad 62-64
+  s_a7fd880ef59afd::t_007cfe3186ded5 66-67
+  s_a7fd880ef59afd::t_17374508095bf4 69
+  s_a7fd880ef59afd::t_6f5e39eb8fa1a5 75-77,80-82
+  s_a7fd880ef59afd::t_3b077ba4efd6fe 95-97,119-121
+  s_a7fd880ef59afd::t_99884a6eebac41 142
+  s_1a6b9395cb0f5c::t_29a2e65f748da5 1-9,20-27,37,78-79,98-118
+docs/verification.md
+  s_a7fd880ef59afd::t_51c823def9db18 414-417
+  s_a7fd880ef59afd::t_00d29cec5b46bc 393-401
+  s_a7fd880ef59afd::t_065689a16c91e6 402-405
+  s_a7fd880ef59afd::t_e2fd87f1bb200b 418-424
+  s_a7fd880ef59afd::t_bc06c4ec356d20 410-413
+  s_a7fd880ef59afd::t_43765c77284b77 406-409
+  s_a7fd880ef59afd::t_4e4bc515dded5e 428-430
+  s_a7fd880ef59afd::t_3a9f21aa04b820 425-427
+  s_a7fd880ef59afd::t_bb6d5d252ea928 383-392
+Sources/Matilde/WritingReview.swift
+  s_a7fd880ef59afd::t_8028243f3f893f 7-8,11-13,22,25,59,89-93,95-102,108,122,149,154-159,162,167,171,187,189-190,192,260,292,317,327,336,515
+  s_a7fd880ef59afd::t_bed6b686be037a 115-121,135,139,145,196,215,231-232,243,249,293-294,301,304,416-417,464,469,509,514,516,568-613,617,621-626,628-636,642-644,655,661
+  s_a7fd880ef59afd::t_7b63150a5ee2ec 94,165,268-291,549,556,558-565
+  s_a7fd880ef59afd::t_39f9a0ff9219b9 468,539,566,637-641
+  s_a7fd880ef59afd::t_fedcef5d5cf48f 113-114,126-134,136-138,140-144,166,191,193-195,209-214,216-230,233-242,244-248,250-259,261-267,295-300,302-303,344-345,351-352,374,393-394,397,406,409,412-414,423,426,430,433,437,439-451,461-463,465-467,492,501-508,510-513,527,536-538,548,550-555,557,567,627,646-649,651-654,656-660,662-663
+Config/release.json
+  s_a7fd880ef59afd::t_bb5791aab27f2c 2
+Sources/Matilde/MarkdownEditor.swift
+  s_a7fd880ef59afd::t_3fb9c6ca7c8255 253,255-269,276,278-279,283,742-743,781,800,802
+  s_a7fd880ef59afd::t_c704d66718e48d 254,277,286,351,648,741,866-870
+Tests/MatildeTests/LangdockStreamTests.swift
+  s_a7fd880ef59afd::t_39f9a0ff9219b9 1-62
+release-notes/0.1.12.md
+  s_a7fd880ef59afd::t_bb5791aab27f2c 1-10
+Sources/Matilde/LangdockReplyStream.swift
+  s_a7fd880ef59afd::t_a85badab00a0f4 1-67
+AGENTS.md
+  s_a7fd880ef59afd::t_6f1b37cbc61a17 100-101
+  s_a7fd880ef59afd::t_f870deefd162ab 75,93,95,97-99,102
+docs/architecture.md
+  s_a7fd880ef59afd::t_00d29cec5b46bc 138-139
+  s_a7fd880ef59afd::t_277d8b28db3572 132-137
+Sources/Matilde/LangdockClient.swift
+  s_a7fd880ef59afd::t_7b63150a5ee2ec 57-58,63-74,94,119-142,185-215,229
+  s_a7fd880ef59afd::t_d3d30c094b4ebc 51-55,216-228,230
+Sources/Matilde/ReviewTracking.swift
+  s_a7fd880ef59afd::t_8028243f3f893f 1-6,8-66
+  s_a7fd880ef59afd::t_3fb9c6ca7c8255 7
+docs/langdock-integration.md
+  s_a7fd880ef59afd::t_6f1b37cbc61a17 26-29
+  s_a7fd880ef59afd::t_bc06c4ec356d20 25
+  s_a7fd880ef59afd::t_51c823def9db18 19-23
+  s_a7fd880ef59afd::t_e2fd87f1bb200b 38-41,43,45-46
+  s_a7fd880ef59afd::t_75d6e38730d775 11,17,24,33-37
+Sources/Matilde/MatildeApp.swift
+  s_a7fd880ef59afd::t_3fb9c6ca7c8255 397-398
+  s_1a6b9395cb0f5c::t_1bf791ea0c7cb4 39-41,114-116,146-149
+Sources/Matilde/ConversationFocusBoundary.swift
+  s_a7fd880ef59afd::t_9da236ad757296 1-53
+Sources/Matilde/ThinkingShimmer.swift
+  s_a7fd880ef59afd::t_b97aa0141ad874 1-33
+Sources/Matilde/AppModel.swift
+  s_58ed761e7a8d6c::t_dadf2025947bb2 3,9-15,20,52-55,103-108,153,161-179,188,192,259-261
+Sources/Matilde/AppSettings.swift
+  s_1a6b9395cb0f5c::t_c52b5060d1132b 17-19,37,46,51-53,65,159
+Sources/Matilde/ComparisonDifferences.swift
+  s_1a6b9395cb0f5c::t_334d8e04a26b2b 1-87
+Sources/Matilde/CredentialSessionCache.swift
+  s_1a6b9395cb0f5c::t_b01ac283295bb7 1-22
+Sources/Matilde/DraftComparison.swift
+  s_58ed761e7a8d6c::t_164576963a68f4 11,86,105
+Tests/MatildeTests/SettingsTests.swift
+  s_1a6b9395cb0f5c::t_a22d08c9fb9c4b 6-29
+Tests/MatildeTests/WritingReviewTests.swift
+  s_ca717eccd135fb::t_e5320ffd125981 11-32,70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "78855613172aa8cc71259bf3258ebf182d243058",
+  "prompts": {},
+  "sessions": {
+    "s_1a6b9395cb0f5c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a1d4-e470-7fb3-93e1-44d356e1751e",
+        "model": "unknown"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    },
+    "s_58ed761e7a8d6c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a145-d856-79a1-a923-d254efe48abc",
+        "model": "unknown"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    },
+    "s_a7fd880ef59afd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc4-66f7-7a50-a052-6f864d09a4cf",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    },
+    "s_ca717eccd135fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a1fb-f803-7642-88c6-dcc87946ba1e",
+        "model": "unknown"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
