@@ -428,3 +428,6 @@ Removed nested transcript card decoration in expanded threads while preserving h
 
 ### 2026-09-15 — Inline thinking shimmer
 Thinking appears in the pending assistant response, replaced by incremental answer text. The footer no longer includes a spinner/loading row; Cancel occupies Send’s position during the request. Added a masked 1.6-second linear highlight with static Reduce Motion fallback and scroll-to-pending-response. App/signature build passed. Inspected the actual SwiftUI shimmer component in a disposable native preview using synthetic labels; no writing or API access. Preview closed normally. Matilde quit normally, but relaunch verification was blocked by the Mac locking. Integrated request/Reduce Motion checks not performed.
+
+### 0.1.12 release verification
+Initial release CI exposed a fixed-delay retry test race on a slower runner. Replaced its 140ms sleep with an expectation observing request completion (bounded to five seconds), preserving all delivery/deduplication assertions.

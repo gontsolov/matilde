@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 @testable import Matilde
 
 @MainActor
@@ -114,7 +115,11 @@ final class WritingAssistFollowupTests: XCTestCase {
         XCTAssertEqual(model.history.first?.comments.first?.messages?.last?.delivery, "failed")
         model.reply(runID: run.id, commentID: comment.id, text: "Help", input: repeated, configuration: configuration, key: "test")
         XCTAssertEqual(model.history.first?.comments.first?.messages?.count, 1)
-        try await Task.sleep(for: .milliseconds(140))
+        let completed = expectation(description: "Retried reply finishes")
+        let observation = model.$isRunning.filter { !$0 }.first().sink { _ in completed.fulfill() }
+        await fulfillment(of: [completed], timeout: 5)
+        withExtendedLifetime(observation) {}
+
         XCTAssertEqual(model.history.first?.comments.first?.messages?.map(\.role), ["user", "assistant"])
         XCTAssertEqual(model.history.first?.comments.first?.messages?.first?.delivery, "sent")
         XCTAssertNil(model.history.first?.comments.first?.replyError)
