@@ -356,3 +356,15 @@ ARM-only app build and deep signature verification, DMG packaging, generated arm
 ### 2026-09-14 — 0.1.9 release preparation
 
 Reduced review quote indentation from 24 to 10 points in the shared compact/expanded quote view. Includes the Apple-silicon-only distribution changes and arm64 feed requirement. Full Swift suite passed: 76 tests, one skip, no failures; both Python release tests and ARM app/signature build passed. Final visual inspection could not run because the Mac was locked. Version set to 0.1.9 at the owner’s explicit release request.
+
+
+### 2026-09-14 — Editable side-by-side drafts
+
+Added DraftComparison session and native HSplitView, entry points in the document menu, draft tray, sidebar and canvas, and a second-draft selector/close control. Both bodies are editable with separate buffers, positions, autosave and undo managers. Comparison writes refresh draft identity after renames, preserve dirty text on external conflicts and flush on close, switch and app termination.
+
+80 Swift tests passed (one opt-in skip), including independent buffers/positions, conflict recovery, debounce after rename and isolated native undo; app build/signature passed. Live checks in ignored `build/comparison-ui` covered edits on both sides, Command-S to separate files, right-side undo preserving the left edit, divider dragging and saving pending edits on close. Initial live check exposed a shared window undo manager; fixed with per-editor managers and repeated successfully. Original workspace and Untitled document restored without editing owner writing. Separate-window support, comparison restoration across launch and synchronized scrolling are outside this increment.
+
+
+### 2026-09-14 — 0.1.10 release preparation
+
+Owner requested committing, pushing and releasing the editable comparison feature. Set version 0.1.10 and added release notes. Re-ran the full Swift suite (80 tests, one opt-in skip, no failures), both Python release tests and ARM app/signature build successfully. Live comparison checks are recorded above.

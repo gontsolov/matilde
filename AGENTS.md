@@ -44,6 +44,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | `Sources/Matilde/AppModel.swift` | Workspace and draft state, autosave, selection, external reload, branching/removal, board navigation and editor readiness |
 | `Sources/Matilde/Workspace.swift` | Markdown file operations, SQLite metadata, snapshots, draft relationships, session state, Trash behavior |
 | `Sources/Matilde/MarkdownEditor.swift` | AppKit text view embedded in SwiftUI, Markdown styling/concealment, formatting commands, list behavior, cursor/scroll restoration |
+| `Sources/Matilde/DraftComparison.swift` | Independent editable comparison buffer, autosave/recovery and native split pane |
 | `Sources/Matilde/BoardStore.swift` | Persisted sheet placement and family viewport storage |
 | `Sources/Matilde/DraftBoard.swift` | Pinned draft canvas, shared page previews, mounted editor surface, pan/zoom, hover/cursors, keyboard navigation |
 | `Sources/Matilde/DraftInteraction.swift` | Branch preview tray and in-memory page capture used for the curl |
@@ -71,6 +72,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 - Supported scope: headings, emphasis, links, lists, checklists, blockquotes, dividers, fenced code, and standalone local Markdown images. The small Markdown renderer is not a complete CommonMark parser. Tables and remote image fetching are deferred.
 - Empty workspaces receive a welcome document once, with a sample goal. Help can reopen or explicitly recreate it; never overwrite edited welcome content or reseed after deletion automatically.
 - Image paste/drop stores immutable PNG files in `.assets` beside the draft, using relative Markdown references shared by branches. Do not delete assets on undo or draft Trash because other drafts/snapshots may reference them. Images are limited to 32 MB input and 40 megapixels; automatic unused-asset cleanup is not implemented. Bare URLs auto-link, pasting a URL over text creates a Markdown link, and Command-K adds/edits links.
+- Side-by-side comparison uses an independent DraftComparison session, flushed on close/switch/quit. MarkdownEditor coordinators own separate undo managers; never fall back to a shared window undo history across panes. Comparison state is session-only.
 - Styling must not rewrite the source text. Keep UTF-16 `NSRange` handling correct for Unicode and preserve native selection and undo behavior.
 - Command-B/Command-I toggle formatting, including nested emphasis. List continuation resets task checkboxes, exits empty lists, respects code fences, and handles numeric overflow.
 - Checklist clicks must hit the actual glyph, not nearby whitespace or an active text selection.

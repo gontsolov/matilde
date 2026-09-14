@@ -5,6 +5,7 @@ import AppKit
 final class AppModel: ObservableObject {
     let stash = StashModel()
     let review = WritingReviewModel()
+    @Published var comparison: DraftComparison?
     @Published var workspace: Workspace?
     @Published var drafts: [Draft] = []
     @Published var folders: [String] = [""]
@@ -80,6 +81,7 @@ final class AppModel: ObservableObject {
         try stash.load(workspace: newWorkspace, family: selected?.family)
         scopedURL?.stopAccessingSecurityScopedResource()
         scopedURL = url.startAccessingSecurityScopedResource() ? url : nil
+        comparison = nil
         workspace = newWorkspace; drafts = contents.drafts; folders = contents.folders
         sidebar = try newWorkspace.state("sidebar") != "false"
         active = selected; text = content; savedText = content
@@ -131,12 +133,26 @@ final class AppModel: ObservableObject {
             let content = try workspace.read(current)
             try stash.load(workspace: workspace, family: current.family)
             editorReadyID = nil
+            if comparison?.draft.id == current.id { comparison = nil }
             active = current; text = content; savedText = content
             try loadHeader()
             cursor = current.cursor; scroll = current.scroll; status = "Saved"
             try workspace.setState("active", draft.id)
             try workspace.rememberFamilyDraft(current)
         }
+    }
+    func compare(_ draft: Draft) {
+        guard draft.id != active?.id, !isBranching, boardFlight == nil else { return }
+        attempt {
+            try flush()
+            guard let workspace else { return }
+            let next = try DraftComparison(workspace: workspace, draft: draft)
+            boardVisible = false
+            comparison = next
+        }
+    }
+    func closeComparison() {
+        attempt { try comparison?.flush(); comparison = nil }
     }
     func selectFamily(_ family: String) {
         attempt {
@@ -206,6 +222,7 @@ final class AppModel: ObservableObject {
         } catch { status = "Couldn’t save"; throw error }
     }
     func flush() throws {
+        try comparison?.flush()
         try stash.flush()
         try save()
         if boardVisible, let workspace, let active { try workspace.saveBoardViewport(family: active.family, viewport: boardViewport) }
@@ -226,6 +243,7 @@ final class AppModel: ObservableObject {
     private func poll() {
         guard let workspace, error == nil, sheet == nil else { return }
         attempt {
+            try comparison?.poll()
             try stash.poll()
             try refresh()
             if let active {
@@ -269,6 +287,7 @@ final class AppModel: ObservableObject {
             guard let workspace,
                   let current = try workspace.allDrafts().first(where: { $0.id == draft.id }) else { return }
             try workspace.trash(current)
+            if comparison?.draft.id == current.id { comparison = nil }
             let wasActive = active?.id == current.id
             let previousFamily = active?.family
             try refresh()

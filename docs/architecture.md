@@ -122,3 +122,10 @@ Header interaction refinement (2026-09-14): the editor header omits edited-time 
 
 
 Appearance (2026-09-14): General settings offers System (default), Light, and Dark, persisted in app preferences. Both SwiftUI windows and native AppKit controls follow the choice. Paper colors are adaptive, with neutral charcoal surfaces, soft near-white ink and desaturated accents in dark mode; sidebar, canvas, code backgrounds, stash and curl underside share the palette. Sidebar has a native Settings link anchored at bottom-left.
+
+
+## Editable draft comparison
+
+Compare Side by Side opens another document or draft in a native resizable split, available from the document menu and draft/sidebar/canvas context menus. The main AppModel keeps workspace navigation; DraftComparison owns the other draft’s body buffer, cursor/scroll and autosave. Each MarkdownEditor coordinator supplies its own undo manager. Selecting the comparison draft in the main editor closes the duplicate pane after saving. Switching comparison/workspace, closing the pane and quitting flush both buffers. External changes preserve dirty comparison text in recovery before reload; missing files block save rather than being recreated.
+
+The comparison body is editable; its title and goal are displayed as context. The comparison selector can switch drafts. Comparison selection is currently session-only, with independent scrolling; separate windows and synchronized scrolling are not implemented.

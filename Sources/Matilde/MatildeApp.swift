@@ -96,13 +96,18 @@ struct ContentView: View {
                 sidebar.frame(width: 244)
                 Rectangle().fill(Color(Paper.ink).opacity(0.09)).frame(width: 1)
             }
+            HSplitView {
             VStack(spacing: 0) {
                 if model.workspace == nil { welcome }
                 else {
                     if let draft = model.active { writingSpace(draft) }
                     else { emptyWorkspace }
                 }
-            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }.frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
+            if let comparison = model.comparison {
+                DraftComparisonPane(comparison: comparison, model: model).frame(minWidth: 360, maxWidth: .infinity)
+            }
+            }
         }
         .background(Color(Paper.background))
         .foregroundStyle(Color(Paper.ink))
@@ -136,6 +141,11 @@ struct ContentView: View {
                         Button("Rename…") { model.sheet = .rename }
                         Button("Writing Goal…") { model.sheet = .goal }
                         Divider()
+                        Menu("Compare Side by Side") {
+                            ForEach(model.drafts.filter { $0.id != model.active?.id }) { draft in
+                                Button(draft.title) { model.compare(draft) }
+                            }
+                        }.disabled(model.drafts.count < 2 || model.isBranching || model.boardFlight != nil)
                         Button("Writing review") { model.showReview() }
                         Button("Review now") { model.reviewNow() }.disabled(model.isBranching || model.boardVisible || model.boardFlight != nil)
                         Button("Copy Markdown", systemImage: "doc.on.doc") { model.copyMarkdown() }
@@ -274,6 +284,8 @@ struct ContentView: View {
             .contextMenu {
                 let target = selected ? model.active : (try? model.workspace?.lastFamilyDraft(group.id, among: model.drafts))
                 if let target {
+                    Button("Compare Side by Side") { model.compare(target) }
+                        .disabled(target.id == model.active?.id || model.isBranching || model.boardFlight != nil)
                     Button("Move ‘\(target.title)’ to Trash", systemImage: "trash", role: .destructive) { model.trashDraft(target) }
                         .disabled(model.isBranching || model.boardFlight != nil)
                 }

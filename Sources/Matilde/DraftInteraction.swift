@@ -75,6 +75,8 @@ struct DraftTray: View {
                                 .contentShape(Rectangle())
                         }.buttonStyle(.plain).id(preview.id)
                             .contextMenu {
+                                Button("Compare Side by Side") { close(); model.compare(preview.draft) }
+                                    .disabled(preview.id == model.active?.id || model.isBranching || model.boardFlight != nil)
                                 Button("Move to Trash", systemImage: "trash", role: .destructive) {
                                     close()
                                     model.trashDraft(preview.draft)

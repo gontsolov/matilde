@@ -221,6 +221,8 @@ struct DraftBoard: View {
                             }
                             .accessibilityLabel("Open draft: \(sheet.draft.title)")
                             .contextMenu {
+                                Button("Compare Side by Side") { model.compare(sheet.draft) }
+                                    .disabled(sheet.id == model.active?.id || model.isBranching || model.boardFlight != nil)
                                 Button("Move to Trash", systemImage: "trash", role: .destructive) { model.trashDraft(sheet.draft) }
                             }
                             .position(x: rect.midX, y: rect.midY)

@@ -786,6 +786,8 @@ struct MarkdownEditor: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate, NSLayoutManagerDelegate {
+        private let editorUndoManager = UndoManager()
+        func undoManager(for view: NSTextView) -> UndoManager? { editorUndoManager }
         var parent: MarkdownEditor
         weak var view: WritingTextView?
         weak var scroll: NSScrollView?
