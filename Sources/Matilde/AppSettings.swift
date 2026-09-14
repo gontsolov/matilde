@@ -76,6 +76,13 @@ struct AppSettingsView: View {
     @AppStorage(SettingKeys.textSize) private var textSize = 19.0
     @AppStorage(SettingKeys.lineSpacing) private var lineSpacing = 9.0
     @AppStorage(SettingKeys.spellChecking) private var spellChecking = false
+    @AppStorage("langdock.baseURL") private var langdockURL = "https://api.langdock.com"
+    @AppStorage("langdock.region") private var langdockRegion = "eu"
+    @AppStorage("langdock.model") private var langdockModel = ""
+    @State private var models: [String] = []
+    @State private var loadingModels = false
+    @State private var modelTask: Task<Void, Never>?
+    @State private var connectionMessage: String?
     @State private var key = ""
     @State private var hasKey = false
     @State private var keyError: String?
@@ -121,13 +128,26 @@ struct AppSettingsView: View {
                         .textContentType(.password).accessibilityLabel("Langdock API key")
                     HStack {
                         Button(hasKey ? "Replace Key" : "Save Key") {
-                            perform { try keyStore.save(key); key = ""; hasKey = true }
+                            perform { try keyStore.save(key); key = ""; hasKey = true; resetModels() }
                         }.disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         if hasKey {
                             Button("Remove Key", role: .destructive) { removingKey = true }
                         }
                     }
-                    Text("Stored in your Mac’s Keychain, not in your writing files. AI features aren’t connected yet; no writing is sent to Langdock.")
+                    TextField("API address", text: $langdockURL).accessibilityLabel("Langdock API address")
+                    Picker("Region", selection: $langdockRegion) {
+                        Text("Europe").tag("eu")
+                        Text("United States").tag("us")
+                    }
+                    HStack {
+                        TextField("Model ID", text: $langdockModel).accessibilityLabel("Langdock model")
+                        if !models.isEmpty {
+                            Menu("Choose") { ForEach(models, id: \.self) { name in Button(name) { langdockModel = name } } }
+                        }
+                        Button(loadingModels ? "Loading…" : "Load models") { loadModels() }.disabled(!hasKey || loadingModels)
+                    }
+                    if let connectionMessage { Text(connectionMessage).font(.caption).foregroundStyle(.secondary) }
+                    Text("Review now sends the active draft’s title, goal and text to Langdock. Stash, other drafts and image files are excluded. Reviews stay in your workspace; rewrites change your text only when you accept them. Your API key stays in Keychain.")
                         .font(.callout).foregroundStyle(.secondary)
                     if let keyError { Text(keyError).foregroundStyle(.red).font(.callout) }
                 }
@@ -137,9 +157,30 @@ struct AppSettingsView: View {
         .padding(12).frame(width: 540, height: 380)
         .tint(Color(Paper.accent)).modifier(AppAppearanceModifier())
         .onAppear { perform { hasKey = try keyStore.containsKey() } }
-        .onDisappear { key = "" }
+        .onDisappear { key = ""; modelTask?.cancel(); loadingModels = false }
+        .onChange(of: langdockURL) { _, _ in resetModels() }
+        .onChange(of: langdockRegion) { _, _ in resetModels() }
         .confirmationDialog("Remove the saved Langdock API key?", isPresented: $removingKey) {
-            Button("Remove Key", role: .destructive) { perform { try keyStore.remove(); hasKey = false; key = "" } }
+            Button("Remove Key", role: .destructive) { perform { try keyStore.remove(); hasKey = false; key = ""; resetModels() } }
+        }
+    }
+    private func resetModels() {
+        modelTask?.cancel(); loadingModels = false; models = []; connectionMessage = nil
+    }
+    private func loadModels() {
+        modelTask?.cancel()
+        loadingModels = true; keyError = nil; connectionMessage = nil
+        let configuration = LangdockConfiguration.current
+        modelTask = Task { @MainActor in
+            do {
+                guard let credential = try keyStore.load() else { throw ReviewError.message("Save your API key first.") }
+                let available = try await LangdockClient().models(configuration: configuration, key: credential)
+                try Task.checkCancellation()
+                models = available
+                connectionMessage = available.isEmpty ? "Connected, but this key has no available models." : "Connected. Choose a chat model for writing reviews."
+                loadingModels = false
+            } catch is CancellationError { }
+            catch { keyError = error.localizedDescription; loadingModels = false }
         }
     }
     private func perform(_ operation: () throws -> Void) {

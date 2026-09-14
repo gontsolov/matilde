@@ -118,6 +118,74 @@ final class EditorInteractionTests: XCTestCase {
         }
     }
 
+    func testCheckboxCreationToggleContinuationAndUndo() {
+        let view = editor("A 日本語 task 🌱")
+        let delegate = UndoDelegate()
+        view.delegate = delegate
+        delegate.history.beginUndoGrouping()
+        view.insertCheckbox(nil)
+        delegate.history.endUndoGrouping()
+        XCTAssertEqual(view.string, "- [ ] A 日本語 task 🌱")
+        delegate.history.undo()
+        XCTAssertEqual(view.string, "A 日本語 task 🌱")
+        delegate.history.redo()
+        view.insertCheckbox(nil)
+        XCTAssertEqual(view.string, "- [x] A 日本語 task 🌱")
+        view.setSelectedRange(NSRange(location: (view.string as NSString).length, length: 0))
+        view.insertNewline(nil)
+        XCTAssertTrue(view.string.hasSuffix("\n- [ ] "))
+        view.insertNewline(nil)
+        XCTAssertTrue(view.string.hasSuffix("🌱\n"))
+        let bullet = editor("  - Existing item")
+        bullet.insertCheckbox(nil)
+        XCTAssertEqual(bullet.string, "  - [ ] Existing item")
+    }
+
+    func testBareCheckboxTypingAndCodeFenceProtection() {
+        for (source, expected) in [("[ ]", "- [ ] "), ("[x]", "- [x] "), ("  [ ]", "  - [ ] "),
+                                   ("ordinary [ ]", "ordinary [ ] "), ("```\n[ ]", "```\n[ ] ")] {
+            let view = editor(source)
+            view.insertText(" ", replacementRange: view.selectedRange())
+            XCTAssertEqual(view.string, expected)
+        }
+        let code = editor("```\n- literal")
+        code.insertCheckbox(nil)
+        XCTAssertEqual(code.string, "```\n- literal")
+    }
+
+    func testSlashQueryBoundariesFilteringAndCodeProtection() {
+        func query(_ text: String) -> (range: NSRange, filter: String)? {
+            SlashCommand.query(in: text, selection: NSRange(location: (text as NSString).length, length: 0))
+        }
+        XCTAssertEqual(query("日本語 /check")?.filter, "check")
+        XCTAssertEqual(query("日本語 /check")?.range, NSRange(location: 4, length: 6))
+        XCTAssertNil(query("/heading "))
+        XCTAssertNil(query("https://example.com/path"))
+        XCTAssertNil(query("word/slash"))
+        XCTAssertNil(query("```\n/check"))
+        XCTAssertNil(SlashCommand.query(in: "`/code`", selection: NSRange(location: 6, length: 0)))
+        XCTAssertEqual(SlashCommand.matching("check").map(\.title), ["Checkbox"])
+        XCTAssertEqual(SlashCommand.matching("h3").map(\.title), ["Heading 3"])
+        XCTAssertTrue(SlashCommand.matching("nonexistent").isEmpty)
+    }
+
+    func testSlashReplacesQueryAndSelectsPlaceholderWithUndo() {
+        let view = editor("Before /bold after", selection: NSRange(location: 12, length: 0))
+        let delegate = UndoDelegate()
+        view.delegate = delegate
+        delegate.history.beginUndoGrouping()
+        view.insertSlashCommand(SlashCommand.matching("bold")[0], replacing: NSRange(location: 7, length: 5))
+        delegate.history.endUndoGrouping()
+        XCTAssertEqual(view.string, "Before **text** after")
+        XCTAssertEqual((view.string as NSString).substring(with: view.selectedRange()), "text")
+        delegate.history.undo()
+        XCTAssertEqual(view.string, "Before /bold after")
+        let divider = editor("/divider")
+        divider.insertSlashCommand(SlashCommand.matching("divider")[0], replacing: NSRange(location: 0, length: 8))
+        XCTAssertEqual(divider.string, "---\n")
+        XCTAssertEqual(divider.selectedRange(), NSRange(location: 4, length: 0))
+    }
+
     private func editor(_ text: String, selection: NSRange? = nil) -> WritingTextView {
         let view = WritingTextView(frame: NSRect(x: 0, y: 0, width: 680, height: 500))
         view.isRichText = false

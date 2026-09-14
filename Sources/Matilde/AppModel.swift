@@ -4,18 +4,19 @@ import AppKit
 @MainActor
 final class AppModel: ObservableObject {
     let stash = StashModel()
+    let review = WritingReviewModel()
     @Published var workspace: Workspace?
     @Published var drafts: [Draft] = []
     @Published var folders: [String] = [""]
     @Published var active: Draft?
-    @Published var text = ""
+    @Published var text = "" { didSet { if text != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput) } } }
     @Published var sidebar = true
     @Published var status = "Saved"
     @Published var error: String?
     @Published var sheet: Sheet?
     @Published var search = ""
-    @Published var headerTitle = ""
-    @Published var headerGoal = ""
+    @Published var headerTitle = "" { didSet { if headerTitle != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput) } } }
+    @Published var headerGoal = "" { didSet { if headerGoal != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput) } } }
     @Published var focusTitleID: String?
     @Published var branchMoment: BranchMoment?
     @Published var isBranching = false
@@ -147,6 +148,16 @@ final class AppModel: ObservableObject {
             guard active?.id == destination.id else { return }
             if boardVisible { persistBoard(); boardVisible = false; boardFlight = nil }
         }
+    }
+
+    var reviewInput: ReviewInput { ReviewInput(title: headerTitle, goal: headerGoal, body: text) }
+    func showReview() {
+        review.bind(workspace: workspace, draftID: active?.id, input: reviewInput)
+        review.isOpen = true
+    }
+    func reviewNow() {
+        review.bind(workspace: workspace, draftID: active?.id, input: reviewInput)
+        review.start(input: reviewInput)
     }
 
     func edited(_ value: String) {
@@ -285,6 +296,7 @@ final class AppModel: ObservableObject {
         }
     }
     private func loadHeader() throws {
+        defer { review.bind(workspace: workspace, draftID: active?.id, input: reviewInput) }
         headerTitle = try active.map { try workspace?.state("untitled:\($0.id)") == "true" ? "" : $0.title } ?? ""
         headerGoal = active?.goal ?? ""
         headerDirty = false

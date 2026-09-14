@@ -78,13 +78,13 @@ The user wants to zoom out to see multiple drafts, then zoom into one to write. 
 
 The first canvas is now implemented for the current draft family with automatic persisted positions, saved viewport, pinned previews, connectors, and editor/board transitions. See the follow-up document for controls, current limits, and pending visual verification. The earlier v1 deferral above records the initial build scope.
 
-## AI: documented, deferred from initial implementation
+## AI: initial manual integration
 
-The user explicitly requested documenting AI behavior without building the AI parts yet. Do not implement API integration, automatic review, or AI suggestion generation in the initial build.
+The owner authorized the first Langdock integration on 2026-09-14. Manual review, a feedback panel with optional accepted rewrites, Keychain credentials and independent per-draft SQLite history are implemented. Automatic reviews, replies and naming remain future work.
 
 Future direction:
 
-- Connect to Langdock using a user-provided API key. Initial API research and a proposed implementation are recorded in [Langdock integration](langdock-integration.md); no live provider calls or AI functionality have been added.
+- Connect to Langdock using a user-provided API key. Implementation details and outstanding live-provider checks are recorded in [Langdock integration](langdock-integration.md).
 - Use the document's writing goal as context.
 - Review the active branch after a meaningful edit followed by approximately 30 seconds of inactivity. This is the agreed starting behavior; what counts as a meaningful edit remains to be defined.
 - Place comments quietly in the margin without stealing focus.
@@ -95,7 +95,7 @@ Future direction:
 - Support AI-assisted automatic draft naming and later renaming. Exact triggers and user controls remain to be designed.
 - Persist comments and their history locally.
 
-Before implementing AI, resolve comment anchoring as text changes, stale reviews, suggestion acceptance semantics, credential storage, and the exact content sent to Langdock.
+Initial anchors use exact quotes and surrounding context with UTF-16 ranges. Any writing/title/goal change makes existing suggestions stale; acceptance revalidates the source and uses native undo. Only the active title, goal and text are sent, with image references and known absolute local paths scrubbed. Finer anchor tracking remains future work.
 
 ## Next architecture questions
 

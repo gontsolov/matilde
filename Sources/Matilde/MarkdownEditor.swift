@@ -143,6 +143,7 @@ enum MarkdownStyler {
                 storage.addAttributes([.replacement: checked ? "☑" : "☐", .font: NSFont(name: "Apple Symbols", size: 23) ?? NSFont.systemFont(ofSize: 19)], range: NSRange(location: start, length: 1))
                 conceal(NSRange(location: start + 1, length: 4), in: storage)
                 if checked { storage.addAttribute(.foregroundColor, value: Paper.muted, range: range) }
+                storage.addAttribute(.foregroundColor, value: NSColor.clear, range: NSRange(location: start, length: 1))
             } else if let match = first("^(\\s*)[-*+] ", in: line) {
                 storage.addAttributes([.replacement: "•", .foregroundColor: Paper.muted], range: NSRange(location: offset + match.range(at: 1).length, length: 1))
             } else if let match = first("^\\s*[0-9]+[.)]", in: line) {
@@ -249,6 +250,25 @@ final class WritingHeaderView: NSHostingView<AnyView> {
 }
 
 final class WritingTextView: NSTextView {
+    lazy var slashMenu: SlashMenuController = {
+        let menu = SlashMenuController()
+        menu.editor = self
+        return menu
+    }()
+    override func keyDown(with event: NSEvent) {
+        if slashMenu.handle(event) { return }
+        super.keyDown(with: event)
+        slashMenu.update()
+    }
+    override func resignFirstResponder() -> Bool {
+        slashMenu.dismiss()
+        return super.resignFirstResponder()
+    }
+    override func didChangeText() {
+        super.didChangeText()
+        slashMenu.update()
+    }
+
     var saveImage: ((Data) throws -> String)?
     var resolveImage: ((String) -> NSImage?)?
     var mediaError: ((String) -> Void)?
@@ -360,6 +380,32 @@ final class WritingTextView: NSTextView {
         }
         let visibleGlyphs = layoutManager.glyphRange(forBoundingRect: dirtyRect.offsetBy(dx: -origin.x, dy: -origin.y), in: textContainer)
         let visibleCharacters = layoutManager.characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
+        storage.enumerateAttribute(.replacement, in: visibleCharacters) { value, range, _ in
+            guard let symbol = value as? String, symbol == "☐" || symbol == "☑" else { return }
+            let glyph = layoutManager.glyphIndexForCharacter(at: range.location)
+            let line = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            let location = layoutManager.location(forGlyphAt: glyph)
+            let bounds = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: textContainer)
+            let side = min(bounds.width - 1, 15)
+            let rect = NSRect(x: origin.x + bounds.minX + (bounds.width - side) / 2,
+                              y: origin.y + line.minY + location.y - side + 1,
+                              width: side, height: side)
+            let box = NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3)
+            let checked = symbol == "☑"
+            (checked ? Paper.ink : Paper.ink.withAlphaComponent(0.12)).setFill()
+            box.fill()
+            if checked {
+                let tick = NSBezierPath()
+                tick.move(to: NSPoint(x: rect.minX + side * 0.24, y: rect.minY + side * 0.51))
+                tick.line(to: NSPoint(x: rect.minX + side * 0.44, y: rect.minY + side * 0.71))
+                tick.line(to: NSPoint(x: rect.minX + side * 0.77, y: rect.minY + side * 0.30))
+                tick.lineWidth = 1.6
+                tick.lineCapStyle = .round
+                tick.lineJoinStyle = .round
+                Paper.background.setStroke()
+                tick.stroke()
+            }
+        }
         storage.enumerateAttribute(.divider, in: visibleCharacters) { value, range, _ in
             guard value != nil else { return }
             let glyph = layoutManager.glyphIndexForCharacter(at: range.location)
@@ -497,7 +543,42 @@ final class WritingTextView: NSTextView {
                 }
             }
         }
+        if !hasMarkedText(), inserted == " ", range.length == 0, range.location <= (string as NSString).length {
+            let source = string as NSString
+            let line = source.lineRange(for: NSRange(location: range.location, length: 0))
+            let prefix = source.substring(with: NSRange(location: line.location, length: range.location - line.location))
+            if let match = MarkdownStyler.first("^( *|\\t*)\\[([ xX])\\]$", in: prefix) {
+                let styled = NSMutableAttributedString(string: string)
+                MarkdownStyler.style(styled)
+                if line.location >= styled.length || styled.attribute(.codeBlock, at: line.location, effectiveRange: nil) == nil {
+                    let indent = (prefix as NSString).substring(with: match.range(at: 1))
+                    let state = (prefix as NSString).substring(with: match.range(at: 2))
+                    super.insertText(indent + "- [" + state + "] ", replacementRange: NSRange(location: line.location, length: (prefix as NSString).length))
+                    return
+                }
+            }
+        }
         super.insertText(insertString, replacementRange: replacementRange)
+    }
+
+    @objc func insertCheckbox(_ sender: Any?) {
+        let source = string as NSString
+        let lineRange = source.lineRange(for: NSRange(location: min(selectedRange().location, source.length), length: 0))
+        let line = source.substring(with: lineRange)
+        let styled = NSMutableAttributedString(string: string)
+        MarkdownStyler.style(styled)
+        if lineRange.location < styled.length,
+           styled.attribute(.codeBlock, at: lineRange.location, effectiveRange: nil) != nil { return }
+        if let task = MarkdownStyler.first("^(\\s*)[-*+] \\[([ xX])\\] ", in: line) {
+            let range = NSRange(location: lineRange.location + task.range(at: 2).location, length: 1)
+            let selection = selectedRange()
+            insertText(source.substring(with: range) == " " ? "x" : " ", replacementRange: range)
+            setSelectedRange(selection)
+        } else {
+            let prefix = MarkdownStyler.first("^(\\s*)(?:[-*+] |[0-9]+[.)] )?", in: line)!
+            let indent = (line as NSString).substring(with: prefix.range(at: 1))
+            insertText(indent + "- [ ] ", replacementRange: NSRange(location: lineRange.location, length: prefix.range.length))
+        }
     }
 
     override func insertNewline(_ sender: Any?) {
@@ -554,7 +635,8 @@ final class WritingTextView: NSTextView {
         guard glyph < layoutManager.numberOfGlyphs, selectedRange().length == 0,
               layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: textContainer).contains(point) else { return }
         let index = layoutManager.characterIndexForGlyph(at: glyph)
-        guard index < (string as NSString).length else { return }
+        guard index < (string as NSString).length,
+              textStorage?.attribute(.codeBlock, at: index, effectiveRange: nil) == nil else { return }
         let lineRange = (string as NSString).lineRange(for: NSRange(location: index, length: 0))
         let line = (string as NSString).substring(with: lineRange)
         if let match = MarkdownStyler.first("^(\\s*)[-*+] \\[([ xX])\\] ", in: line), index == lineRange.location + match.range(at: 1).length {
@@ -766,7 +848,7 @@ struct MarkdownEditor: NSViewRepresentable {
             parent.onChange(view.string)
             reportPosition()
         }
-        func textViewDidChangeSelection(_ notification: Notification) { reportPosition() }
+        func textViewDidChangeSelection(_ notification: Notification) { reportPosition(); view?.slashMenu.update() }
         func reportPosition() {
             guard !updating, !restoringPosition, let view else { return }
             let offset = scroll?.contentView.bounds.origin.y ?? 0

@@ -31,12 +31,18 @@ struct MatildeApp: App {
                 Button("Rename Document…") { model.sheet = .rename }.disabled(model.active == nil)
             }
             CommandMenu("Writing") {
+                Button("Checkbox") {
+                    NSApp.sendAction(#selector(WritingTextView.insertCheckbox(_:)), to: nil, from: nil)
+                }.keyboardShortcut("l", modifiers: [.command, .shift])
+                    .disabled(model.active == nil || model.boardVisible)
+                Divider()
                 Button("Branch Draft") { model.branch() }.keyboardShortcut("b", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
                 Button(model.boardVisible ? "Return to Draft" : "Show Draft Board") { model.boardRequest += 1 }.keyboardShortcut("0").disabled(model.active == nil)
                 Button("Toggle Stash") { model.stash.toggle() }.keyboardShortcut("j", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardFlight != nil || model.isBranching)
                 Button("Reveal Stash in Finder") { model.stash.reveal() }.disabled(model.active == nil)
                 Button("Reload Stash from Disk") { model.stash.reloadPreservingChanges() }.disabled(model.active == nil)
                 Button("Show All Stashes in Finder") { model.stash.reveal(all: true) }.disabled(model.workspace == nil)
+                Button("Review now") { model.reviewNow() }.disabled(model.active == nil || model.boardVisible || model.isBranching)
                 Button("Writing Goal…") { model.sheet = .goal }.disabled(model.active == nil)
                 Divider()
                 Button(model.sidebar ? "Enter Focus Mode" : "Leave Focus Mode") { model.toggleSidebar() }.keyboardShortcut("\\", modifiers: .command)
@@ -130,6 +136,8 @@ struct ContentView: View {
                         Button("Rename…") { model.sheet = .rename }
                         Button("Writing Goal…") { model.sheet = .goal }
                         Divider()
+                        Button("Writing review") { model.showReview() }
+                        Button("Review now") { model.reviewNow() }.disabled(model.isBranching || model.boardVisible || model.boardFlight != nil)
                         Button("Copy Markdown", systemImage: "doc.on.doc") { model.copyMarkdown() }
                         Button("Show in Finder") { model.reveal() }
                         Divider()
@@ -287,6 +295,9 @@ struct ContentView: View {
                     .opacity(model.boardVisible && model.boardFlight == nil ? 0 : 1)
                     .allowsHitTesting(!model.boardVisible)
                     .accessibilityHidden(model.boardVisible)
+            }
+            .overlay {
+                WritingReviewPane(model: model, review: model.review)
             }
             .overlay(alignment: .bottomTrailing) {
                 StashPocket(stash: model.stash, size: geometry.size)

@@ -268,3 +268,74 @@ Removed the dotted-canvas toggle, Canvas Settings tab, and stored-preference dep
 ### 2026-09-14 — Header arrow-key routing correction
 
 The previous modifier check rejected arrow events carrying non-user modifier flags. It now checks only Shift/Control/Option/Command. Goal-to-body focus runs on the next main-queue turn so SwiftUI can resign its field first. Normal restart and live focus-only checks confirmed title Down → goal, goal Up → title, and goal Down → writing editor without changing document text. Build/signature and 62 Swift tests passed (one existing skip). Enter/Tab and divider live acceptance remain recorded under EDIT-14.
+
+
+### 2026-09-14 — Checkbox creation
+
+Added Writing → Checkbox (Shift-Command-L) routed to the focused native editor, including stash. It converts the current paragraph or bullet to a task and toggles an existing task. Typing a space after a standalone `[ ]`, `[x]`, or `[X]` creates the Markdown task prefix; fences remain literal. Checkbox clicks inside code blocks are now ignored.
+
+64 Swift tests passed with one existing skip, covering Unicode, conversion, toggle, undo/redo, continuation, empty-list exit, and code protection. Final app build/signature passed. In ignored build/checkbox-workspace, verified rendered checked/unchecked boxes, mouse toggle, shorthand typing, Return continuation, and the stash keyboard shortcut. Restored the original workspace and active document without editing owner writing.
+
+
+### 2026-09-14 — Filled rounded checkbox styling
+
+Checkboxes now draw rounded filled shapes over the existing marker geometry. Unchecked boxes use a soft ink tint; checked boxes use solid ink with a contrasting rounded checkmark. Underlying Markdown, layout widths, and click handling are unchanged. Build/signature and diff checks passed. Inspected both states in the disposable checkbox workspace in light mode, then restored the original workspace. Dark-mode appearance was not separately inspected.
+
+
+### 2026-09-14 — Slash insertion menu
+
+Added a nonactivating native child panel with no animation. Slash commands open at a word boundary outside code, filter by title/aliases, support Up/Down and Enter or click, and dismiss on whitespace, Escape, or focus loss. Enter replaces only the slash query with a Markdown template and selects its editable placeholder. Block templates separate themselves from surrounding inline text. Catalog includes six heading levels, bullet/numbered lists, checkboxes, quotes, dividers, fenced/inline code, bold/italic, links, and local-image Markdown references. Image entries select a path placeholder rather than opening a file picker.
+
+66 Swift tests passed with one existing skip, covering query boundaries, URL/code exclusions, Unicode ranges, matching, replacement/selection, divider caret, and undo. Build/signature passed. Isolated live checks verified the unfiltered popup colors and top position, /check replacement, space dismissal preserving literal text, and /h3 insertion in stash. Original workspace restored; no owner writing edited. Screen-reader navigation and very narrow-window behavior remain unverified.
+
+
+### 2026-09-14 — Slash menu visual refinement
+
+Added SF Symbols in a fixed 18-point column, a 10-point icon-to-label gap, 12-point row content insets, 34-point row height, and 6-point outer padding. Menu width is 248 points, with 12-point outer corners and 8-point selection corners. Scrollbars overlay and hide when idle. Existing filtering and insertion behavior is preserved.
+
+Both existing slash regression tests passed. Production app build/signature passed after rerunning outside the sandbox for macOS icon generation. Live inspection was blocked by automatic approval review because launching the app might expose the owner's private workspace; no workspace or writing was modified. Visual acceptance remains pending under EDIT-19.
+
+
+### 2026-09-14 — Slash menu visual acceptance
+
+After explicit owner approval, inspected the updated app using `build/slash-style-workspace`. Light-mode menu icons, label alignment, row padding, rounded selection, keyboard scrolling to Numbered list, filtered `/check` insertion with selected Task placeholder, and `/link` popup placement in the stash passed. Escape dismissed the stash popup. Restored the original workspace and active document without editing owner writing. Dark-mode visual inspection and screen-reader navigation were not repeated. EDIT-19 is complete.
+
+
+### 2026-09-14 — Quieter grouped slash menu
+
+Matched the revised reference with muted Format/Lists/Insert/Style labels, explicit H1–H6 marks, larger 14-point item labels, and lighter icons/selection. Reduced outer corners to 8 points and selection corners to 6, with a 0.5-point low-opacity border. Replaced the native panel shadow with a controlled 8%-opacity, 5-point-radius layer shadow. Group labels are excluded from keyboard selection.
+
+Two slash regression tests and production build/signature passed. Inspected the running light-mode menu in the disposable slash-style workspace, including labels, border, corners, and heading marks. Six Down presses crossed the Format/Lists boundary and Return inserted the expected bullet template with Item selected. Original workspace and active document restored without editing owner writing. Dark-mode and screen-reader checks were not repeated.
+
+
+### 2026-09-14 — Initial manual Langdock integration
+
+Implemented model discovery/settings, a native completion client, manual review with optional accepted rewrites, per-draft SQLite history and conservative stale/cancellation handling. Requests use JSON mode plus local validation, not strict JSON Schema enforcement.
+
+76 Swift tests passed (one existing skip); app build and code-signature verification passed. Synthetic transport and review tests cover request shape, redacted auth errors, malformed/truncated responses, UTF-16 anchors, ambiguity/overlap, history, switching/edit cancellation, acceptance and undo. In `build/langdock-workspace`, a saved synthetic comment selected its exact source; acceptance changed only that passage and Command-Z restored it. Settings Connections layout inspected. Original workspace and active document restored without editing owner writing.
+
+No saved API key was configured, so live Langdock authentication/model discovery/completions and quality, cost and latency remain unverified. No personal writing was sent during verification.
+
+
+### 2026-09-14 — Resizable writing-review panel
+
+Increased default width from 280 to 380 points, added native edge dragging bounded to 320–560 points, persisted width and double-click reset. Solid cards now have borders and a small shadow; quoted passages have an accent rule and divider, and replacements have a labeled inset background. App build/signature passed after rerunning outside the sandbox for iconutil. Inspected existing saved comments without editing writing or requesting another review; drag resizing and double-click reset passed live. Dark-mode appearance, VoiceOver resizing and width restoration across relaunch were not verified in this pass.
+
+
+### 2026-09-14 — Floating passage review cards
+
+Replaced the review sidebar background/divider and resize handle with a transparent margin containing cards positioned from actual TextKit line coordinates. Compact cards expand to content-sized feedback with bounded internal scrolling; neighboring cards stack below them. Selection applies a temporary source highlight without modifying Markdown. Smaller windows use comment buttons with popovers. Saved runs remain available through Review history.
+
+Seven review regression tests and the production app/signature build passed. In the running app, existing saved comments aligned with their passages, expansion pushed the next card down, and the linked passage remained highlighted. No writing was edited or sent. The displayed document fit within its viewport, so sustained scroll tracking on a long document remains unverified, as do narrow-window popovers, dark appearance and VoiceOver.
+
+
+### 2026-09-14 — Review overlay beside the text
+
+Removed WritingReviewPane from the root HStack and placed it over the writing surface below StashPocket. Horizontal positioning now comes from the actual native editor text edge plus 16 points; card width uses the available margin, falling back to compact popovers when needed. Opening reviews no longer reserves a column or changes writing layout.
+
+Production build/signature and diff checks passed. Restarted normally and inspected existing saved reviews: cards sit directly beside the text; opening the stash visibly covers the cards. Closed stash afterward. No writing was edited or transmitted. Narrow-window and dark-mode checks were not repeated.
+
+
+### 2026-09-14 — 0.1.8 release preparation
+
+Review quotes, explanations, rewrite text and controls now use the standard system UI body font instead of smaller caption/callout styles. Restarted and inspected the saved floating cards in light mode. Full Swift suite: 76 tests, one opt-in skip, no failures. Both Python release tests and local app/signature build passed. Version set to 0.1.8 for the owner-requested release, including manual Langdock reviews, slash insertion and checkbox refinements.
