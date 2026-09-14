@@ -1,0 +1,35 @@
+docs/verification.md
+  s_a7fd880ef59afd::t_e4371cbdb41b68 435-437
+ROADMAP.md
+  s_a7fd880ef59afd::t_e4371cbdb41b68 81
+Sources/Matilde/ThinkingShimmer.swift
+  s_a7fd880ef59afd::t_5358738c358fad 15-22
+Config/release.json
+  s_ca717eccd135fb::t_76380f77c802d4 2
+release-notes/0.1.13.md
+  s_ca717eccd135fb::t_7839291fbf5667 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d66ae2ee1182fb7b798ab63dd33223368818c102",
+  "prompts": {},
+  "sessions": {
+    "s_a7fd880ef59afd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc4-66f7-7a50-a052-6f864d09a4cf",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    },
+    "s_ca717eccd135fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a1fb-f803-7642-88c6-dcc87946ba1e",
+        "model": "unknown"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
