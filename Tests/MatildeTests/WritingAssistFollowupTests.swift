@@ -51,8 +51,12 @@ final class WritingAssistFollowupTests: XCTestCase {
         model.automaticKey = { "test-only" }
         model.bind(workspace: workspace, draftID: "a", input: input)
         let changed = ReviewInput(title: input.title, goal: input.goal, body: input.body + " New sentence.")
+        let reviewed = expectation(description: "Automatic review starts")
+        client.onReview = { reviewed.fulfill() }
         model.changed(workspace: workspace, draftID: "a", input: changed)
-        try await Task.sleep(for: .milliseconds(120))
+        await fulfillment(of: [reviewed], timeout: 5)
+        client.onReview = nil
+        await waitUntilIdle(model)
         XCTAssertEqual(client.reviews, 1)
         model.changed(workspace: workspace, draftID: "a", input: changed)
         try await Task.sleep(for: .milliseconds(100))
@@ -74,7 +78,7 @@ final class WritingAssistFollowupTests: XCTestCase {
         let model = WritingReviewModel(client: client)
         model.bind(workspace: workspace, draftID: "a", input: input)
         model.reply(runID: run.id, commentID: run.comments[0].id, text: "Can you explain?", input: input, configuration: configuration, key: "test-only")
-        try await Task.sleep(for: .milliseconds(80))
+        await waitUntilIdle(model)
         let stored = try XCTUnwrap(workspace.reviewHistory(draftID: "a").first?.comments.first)
         XCTAssertEqual(stored.messages?.map(\.role), ["user", "assistant"])
         XCTAssertEqual(stored.messages?.last?.text, "A more specific claim helps.")
@@ -115,15 +119,18 @@ final class WritingAssistFollowupTests: XCTestCase {
         XCTAssertEqual(model.history.first?.comments.first?.messages?.last?.delivery, "failed")
         model.reply(runID: run.id, commentID: comment.id, text: "Help", input: repeated, configuration: configuration, key: "test")
         XCTAssertEqual(model.history.first?.comments.first?.messages?.count, 1)
-        let completed = expectation(description: "Retried reply finishes")
-        let observation = model.$isRunning.filter { !$0 }.first().sink { _ in completed.fulfill() }
-        await fulfillment(of: [completed], timeout: 5)
-        withExtendedLifetime(observation) {}
+        await waitUntilIdle(model)
 
         XCTAssertEqual(model.history.first?.comments.first?.messages?.map(\.role), ["user", "assistant"])
         XCTAssertEqual(model.history.first?.comments.first?.messages?.first?.delivery, "sent")
         XCTAssertNil(model.history.first?.comments.first?.replyError)
         XCTAssertEqual(model.history.first?.source?.body, repeated.body)
+    }
+    private func waitUntilIdle(_ model: WritingReviewModel) async {
+        let completed = expectation(description: "Request finishes")
+        let observation = model.$isRunning.filter { !$0 }.first().sink { _ in completed.fulfill() }
+        await fulfillment(of: [completed], timeout: 5)
+        withExtendedLifetime(observation) {}
     }
     func testLineDifferencesIdentifyBothSidesAndUnicodeOffsets() {
         let left = "Same\nOld 🌱 line\nSame", right = "Same\nNew 🐳 line\nSame\nAdded"
@@ -137,9 +144,10 @@ final class WritingAssistFollowupTests: XCTestCase {
 @MainActor
 private final class FollowupClient: LangdockServing {
     var reviews = 0
+    var onReview: (() -> Void)?
     var replyDelay: Duration = .zero
     func models(configuration: LangdockConfiguration, key: String) async throws -> [String] { [] }
-    func review(_ input: ReviewInput, configuration: LangdockConfiguration, key: String) async throws -> [ReviewSuggestion] { reviews += 1; return [] }
+    func review(_ input: ReviewInput, configuration: LangdockConfiguration, key: String) async throws -> [ReviewSuggestion] { reviews += 1; onReview?(); return [] }
     func reply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String) async throws -> ReviewReply {
         try await Task.sleep(for: replyDelay)
         return ReviewReply(answer: "A more specific claim helps.", replacement: "A precise claim.")
