@@ -146,7 +146,6 @@ struct ContentView: View {
                                 Button(draft.title) { model.compare(draft) }
                             }
                         }.disabled(model.drafts.count < 2 || model.isBranching || model.boardFlight != nil)
-                        Button("Writing review") { model.showReview() }
                         Button("Review now") { model.reviewNow() }.disabled(model.isBranching || model.boardVisible || model.boardFlight != nil)
                         Button("Copy Markdown", systemImage: "doc.on.doc") { model.copyMarkdown() }
                         Button("Show in Finder") { model.reveal() }

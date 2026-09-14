@@ -368,3 +368,15 @@ Added DraftComparison session and native HSplitView, entry points in the documen
 ### 2026-09-14 — 0.1.10 release preparation
 
 Owner requested committing, pushing and releasing the editable comparison feature. Set version 0.1.10 and added release notes. Re-ran the full Swift suite (80 tests, one opt-in skip, no failures), both Python release tests and ARM app/signature build successfully. Live comparison checks are recorded above.
+
+
+### 2026-09-14 — Permanent Pen assist header
+
+Renamed the review header Pen assist and made it visible for every active draft, removing the open/closed flag, icon menu and close button. Review/Cancel is a plain same-line action; history lives in the text title menu. Compact layouts keep a visible text title and put review in its menu. Floating cards and stash layering remain intact; no automatic API request is made.
+
+Seven review tests and the ARM app/signature build passed. Restarted and verified the permanent title and aligned Review action in the running light-mode app without editing writing or sending a request. Compact/dark presentation was not repeated.
+
+
+### 2026-09-14 — 0.1.11 release preparation
+
+Final header name is Writing assist, including accessibility/help text and current product documentation. Normal restart confirmed the new name. Owner requested publication: version set to 0.1.11 with release notes covering the always-visible header and aligned Review action. Full Swift suite passed (80 tests, one opt-in skip), both Python release tests and ARM app/signature build passed.

@@ -167,10 +167,6 @@ final class AppModel: ObservableObject {
     }
 
     var reviewInput: ReviewInput { ReviewInput(title: headerTitle, goal: headerGoal, body: text) }
-    func showReview() {
-        review.bind(workspace: workspace, draftID: active?.id, input: reviewInput)
-        review.isOpen = true
-    }
     func reviewNow() {
         review.bind(workspace: workspace, draftID: active?.id, input: reviewInput)
         review.start(input: reviewInput)

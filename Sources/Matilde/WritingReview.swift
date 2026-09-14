@@ -74,7 +74,6 @@ extension Workspace {
 
 @MainActor
 final class WritingReviewModel: ObservableObject {
-    @Published var isOpen = false
     @Published private(set) var isRunning = false
     @Published private(set) var history: [WritingReview] = []
     @Published var error: String?
@@ -113,7 +112,6 @@ final class WritingReviewModel: ObservableObject {
         generation = UUID(); task?.cancel(); task = nil; isRunning = false; requestRevision = nil
     }
     func start(input: ReviewInput, configuration: LangdockConfiguration = .current, key: String? = nil) {
-        isOpen = true
         cancel(); error = nil
         guard let draftID, workspace != nil else { return }
         guard !input.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { error = "Write a little first, then review your draft."; return }
@@ -190,7 +188,7 @@ struct WritingReviewPane: View {
     @State private var historyVisible = false
     private var run: WritingReview? { review.history.first }
     var body: some View {
-        if review.isOpen && model.active != nil {
+        if model.active != nil {
             GeometryReader { geometry in
                 let available = geometry.size.width - textRight - 28
                 let compact = available < 240
@@ -201,28 +199,42 @@ struct WritingReviewPane: View {
                                       highlightedID: run?.stale == false ? selected : nil,
                                       onChange: { anchors = $0 }, onTextRight: { textRight = $0 })
                         .allowsHitTesting(false)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .firstTextBaseline) {
                             Menu {
-                                Button("Review now") { model.reviewNow() }.disabled(review.isRunning)
+                                if compact {
+                                    Button(review.isRunning ? "Cancel review" : "Review now") {
+                                        if review.isRunning { review.cancel() } else { model.reviewNow() }
+                                    }
+                                }
                                 Button("Review history") { historyVisible = true }
-                                if review.isRunning { Button("Cancel review") { review.cancel() } }
-                            } label: { Image(systemName: "text.bubble") }
-                                .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Writing review")
-                            if !compact { Text("Writing review").font(.body).foregroundStyle(.secondary) }
-                            Spacer(minLength: 0)
-                            Button { review.isOpen = false } label: { Image(systemName: "xmark") }
-                                .buttonStyle(.plain).accessibilityLabel("Close writing review")
+                                    .disabled(review.history.isEmpty)
+                            } label: {
+                                Text("Writing assist").font(.body.weight(.medium))
+                            }
+                            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                            .foregroundStyle(Color(Paper.ink))
+                            .accessibilityLabel("Writing assist").help("Writing assist · Review history")
+                            if !compact {
+                                Spacer(minLength: 16)
+                                Button(review.isRunning ? "Cancel" : "Review") {
+                                    if review.isRunning { review.cancel() } else { model.reviewNow() }
+                                }
+                                .font(.body.weight(.medium)).buttonStyle(.plain)
+                                .foregroundStyle(Color(Paper.accent))
+                                .accessibilityLabel(review.isRunning ? "Cancel review" : "Review now")
+                            }
                         }
                         if review.isRunning { ProgressView().controlSize(.small) }
                         if !compact {
                             if let error = review.error { Text(error).font(.body).foregroundStyle(.secondary) }
                             else if run?.stale == true { Text("Draft changed · review again").font(.body).foregroundStyle(.secondary) }
                             else if run?.comments.isEmpty == true { Text("No changes suggested.").font(.body).foregroundStyle(.secondary) }
-                            else if run == nil { Button("Review now") { model.reviewNow() } }
                         }
                     }.padding(.top, 18).padding(.bottom, 12)
-                        .frame(width: cardWidth).background(Color(Paper.background)).offset(x: left).zIndex(1)
+                        .frame(width: compact ? 110 : cardWidth, alignment: .leading)
+                        .background(Color(Paper.background))
+                        .offset(x: compact ? max(0, geometry.size.width - 122) : left).zIndex(1)
                     if let run, !run.stale {
                         ForEach(run.comments.filter { $0.status == "open" }) { comment in
                             if let y = positions(compact: compact)[comment.id] {
