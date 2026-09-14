@@ -1,0 +1,40 @@
+docs/verification.md
+  s_a7fd880ef59afd::t_4c457beb44f8b9 261-265
+  s_a7fd880ef59afd::t_b11efab03c6ca0 266-270
+ROADMAP.md
+  s_a7fd880ef59afd::t_4c457beb44f8b9 93
+  s_a7fd880ef59afd::t_b11efab03c6ca0 38
+Sources/Matilde/MatildeApp.swift
+  s_a7fd880ef59afd::t_b4e21acda18685 467-468
+  s_a7fd880ef59afd::t_b711c6ba9a8cfe 449,462
+Sources/Matilde/DraftBoard.swift
+  s_a7fd880ef59afd::t_a2d7817cb79abc 193
+Config/release.json
+  s_8e20498dc00a25::t_eb0d8e6368318d 2
+release-notes/0.1.7.md
+  s_8e20498dc00a25::t_7d28e500acf27d 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c4ece4ca60fddea2573733de0103c48a52473d78",
+  "prompts": {},
+  "sessions": {
+    "s_8e20498dc00a25": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a10d-5419-7ed1-a40c-82d21854f4bc",
+        "model": "unknown"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    },
+    "s_a7fd880ef59afd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc4-66f7-7a50-a052-6f864d09a4cf",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
