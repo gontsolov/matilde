@@ -1,0 +1,41 @@
+docs/verification.md
+  s_a7fd880ef59afd::t_cbe18ef173f374 359-365
+  s_a7fd880ef59afd::t_d32d0238d19c40 366-368
+ROADMAP.md
+  s_a7fd880ef59afd::t_cbe18ef173f374 129
+  s_a7fd880ef59afd::t_780fb767ded6ad 128
+docs/architecture.md
+  s_a7fd880ef59afd::t_cbe18ef173f374 125-131
+AGENTS.md
+  s_a7fd880ef59afd::t_cbe18ef173f374 47,75
+Sources/Matilde/MarkdownEditor.swift
+  s_a7fd880ef59afd::t_8fda27da272866 789-790
+Tests/MatildeTests/DraftComparisonTests.swift
+  s_a7fd880ef59afd::t_fe400bde851ff3 1-73
+Sources/Matilde/AppModel.swift
+  s_a7fd880ef59afd::t_0c9aede393bc10 8,84,136,144-156,225,246,290
+Sources/Matilde/DraftBoard.swift
+  s_a7fd880ef59afd::t_8644ea777a4025 224-225
+Sources/Matilde/DraftComparison.swift
+  s_a7fd880ef59afd::t_c4a6567b7affd7 1-108
+Sources/Matilde/DraftInteraction.swift
+  s_a7fd880ef59afd::t_8cf1f0c5614ef8 78-79
+Sources/Matilde/MatildeApp.swift
+  s_a7fd880ef59afd::t_1f6b1bf69613c7 99,106-110,144-148,287-288
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5b7bcf43f1ffa044c70cd896f26a5db3fea6400f",
+  "prompts": {},
+  "sessions": {
+    "s_a7fd880ef59afd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a09fc4-66f7-7a50-a052-6f864d09a4cf",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Filip Tsolov <f.tsolov@gmail.com>"
+    }
+  }
+}
