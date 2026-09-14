@@ -12,10 +12,14 @@ struct ThinkingShimmer: View {
             .overlay {
                 if !reduceMotion {
                     GeometryReader { geometry in
-                        LinearGradient(colors: [.clear, Color(Paper.ink).opacity(0.85), .clear],
-                                       startPoint: .leading, endPoint: .trailing)
-                            .frame(width: geometry.size.width * 0.6)
-                            .offset(x: sweeping ? geometry.size.width : -geometry.size.width * 0.6)
+                        LinearGradient(stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: Color(Paper.ink), location: 0.35),
+                            .init(color: Color(Paper.ink), location: 0.65),
+                            .init(color: .clear, location: 1)
+                        ], startPoint: .leading, endPoint: .trailing)
+                            .frame(width: geometry.size.width * 0.85)
+                            .offset(x: sweeping ? geometry.size.width : -geometry.size.width * 0.85)
                     }
                     .mask(Text("Thinking…").font(.body))
                     .allowsHitTesting(false)

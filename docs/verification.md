@@ -432,3 +432,6 @@ Thinking appears in the pending assistant response, replaced by incremental answ
 ### 0.1.12 release verification
 Initial release CI exposed a fixed-delay retry test race on a slower runner. Replaced its 140ms sleep with an expectation observing request completion (bounded to five seconds), preserving all delivery/deduplication assertions.
 A subsequent runner exposed the equivalent automatic-review sleep race; automatic review now signals its invocation and successful reply tests await the model’s idle state. Negative debounce/pause/cancel observations retain bounded waits.
+
+### 2026-09-15 — Stronger thinking shimmer
+Widened the sweep from 60% to 85% of text width and added a full-ink plateau across its center, preserving speed and Reduce Motion behavior. App/signature build passed; actual component inspected in a disposable native preview. Preview closed and Matilde restarted normally. No API requests sent.
