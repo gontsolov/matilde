@@ -339,3 +339,20 @@ Production build/signature and diff checks passed. Restarted normally and inspec
 ### 2026-09-14 — 0.1.8 release preparation
 
 Review quotes, explanations, rewrite text and controls now use the standard system UI body font instead of smaller caption/callout styles. Restarted and inspected the saved floating cards in light mode. Full Swift suite: 76 tests, one opt-in skip, no failures. Both Python release tests and local app/signature build passed. Version set to 0.1.8 for the owner-requested release, including manual Langdock reviews, slash insertion and checkbox refinements.
+
+
+### 2026-09-14 — Review blockquote styling
+
+Unified compact and expanded source quotes with a shared view using the editor’s muted two-point rule at 55% opacity and 24-point indent. Standard system UI font size remains unchanged. App build/signature and live light-mode compact-card inspection passed after normal restart. Existing writing and review content were not changed.
+
+
+### 2026-09-14 — Apple silicon distribution only
+
+Build script now always compiles arm64 and removes the Intel compile/lipo merge branch. CI and DMG packaging require exactly arm64 for the Matilde executable; release feed verification requires `sparkle:hardwareRequirements` = `arm64`. Release workflow and download documentation reflect Apple silicon only. macOS 14 minimum retained because no current compatibility code can be removed by raising it. Sparkle vendor framework/helper slices remain unchanged.
+
+ARM-only app build and deep signature verification, DMG packaging, generated arm64 appcast requirement and feed/archive Ed25519 verification passed locally. Two Python release tests, shell syntax checks and git diff check passed. Used only ignored local 0.1.8 artifacts for this verification; published 0.1.8 assets were not changed, no version bumped and no release dispatched. Real Intel updater presentation remains untested; hardware filtering relies on the installed Sparkle 2.9.6 support.
+
+
+### 2026-09-14 — 0.1.9 release preparation
+
+Reduced review quote indentation from 24 to 10 points in the shared compact/expanded quote view. Includes the Apple-silicon-only distribution changes and arm64 feed requirement. Full Swift suite passed: 76 tests, one skip, no failures; both Python release tests and ARM app/signature build passed. Final visual inspection could not run because the Mac was locked. Version set to 0.1.9 at the owner’s explicit release request.

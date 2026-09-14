@@ -20,6 +20,7 @@ jobs:
       - name: Check packaging
         run: |
           codesign --verify --deep --strict build/Matilde.app
+          test "$(lipo -archs build/Matilde.app/Contents/MacOS/Matilde)" = arm64
           plutil -lint build/Matilde.app/Contents/Info.plist
           bash -n scripts/*.sh
           python3 -m unittest discover -s scripts/tests

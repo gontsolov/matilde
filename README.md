@@ -2,7 +2,9 @@
 
 A native macOS writing app with a quiet, focused editor and space to explore alternate drafts.
 
-[Download the latest release](https://github.com/gontsolov/matilde/releases/latest) · macOS 14+ · Apple silicon and Intel
+[Download the latest release](https://github.com/gontsolov/matilde/releases/latest) · macOS 14+ · Apple silicon
+
+Version 0.1.9 and later support Apple silicon only. [Version 0.1.8](https://github.com/gontsolov/matilde/releases/tag/v0.1.8) is the final universal release for Intel Macs.
 
 Open the DMG and drag Matilde into Applications. Early builds are not Apple-notarized; macOS may block first launch. See [installation and release notes](docs/releases.md). Once installed, use **Matilde → Check for Updates…** for new versions.
 

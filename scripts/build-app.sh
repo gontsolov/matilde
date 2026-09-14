@@ -6,24 +6,13 @@ export SWIFTPM_MODULECACHE_OVERRIDE="$PWD/.build/module-cache"
 APP="$PWD/build/Matilde.app"
 SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
 BUILD_FLAGS=(-c release --disable-sandbox -Xlinker -rpath -Xlinker '@executable_path/../Frameworks')
-if [[ "${BUILD_UNIVERSAL:-0}" == 1 ]]; then
-    swift build "${BUILD_FLAGS[@]}" --arch arm64
-    ARM_BIN=$(swift build "${BUILD_FLAGS[@]}" --arch arm64 --show-bin-path)
-    swift build "${BUILD_FLAGS[@]}" --arch x86_64
-    INTEL_BIN=$(swift build "${BUILD_FLAGS[@]}" --arch x86_64 --show-bin-path)
-    BIN="$ARM_BIN"
-else
-    swift build "${BUILD_FLAGS[@]}"
-    BIN=$(swift build "${BUILD_FLAGS[@]}" --show-bin-path)
-fi
+# One supported architecture for local and distribution builds.
+swift build "${BUILD_FLAGS[@]}" --arch arm64
+BIN=$(swift build "${BUILD_FLAGS[@]}" --arch arm64 --show-bin-path)
 # This is exclusively the generated app bundle, never a user's installation.
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
-if [[ "${BUILD_UNIVERSAL:-0}" == 1 ]]; then
-    lipo -create "$ARM_BIN/Matilde" "$INTEL_BIN/Matilde" -output "$APP/Contents/MacOS/Matilde"
-else
-    cp "$BIN/Matilde" "$APP/Contents/MacOS/Matilde"
-fi
+cp "$BIN/Matilde" "$APP/Contents/MacOS/Matilde"
 ditto "$BIN/Matilde_Matilde.bundle" "$APP/Contents/Resources/Matilde_Matilde.bundle"
 SPARKLE="$PWD/.build/artifacts/sparkle/Sparkle"
 ditto "$SPARKLE/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"

@@ -3,8 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 APP="$PWD/build/Matilde.app"
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")
-# A release is always one universal app; do not publish a host-only build accidentally.
-lipo "$APP/Contents/MacOS/Matilde" -verify_arch arm64 x86_64
+# Reject accidental Intel or universal builds.
+[[ "$(lipo -archs "$APP/Contents/MacOS/Matilde")" == arm64 ]] || { echo "Release executable must be arm64 only" >&2; exit 1; }
 codesign --verify --deep --strict "$APP"
 OUT="$PWD/build/releases/$VERSION"
 STAGE="$PWD/build/dmg-stage"

@@ -7,7 +7,8 @@ cat > build/release-notes.md <<'NOTES'
 ## Download
 
 Download **Matilde.dmg**, open it, and drag Matilde into Applications.
-Supports Apple silicon and Intel Macs running macOS 14 or later.
+Supports Apple silicon Macs (M1 or later) running macOS 14 or later.
+Intel Macs can continue using Matilde 0.1.8.
 
 ## Updates
 

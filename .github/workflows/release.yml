@@ -43,9 +43,7 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           CODE_SIGN_IDENTITY: ${{ vars.CODE_SIGN_IDENTITY }}
         run: bash scripts/import-certificate.sh
-      - name: Build universal app
-        env:
-          BUILD_UNIVERSAL: '1'
+      - name: Build Apple silicon app
         run: bash scripts/build-app.sh
       - name: Package download
         env:

@@ -5,7 +5,7 @@ Matilde is distributed directly from GitHub, not through the Mac App Store.
 ## Download and update
 
 The stable download is `https://github.com/gontsolov/matilde/releases/latest/download/Matilde.dmg`.
-Open the DMG and drag Matilde into Applications. The app is universal (Apple silicon and Intel), with macOS 14 as its minimum version.
+Open the DMG and drag Matilde into Applications. Version 0.1.9 and later target Apple silicon (M1 or later), with macOS 14 as the minimum version. Version 0.1.8 is the final universal release and remains available to Intel users.
 
 Sparkle 2.9.6 checks for new versions and presents its native install/relaunch UI. Manual checks live under **Matilde → Check for Updates…**. Automatic installation is disabled. No writing or workspace content is sent to the update server. The feed and download requests go to GitHub; system-profile submission is disabled.
 
@@ -15,11 +15,11 @@ The stable feed is `https://github.com/gontsolov/matilde/releases/latest/downloa
 
 1. Merge changes into `main` and check CI.
 2. Open GitHub Actions → **Release** → **Run workflow**, select `main`, and enter a version such as `0.1.1`. Alternatively, push a `v0.1.1` tag on a commit already in `main`.
-3. The workflow validates version ordering, tests, builds both architectures, packages the DMG, signs the archive and feed, uploads all assets to a draft release, then publishes it as latest.
+3. The workflow validates version ordering, tests, builds arm64, packages the DMG, signs the archive and feed, uploads all assets to a draft release, then publishes it as latest.
 
 The single release concurrency group prevents overlapping publications. Versions must increase numerically and use three numeric components. Published versions cannot be overwritten. A failed draft release can be retried from the same commit. `Config/release.json` controls local build version, stable bundle identity, update URL, repository, and public signing key. The release version overrides the local default through `MATILDE_VERSION`; keep the default current when beginning a new development cycle.
 
-The latest feed currently contains the newest universal build only. If the minimum supported macOS version changes, preserve compatible older feed entries before release; do not strand users on an unsupported update. This workflow intentionally does not generate delta updates or prerelease channels yet.
+Version 0.1.8 was universal. Starting with 0.1.9, feeds must contain `sparkle:hardwareRequirements` set to `arm64`; the pinned Sparkle generator infers this from the executable and release verification enforces it before publication. Sparkle 2.9.6 in existing installations rejects incompatible hardware updates. See [Sparkle hardware requirements](https://sparkle-project.org/documentation/publishing/#minimum-system-version-requirements). If the minimum supported macOS version changes, preserve compatible older feed entries before release; do not strand users on an unsupported update. This workflow intentionally does not generate delta updates or prerelease channels yet.
 
 ## Signing configuration
 
@@ -50,7 +50,7 @@ The workflow then imports the certificate into a temporary keychain, signs Spark
 ```sh
 swift test --disable-sandbox
 python3 -m unittest discover -s scripts/tests
-BUILD_UNIVERSAL=1 bash scripts/build-app.sh
+bash scripts/build-app.sh
 bash scripts/package-release.sh
 bash scripts/sign-release.sh
 ```
@@ -58,3 +58,5 @@ bash scripts/sign-release.sh
 `codesign --verify --deep --strict` and architecture validation run during packaging. `verify-appcast.py` checks metadata, URL, archive length, version and deployment target, and uses CryptoKit to verify the archive and feed Ed25519 signatures against the committed public key. Sparkle performs cryptographic verification during install; `sign_update --verify` can validate signatures locally. A full update-install test needs two published signed versions and a disposable installed app copy; successful packaging alone is not an end-to-end updater test.
 
 Official references: [Sparkle setup](https://sparkle-project.org/documentation/), [programmatic SwiftUI integration](https://sparkle-project.org/documentation/programmatic-setup/), and [manual framework signing](https://sparkle-project.org/documentation/sandboxing/#code-signing).
+
+The build script always compiles Matilde for arm64, and packaging rejects any other executable architecture. Sparkle remains the unchanged vendor framework, which includes its own universal helper binaries. Raising the macOS minimum is deferred until a concrete API or maintenance benefit justifies it.

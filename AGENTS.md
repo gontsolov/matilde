@@ -108,7 +108,7 @@ python3 -m unittest discover -s scripts/tests
 bash scripts/build-app.sh
 ```
 
-The build script assembles `build/Matilde.app`, bundles fonts, icon and Sparkle, and verifies its code signature. `BUILD_UNIVERSAL=1 bash scripts/build-app.sh` builds both arm64 and x86_64 for distribution. Do not manually reconstruct the bundle when the script suffices.
+The build script assembles `build/Matilde.app`, bundles fonts, icon and Sparkle, and verifies its code signature. The build always targets arm64 (Apple silicon); packaging rejects Intel or universal Matilde executables. The signed feed must require arm64 so existing Intel installs are not offered incompatible updates. Do not manually reconstruct the bundle when the script suffices.
 
 - Run checks appropriate to the change. Documentation-only work does not require rebuilding the app. For editor/storage changes, run relevant regression tests and the build; for UI changes, inspect the running app as well.
 - Use supported computer-use tools for UI testing and restarting. Quit normally so pending writing flushes, then launch the built bundle. Do not force-kill an app holding unsaved writing.
@@ -124,7 +124,7 @@ The build script assembles `build/Matilde.app`, bundles fonts, icon and Sparkle,
 - Public source repository: `https://github.com/gontsolov/matilde`, default branch `main`. The owner explicitly chose public source and direct GitHub distribution, not the Mac App Store.
 - Main pushes and pull requests run CI. A `v*` tag or manual Release workflow publishes a version. **Only trigger publication on an explicit release request.**
 - Release configuration and scripts are authoritative for the current version; do not hardcode a latest version in future instructions.
-- Release pipeline validates increasing versions and main ancestry, tests, builds universal binaries, packages a DMG, signs the archive/feed, uploads assets to a draft release, then publishes it as latest.
+- Release pipeline validates increasing versions and main ancestry, tests, builds the arm64 binary, packages a DMG, signs the archive/feed, uploads assets to a draft release, then publishes it as latest.
 - Stable download: `https://github.com/gontsolov/matilde/releases/latest/download/Matilde.dmg`.
 - Stable Sparkle feed: `https://github.com/gontsolov/matilde/releases/latest/download/appcast.xml`.
 - Sparkle verifies signed updates before extraction and uses native install/relaunch UI. Automatic installation and system-profile submission are disabled. Preserve save-on-quit behavior.

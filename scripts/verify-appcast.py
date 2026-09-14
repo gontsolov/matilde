@@ -22,6 +22,7 @@ assert int(enclosure.get("length", "0")) == (path.parent / "Matilde.dmg").stat()
 assert len(base64.b64decode(enclosure.get(ns + "edSignature", ""), validate=True)) == 64
 assert "<!-- sparkle-signatures:" in path.read_text(), "Missing signed-feed signature"
 assert item.findtext(ns + "minimumSystemVersion") == "14.0"
+assert item.findtext(ns + "hardwareRequirements") == "arm64", "Update must exclude Intel Macs"
 feed = path.read_bytes()
 marker = feed.rfind(b"<!-- sparkle-signatures:\n")
 block = re.fullmatch(rb"<!-- sparkle-signatures:\nedSignature: ([A-Za-z0-9+/=]+)\nlength: ([0-9]+)\n-->\n?", feed[marker:])

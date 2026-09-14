@@ -253,7 +253,7 @@ struct WritingReviewPane: View {
                                                 withEditor { review.locate(runID: run.id, commentID: comment.id, input: model.reviewInput, editor: $0) }
                                             } label: {
                                                 VStack(alignment: .leading, spacing: 8) {
-                                                    Text(comment.suggestion.quote).font(.body).foregroundStyle(.secondary).lineLimit(2)
+                                                    reviewQuote(comment.suggestion.quote, lines: 2)
                                                     Text(comment.suggestion.explanation).font(.body).lineSpacing(3).lineLimit(3)
                                                 }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                                             }.buttonStyle(.plain)
@@ -305,6 +305,14 @@ struct WritingReviewPane: View {
         }
         return result
     }
+    private func reviewQuote(_ text: String, lines: Int) -> some View {
+        Text(text).font(.body).foregroundStyle(.secondary).lineSpacing(3).lineLimit(lines)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 10).padding(.vertical, 3)
+            .overlay(alignment: .leading) {
+                Rectangle().fill(Color(Paper.muted).opacity(0.55)).frame(width: 2)
+            }
+    }
     @ViewBuilder private func reviewRun(_ run: WritingReview) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             if run.stale { Text("Draft changed · review again for current suggestions").font(.body).foregroundStyle(.secondary) }
@@ -312,10 +320,7 @@ struct WritingReviewPane: View {
             ForEach(run.comments) { comment in
                 VStack(alignment: .leading, spacing: 10) {
                     Button { withEditor { review.locate(runID: run.id, commentID: comment.id, input: model.reviewInput, editor: $0) } } label: {
-                        Text(comment.suggestion.quote).font(.body).lineSpacing(3).lineLimit(3)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.leading, 10).padding(.vertical, 3)
-                            .overlay(alignment: .leading) { RoundedRectangle(cornerRadius: 1).fill(Color(Paper.accent).opacity(0.65)).frame(width: 2) }
+                        reviewQuote(comment.suggestion.quote, lines: 3)
                     }.buttonStyle(.plain).foregroundStyle(.secondary).disabled(run.stale)
                     Divider().padding(.vertical, 2)
                     Text(comment.suggestion.explanation).font(.body).lineSpacing(4).textSelection(.enabled)
