@@ -39,7 +39,20 @@ final class AppModel: ObservableObject {
     @Published var boardRequest = 0
     var boardSize = CGSize.zero
     var reduceBoardMotion = false
-    @Published var editorReadyID: String?
+    @Published var editorReadyID: String? {
+        didSet {
+            // Branching another note waits until its page is on screen, so the curl shows it.
+            guard let id = editorReadyID, id == pendingBranchID else { return }
+            pendingBranchID = nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.active?.id == id else { return }
+                self.branch()
+            }
+        }
+    }
+    private var pendingBranchID: String?
+    /// The folder a folder sheet acts on: the parent for New Folder, the folder for Rename Folder.
+    var sheetFolder: String?
     private var headerDirty = false
     var cursor = 0
     var scroll = 0.0
@@ -52,7 +65,7 @@ final class AppModel: ObservableObject {
     private var positionTask: Task<Void, Never>?
     private var timer: Timer?
     private var scopedURL: URL?
-    enum Sheet: String, Identifiable { case document, folder, rename, goal; var id: String { rawValue } }
+    enum Sheet: String, Identifiable { case document, folder, rename, goal, renameFolder; var id: String { rawValue } }
 
     init() {
         stash.reportError = { [weak self] in self?.error = $0 }
@@ -156,6 +169,7 @@ final class AppModel: ObservableObject {
     }
     func select(_ draft: Draft, keepingPosition: Bool = false) {
         guard draft.id != active?.id else { return }
+        pendingBranchID = nil
         attempt {
             try flush()
             guard let workspace else { return }
@@ -380,33 +394,123 @@ final class AppModel: ObservableObject {
             try flush()
             guard let workspace,
                   let current = try workspace.allDrafts().first(where: { $0.id == draft.id }) else { return }
+            let order = visibleNotes
+            let previousFamily = active?.family
             try workspace.trash(current)
             if comparison?.draft.id == current.id { comparison = nil }
-            let wasActive = active?.id == current.id
-            let previousFamily = active?.family
             try refresh()
-            if wasActive {
-                active = nil; text = ""; savedText = ""
-                headerTitle = ""; headerGoal = ""; headerDirty = false
-                cursor = 0; scroll = 0; editorReadyID = nil; focusTitleID = nil
-                if let next = drafts.first(where: { $0.id == current.parent })
-                    ?? drafts.first(where: { $0.family == current.family }) ?? drafts.first {
-                    select(next)
-                } else {
-                    try stash.load(workspace: workspace, family: nil)
-                    try workspace.setState("active", "")
-                }
-            }
-            if boardVisible, let active, active.family == previousFamily {
-                try stash.close(restoreFocus: false)
-                let positions = try workspace.boardPositions(for: related)
-                boardSheets = try related.map {
-                    BoardSheet(draft: $0, excerpt: DraftTray.excerpt(try workspace.read($0)), position: positions[$0.id]!)
-                }.sorted { $0.position.x == $1.position.x ? $0.position.y < $1.position.y : $0.position.x < $1.position.x }
-            } else if boardVisible {
-                boardVisible = false; boardSheets = []
-            }
+            if active?.id == current.id { try replaceRemovedActive(current, order: order) }
+            try refreshBoard(previousFamily: previousFamily)
         }
+    }
+    /// Move a sidebar folder, its subfolders and every note inside to the macOS Trash.
+    func trashFolder(_ folder: String) {
+        guard !folder.isEmpty, !isBranching, boardFlight == nil else { return }
+        attempt {
+            try flush()
+            guard let workspace else { return }
+            let order = visibleNotes
+            let previousFamily = active?.family
+            let removed = try Set(workspace.trashFolder(folder).map(\.id))
+            if let comparison, removed.contains(comparison.draft.id) { self.comparison = nil }
+            collapsedFolders = collapsedFolders.filter { $0 != folder && !$0.hasPrefix(folder + "/") }
+            try refresh()
+            if let active, removed.contains(active.id) { try replaceRemovedActive(active, order: order) }
+            try refreshBoard(previousFamily: previousFamily)
+        }
+    }
+    /// Open a sensible neighbour after the open draft was removed: its parent, another draft of
+    /// its family, then the next note in the sidebar's visible `order` (taken before removal).
+    private func replaceRemovedActive(_ removed: Draft, order: [String]) throws {
+        guard let workspace else { return }
+        active = nil; text = ""; savedText = ""
+        headerTitle = ""; headerGoal = ""; headerDirty = false
+        cursor = 0; scroll = 0; editorReadyID = nil; focusTitleID = nil
+        let families = Set(drafts.map(\.family))
+        let neighbour = try SidebarActions.successor(of: removed.family, removing: Set(order.filter { !families.contains($0) }), in: order)
+            .flatMap { try workspace.lastFamilyDraft($0, among: drafts) }
+        if let next = drafts.first(where: { $0.id == removed.parent })
+            ?? drafts.first(where: { $0.family == removed.family })
+            ?? neighbour ?? drafts.first {
+            select(next)
+        } else {
+            try stash.load(workspace: workspace, family: nil)
+            try workspace.setState("active", "")
+        }
+    }
+    private func refreshBoard(previousFamily: String?) throws {
+        guard let workspace else { return }
+        if boardVisible, let active, active.family == previousFamily {
+            try stash.close(restoreFocus: false)
+            let positions = try workspace.boardPositions(for: related)
+            boardSheets = try related.map {
+                BoardSheet(draft: $0, excerpt: DraftTray.excerpt(try workspace.read($0)), position: positions[$0.id]!)
+            }.sorted { $0.position.x == $1.position.x ? $0.position.y < $1.position.y : $0.position.x < $1.position.x }
+        } else if boardVisible {
+            boardVisible = false; boardSheets = []
+        }
+    }
+    /// Branch `draft`: right away when it is open, otherwise once its page has loaded.
+    func branch(from draft: Draft) {
+        guard !isBranching, boardFlight == nil else { return }
+        if draft.id == active?.id && !boardVisible { branch(); return }
+        if boardVisible { persistBoard(); boardVisible = false; boardSheets = [] }
+        select(draft)
+        guard active?.id == draft.id else { return }
+        if editorReadyID == draft.id { branch() } else { pendingBranchID = draft.id }
+    }
+    func duplicate(_ draft: Draft) {
+        guard !isBranching, boardFlight == nil else { return }
+        attempt {
+            try flush()
+            guard let workspace,
+                  let current = try workspace.allDrafts().first(where: { $0.id == draft.id }) else { return }
+            boardVisible = false; boardFlight = nil
+            let copy = try workspace.duplicate(current, text: try workspace.read(current))
+            try refresh(); select(copy)
+        }
+    }
+    /// Open `draft` and show a sheet that acts on the open draft (rename, goal).
+    func present(_ sheet: Sheet, for draft: Draft) {
+        if draft.id != active?.id { select(draft) }
+        guard active?.id == draft.id else { return }
+        self.sheet = sheet
+    }
+    func presentFolderSheet(_ sheet: Sheet, folder: String) {
+        sheetFolder = folder
+        self.sheet = sheet
+    }
+    func renameFolder(_ folder: String, to name: String) throws {
+        guard let workspace else { return }
+        try flush()
+        let renamed = try workspace.renameFolder(folder, to: name)
+        collapsedFolders = Set(collapsedFolders.map { SidebarActions.path($0, movingFolder: folder, to: renamed) })
+        try refresh()
+        try comparison?.poll()
+    }
+    func createFolder(name: String, parent: String) throws {
+        guard let workspace else { return }
+        try workspace.createFolder(name: name, parent: parent)
+        collapsedFolders.remove(parent)
+        try refresh()
+    }
+    func copyMarkdown(of draft: Draft) {
+        let content = draft.id == active?.id ? text : (try? workspace?.read(draft))
+        guard let content else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(content, forType: .string)
+    }
+    func copyPath(of draft: Draft) {
+        guard let url = try? workspace?.url(for: draft.path) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.path, forType: .string)
+    }
+    func reveal(_ draft: Draft) {
+        if let url = try? workspace?.url(for: draft.path) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+    }
+    func revealFolder(_ folder: String) {
+        guard let workspace, let url = try? workspace.validFolder(folder) else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
     private func loadHeader() throws {
         defer {

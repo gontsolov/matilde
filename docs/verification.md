@@ -592,3 +592,17 @@ Owner explicitly requested a new release ("merge it and do new release"). Latest
 
 ### 0.1.18 publication — 2026-11-15
 Release workflow run 43755942031 (dispatched on `main` at `581acfa`, version 0.1.18) passed version/signing validation, tests, arm64 build, DMG packaging, Sparkle archive/feed signing, the artifact upload (`Matilde-0.1.18`, 6.6 MB) and publication; its only annotation is GitHub's macOS arm64 queue-time notice. GitHub Release `v0.1.18` (tag on `581acfa`) is published as latest with `Matilde.dmg`, `appcast.xml` and `SHA256SUMS`; the latest feed reports version 0.1.18 with `arm64` hardware requirements, the v0.1.18 DMG URL and an Ed25519 signature. Build remains ad-hoc signed and not Apple-notarized (DIST-02). An installed-app update from 0.1.17 and the Mac UI checks for UI-26 were not exercised.
+
+### 2026-11-15 — Sidebar right-click actions (UI-27)
+Context menus on note rows, folder rows and the empty sidebar list (`MatildeApp.swift`), backed by `SidebarActions.swift` (pure helpers plus `Workspace.duplicate`, `renameFolder`, `trashFolder`) and `AppModel` actions. Existing paths reused: `moveNote` for Move To, `trashDraft` for note Trash (now picking the next note in sidebar order as a last fallback instead of the alphabetically first draft), `newDocument(in:)`, the rename/goal/new-folder sheets, `compare`, `branch`. Folder Trash and rename run in one SQLite transaction with the filesystem step last and roll back on failure; nothing is deleted permanently.
+
+Linux sandbox without Swift: code reading only. New `SidebarActionsTests` (folder contents/count, move targets, neighbour choice, rename paths, folder Trash with reconnection and rollback, folder rename, duplicate) run in CI.
+
+Manual Mac checklist (disposable workspace under `build/`):
+- Right-click a note: every item listed in UI-27 appears; ⇧⌘B and ⌘⌫ show only on the open note. Branch Draft on another note opens it and plays the curl of that note's page.
+- Duplicate opens `Title copy`; Rename… and Writing Goal… open the sheet for that note; Move To moves the family (with images) and expands the destination.
+- Show in Finder, Copy Markdown (unsaved text of the open note included) and Copy Path work.
+- Move to Trash on the open note opens its parent or neighbour; the file is in the macOS Trash.
+- Right-click a folder: New Document creates `Untitled` inside and expands it; New Folder… preselects it as parent; Rename… keeps notes, branches, goals and the open note; Expand/Collapse All; Move to Trash… shows “It contains N notes.”, cancel leaves everything, confirm moves the folder to the macOS Trash and opens a neighbour if the open note was inside.
+- Right-click empty space below the list: New Document (in Documents) and New Folder…; right-clicking a row still shows the row's menu, not the empty-area one.
+- Board visible or comparison open while trashing/renaming: no stale sheets or panes.
