@@ -589,3 +589,6 @@ Release workflow run 43739704261 (dispatched on `main` at `f778cb2`, version 0.1
 
 ### 0.1.18 release preparation — 2026-11-15
 Owner explicitly requested a new release ("merge it and do new release"). Latest tag was `v0.1.17`, so this is 0.1.18. No other pull requests were open. `git log v0.1.17..origin/main` contains the 0.1.17 publication record and #21: the sidebar toggle in the traffic lights' row (UI-26). CI on main head `ea6767e` (run 43755536504, macOS-15) passed. Version set to 0.1.18 with release notes. The live Mac UI checks for UI-26 remain open.
+
+### 0.1.18 publication — 2026-11-15
+Release workflow run 43755942031 (dispatched on `main` at `581acfa`, version 0.1.18) passed version/signing validation, tests, arm64 build, DMG packaging, Sparkle archive/feed signing, the artifact upload (`Matilde-0.1.18`, 6.6 MB) and publication; its only annotation is GitHub's macOS arm64 queue-time notice. GitHub Release `v0.1.18` (tag on `581acfa`) is published as latest with `Matilde.dmg`, `appcast.xml` and `SHA256SUMS`; the latest feed reports version 0.1.18 with `arm64` hardware requirements, the v0.1.18 DMG URL and an Ed25519 signature. Build remains ad-hoc signed and not Apple-notarized (DIST-02). An installed-app update from 0.1.17 and the Mac UI checks for UI-26 were not exercised.
