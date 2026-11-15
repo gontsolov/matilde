@@ -59,7 +59,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 
 - Manage one workspace folder, with subfolders. First launch offers Start writing, creating/reusing `~/Documents/Matilde`; choosing another folder is secondary. Never replace existing workspace files.
 - Writing lives in ordinary `.md` files. `.matilde/workspace.sqlite` holds goals, draft identity/relationships, state, Ask Matilde history and private user comments (`user_comments`, anchored by UTF-16 range plus quote/context; never written into Markdown); `.matilde/snapshots` holds immutable branching snapshots. Backing up the entire workspace preserves these together.
-- Restore workspace, active draft, cursor, scroll, and sidebar/focus state. Canvas viewport persists per family, but app startup currently opens the editor rather than restoring board mode.
+- Restore workspace, active draft, cursor, scroll, and sidebar/focus state at launch. Switching notes or drafts lands at the top with the caret at the body start (owner's choice); only a new branch keeps its inherited position. Canvas viewport persists per family, but app startup currently opens the editor rather than restoring board mode.
 - Autosave is currently debounced about 650 ms. Flush on switching, explicit Command-S, and quitting. Preserve this protection when changing navigation or updater behavior.
 - External file edits reload automatically, with existing recovery handling for dirty text. Advanced conflict resolution and identity preservation across external moves remain follow-ups.
 - Branching snapshots the source, creates a separate uniquely named Markdown file beside it, inherits the goal and writing position, and opens the child. Both drafts remain editable; a snapshot is distinct from either live draft.
@@ -77,7 +77,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 - Styling must not rewrite the source text. Keep UTF-16 `NSRange` handling correct for Unicode and preserve native selection and undo behavior.
 - Command-B/Command-I toggle formatting, including nested emphasis. List continuation resets task checkboxes, exits empty lists, respects code fences, and handles numeric overflow.
 - Checklist clicks must hit the actual glyph, not nearby whitespace or an active text selection.
-- Loading a draft has asynchronous layout/scroll restoration. Generation guards cancel stale restoration. Typing during initial layout must be saved immediately; never leave change reporting disabled during the delay.
+- An editor already on screen lands synchronously on a draft switch (layout and scroll before the next draw); only the first mount waits for SwiftUI sizing before restoring. Generation guards cancel stale restoration. Typing during initial layout must be saved immediately; never leave change reporting disabled during the delay.
 - Canvas opening waits for the destination editor to be ready. Avoid races between draft identity, text loading, restored position, and animation completion.
 
 ## Branching and canvas

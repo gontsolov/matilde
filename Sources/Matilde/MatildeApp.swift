@@ -53,6 +53,12 @@ struct MatildeApp: App {
                 Button("Review now") { model.reviewNow() }.disabled(model.active == nil || model.boardVisible || model.isBranching)
                 Button("Writing Goal…") { model.sheet = .goal }.disabled(model.active == nil)
                 Divider()
+                // ⌃⌘↑/↓: free in NSTextView key bindings (⌘↑/↓, ⌥↑/↓ and ⌃↑/↓ stay with text
+                // editing and Mission Control) and clear of ⇧⌘A, ⇧⌘K and the other menu items.
+                Button("Next Note") { model.cycleNote(forward: true) }
+                    .keyboardShortcut(.downArrow, modifiers: [.command, .control]).disabled(!model.canCycleNotes)
+                Button("Previous Note") { model.cycleNote(forward: false) }
+                    .keyboardShortcut(.upArrow, modifiers: [.command, .control]).disabled(!model.canCycleNotes)
                 Button(model.sidebar ? "Enter Focus Mode" : "Leave Focus Mode") { model.toggleSidebar() }.keyboardShortcut("\\", modifiers: .command)
             }
             CommandGroup(replacing: .help) {
@@ -86,7 +92,6 @@ struct ContentView: View {
     @AppStorage(SettingKeys.lineSpacing) private var writingLineSpacing = 9.0
     @AppStorage(SettingKeys.spellChecking) private var writingSpellChecking = false
     @ObservedObject var model: AppModel
-    @State private var collapsedFolders: Set<String> = []
     @State private var hoveredDraft: String?
     @State private var hoveredFolder: String?
     @State private var draggedNote: SidebarNoteDrag?
@@ -202,27 +207,28 @@ struct ContentView: View {
                 .padding(.horizontal, 16).frame(height: 30).padding(.top, 4)
                 .background(dropHighlight(""))
                 .onDrop(of: [SidebarNoteDrag.type], isTargeted: dropTarget("")) { dropNote($0, into: "") }
+            ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
-                    ForEach(model.folders, id: \.self) { folder in
-                        let items = model.drafts.filter { $0.folder == folder }
-                        let groups = SidebarOrder.groups(items).filter { group in
-                            model.search.isEmpty || ([group.root] + group.branches).contains { $0.title.localizedCaseInsensitiveContains(model.search) }
-                        }
-                        if !groups.isEmpty || model.search.isEmpty {
-                            VStack(alignment: .leading, spacing: 1) {
-                                if !folder.isEmpty { folderRow(folder) }
-                                if folder.isEmpty || !collapsedFolders.contains(folder) || !model.search.isEmpty {
-                                    ForEach(groups) { group in
-                                        draftRow(group, folder: folder)
-                                    }
-                                }
+                    // The same order Next/Previous Note walks through.
+                    ForEach(SidebarOrder.visible(model.drafts, folders: model.folders,
+                                                 collapsed: model.collapsedFolders, search: model.search)) { section in
+                        let folder = section.folder
+                        VStack(alignment: .leading, spacing: 1) {
+                            if !folder.isEmpty { folderRow(folder) }
+                            ForEach(section.groups) { group in
+                                draftRow(group, folder: folder).id(group.id)
                             }
-                            .background(dropHighlight(folder))
-                            .onDrop(of: [SidebarNoteDrag.type], isTargeted: dropTarget(folder)) { dropNote($0, into: folder) }
                         }
+                        .background(dropHighlight(folder))
+                        .onDrop(of: [SidebarNoteDrag.type], isTargeted: dropTarget(folder)) { dropNote($0, into: folder) }
                     }
                 }.padding(.horizontal, 8).padding(.bottom, 12)
+            }
+            .onChange(of: model.active?.family) { _, family in
+                // Keep the open note's row in view, e.g. when cycling with ⌃⌘↑/↓.
+                if let family { proxy.scrollTo(family) }
+            }
             }
             .scrollIndicators(.hidden)
             .background(SidebarKeyboardInput(view: sidebarKeyboard) {
@@ -242,10 +248,10 @@ struct ContentView: View {
             .frame(width: 18, height: 18).foregroundStyle(Color(Paper.muted))
     }
     private func folderRow(_ folder: String) -> some View {
-        let collapsed = collapsedFolders.contains(folder) && model.search.isEmpty
+        let collapsed = model.collapsedFolders.contains(folder) && model.search.isEmpty
         return Button {
-            if collapsedFolders.contains(folder) { collapsedFolders.remove(folder) }
-            else { collapsedFolders.insert(folder) }
+            if model.collapsedFolders.contains(folder) { model.collapsedFolders.remove(folder) }
+            else { model.collapsedFolders.insert(folder) }
         } label: {
             HStack(spacing: 8) {
                 sidebarIcon(collapsed ? .folder : .folderOpen)
@@ -268,7 +274,7 @@ struct ContentView: View {
             }
     }
     private func newNote(in folder: String) {
-        collapsedFolders.remove(folder)
+        model.collapsedFolders.remove(folder)
         model.newDocument(in: folder)
     }
     private func dropTarget(_ folder: String) -> Binding<Bool> {
@@ -280,7 +286,7 @@ struct ContentView: View {
         defer { draggedNote = nil; dropFolder = nil }
         guard SidebarNoteDrag.accepts(providers), let note = draggedNote, note.folder != folder else { return false }
         model.moveNote(family: note.family, from: note.folder, to: folder)
-        collapsedFolders.remove(folder)
+        model.collapsedFolders.remove(folder)
         return true
     }
     private func dropHighlight(_ folder: String) -> some View {
@@ -427,7 +433,7 @@ struct ContentView: View {
         }
     }
     private func writing(_ draft: Draft, width: CGFloat) -> some View {
-        CommentMarginColumn(review: model.review, comments: model.comments, width: width) { writingEditor(draft) }
+        CommentMarginColumn(review: model.review, comments: model.comments, draftID: draft.id, width: width) { writingEditor(draft) }
         .background(PageCapture { model.capturePage = $0 })
         .overlay {
             if let moment = model.branchMoment { TearAwayPage(moment: moment).id(moment.id) }
@@ -436,7 +442,7 @@ struct ContentView: View {
         .onChange(of: model.active?.id) { _, _ in draftsVisible = false }
     }
     private func writingEditor(_ draft: Draft) -> some View {
-            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 }, saveImage: { data in
+            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: model.initialPosition(for: draft).cursor, initialScroll: model.initialPosition(for: draft).scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 }, saveImage: { data in
                 guard let workspace = model.workspace else { throw WorkspaceError.message("Open a workspace first.") }
                 return try workspace.importImage(data, beside: draft)
             }, resolveImage: { model.workspace?.image(at: $0, beside: draft) }, mediaError: { model.error = $0 },
@@ -444,7 +450,7 @@ struct ContentView: View {
                            onAskSelection: { range in
                                if let range { model.review.beginSelection(range, input: model.reviewInput) } else { model.reviewNow() }
                            },
-                           commentStore: model.comments)
+                           commentStore: model.comments, placeholder: EditorLanding.bodyPlaceholder)
     }
     private func writingHeader(_ draft: Draft) -> some View {
         VStack(spacing: 0) {
@@ -666,9 +672,13 @@ private struct AskMatildeToolbar: View {
 private struct CommentMarginColumn<Content: View>: View {
     @ObservedObject var review: WritingReviewModel
     @ObservedObject var comments: UserCommentStore
+    let draftID: String
     let width: CGFloat
     @ViewBuilder let content: () -> Content
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The draft the current margin layout belongs to. Switching notes re-centers the column
+    /// immediately; only adding or removing comments within a draft slides it.
+    @State private var layoutDraftID: String?
     private var hasComments: Bool {
         if let run = review.history.first, !run.stale, run.comments.contains(where: { $0.status == "open" }) { return true }
         let opening = comments.marginRequest?.id
@@ -682,7 +692,8 @@ private struct CommentMarginColumn<Content: View>: View {
             .frame(width: layout.column)
             .padding(.leading, layout.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: reserve)
+            .animation(reduceMotion || layoutDraftID != draftID ? nil : .easeOut(duration: 0.22), value: reserve)
             .onChange(of: fits, initial: true) { _, value in comments.marginVisible = value }
+            .onChange(of: draftID, initial: true) { _, value in layoutDraftID = value }
     }
 }

@@ -1,5 +1,12 @@
 import Foundation
 
+/// One folder in the sidebar and the note rows it currently shows.
+struct SidebarSection: Identifiable {
+    var folder: String
+    var groups: [SidebarDraftGroup]
+    var id: String { folder }
+}
+
 struct SidebarDraftGroup: Identifiable {
     var root: Draft
     var branches: [Draft]
@@ -23,6 +30,31 @@ enum SidebarOrder {
             if $0.latestEdit != $1.latestEdit { return $0.latestEdit > $1.latestEdit }
             return $0.id < $1.id
         }
+    }
+
+    /// The note rows the sidebar shows, top to bottom, with their folders: folders in workspace
+    /// order, notes newest first, collapsed folders hidden unless searching, and search matching
+    /// a note's title or any of its drafts' titles.
+    static func visible(_ drafts: [Draft], folders: [String], collapsed: Set<String>, search: String) -> [SidebarSection] {
+        folders.compactMap { folder in
+            let rows = SidebarOrder.groups(drafts.filter { $0.folder == folder }).filter { group in
+                search.isEmpty || ([group.root] + group.branches).contains { $0.title.localizedCaseInsensitiveContains(search) }
+            }
+            guard !rows.isEmpty || search.isEmpty else { return nil }
+            let expanded = folder.isEmpty || !collapsed.contains(folder) || !search.isEmpty
+            return SidebarSection(folder: folder, groups: expanded ? rows : [])
+        }
+    }
+
+    /// The note (family) after or before `current` in the visible order, wrapping at the ends.
+    /// A note that is not visible (filtered out or in a collapsed folder) starts from the edge.
+    static func neighbor(of current: String?, in order: [String], forward: Bool) -> String? {
+        guard !order.isEmpty else { return nil }
+        guard let current, let index = order.firstIndex(of: current) else {
+            return forward ? order.first : order.last
+        }
+        let next = order[(index + (forward ? 1 : order.count - 1)) % order.count]
+        return next == current ? nil : next
     }
 }
 
