@@ -110,7 +110,7 @@ struct ContentView: View {
     var body: some View {
         HStack(spacing: 0) {
             if model.workspace != nil && model.sidebar {
-                sidebar.frame(width: 244)
+                sidebar.frame(width: 244).ignoresSafeArea(.container, edges: .top)
                 Rectangle().fill(Color(Paper.ink).opacity(0.09)).frame(width: 1)
             }
             HSplitView {
@@ -121,15 +121,22 @@ struct ContentView: View {
                     else { emptyWorkspace }
                 }
             }.frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
+            // Split panes host their content separately and would otherwise start below the
+            // hidden title bar; the window chrome is laid out from the window's top edge.
+            .ignoresSafeArea(.container, edges: .top)
             .overlay(alignment: .top) {
                 VStack(spacing: 0) {
                     if model.active != nil && !model.boardVisible { CanvasTopFade() }
                 }.frame(maxWidth: .infinity)
+                .ignoresSafeArea(.container, edges: .top)
             }
-            .overlay(alignment: .top) { WindowDragArea().frame(height: WindowChrome.barHeight) }
-            .overlay(alignment: .topTrailing) { windowControls }
+            .overlay(alignment: .top) {
+                WindowDragArea().frame(height: chrome.bandHeight).ignoresSafeArea(.container, edges: .top)
+            }
+            .overlay(alignment: .topTrailing) { windowControls.ignoresSafeArea(.container, edges: .top) }
             if let comparison = model.comparison {
                 DraftComparisonPane(comparison: comparison, model: model).frame(minWidth: 360, maxWidth: .infinity)
+                    .ignoresSafeArea(.container, edges: .top)
             }
             }
             .background(ComparisonSplitPosition(enabled: model.comparison != nil, fraction: model.comparisonFraction,
@@ -140,7 +147,8 @@ struct ContentView: View {
         .foregroundStyle(Color(Paper.ink))
         .tint(Color(Paper.accent))
         .ignoresSafeArea(.container, edges: .top)
-        .overlay(alignment: .topLeading) { sidebarToggle }
+        // Same spot whether the sidebar is open or collapsed: in the traffic lights' row.
+        .overlay(alignment: .topLeading) { sidebarToggle.ignoresSafeArea(.container, edges: .top) }
         .background(WindowChromeAttachment(chrome: chrome))
         .onChange(of: model.boardVisible) { _, _ in chrome.reveal() }
         .onChange(of: model.sidebar) { _, _ in chrome.reveal() }
@@ -160,7 +168,7 @@ struct ContentView: View {
                 .onHover { chrome.hover($0) }
                 .opacity(!model.sidebar && chrome.hidden ? 0 : 1)
                 .animation(chromeAnimation, value: chrome.hidden)
-                .padding(.leading, WindowChrome.toggleLeading(trafficLightsTrailing: chrome.trafficLightsTrailing))
+                .padding(.leading, chrome.toggleLeading)
         }
     }
     private var chromeAnimation: Animation? {
@@ -217,7 +225,7 @@ struct ContentView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Title-bar band: the traffic lights and the sidebar toggle float here.
-            WindowDragArea().frame(height: WindowChrome.barHeight)
+            WindowDragArea().frame(height: chrome.bandHeight)
             HStack(spacing: 6) {
                 MatildeIcon.search.image(size: 14)
                 TextField("Search", text: $model.search).textFieldStyle(.plain)
