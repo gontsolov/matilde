@@ -33,10 +33,7 @@ enum Paper {
                                     dark: NSColor(calibratedRed: 0.18, green: 0.182, blue: 0.185, alpha: 1))
     static let codeBackground = adaptive("code", light: NSColor.black.withAlphaComponent(0.04),
                                          dark: NSColor.white.withAlphaComponent(0.06))
-    private static let fontBundle: Bundle = {
-        if let url = Bundle.main.url(forResource: "Matilde_Matilde", withExtension: "bundle"), let bundle = Bundle(url: url) { return bundle }
-        return Bundle.module
-    }()
+    private static var fontBundle: Bundle { MatildeResources.bundle }
     private static let newsreader: [CTFontDescriptor] = {
         let fonts = ["Newsreader", "Newsreader-Italic"]
         for name in fonts {

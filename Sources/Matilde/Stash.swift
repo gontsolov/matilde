@@ -160,7 +160,7 @@ struct StashPocket: View {
                 HStack {
                     Text("Stash").font(.system(size: 13, weight: .medium))
                     Spacer()
-                    Button { stash.toggle() } label: { Image(systemName: "xmark").font(.system(size: 11)) }
+                    Button { stash.toggle() } label: { MatildeIcon.close.image(size: 14) }
                         .buttonStyle(.plain).accessibilityLabel("Close Stash")
                 }.padding(.horizontal, 16).padding(.top, 16)
                     .background(GeometryReader { geometry in

@@ -537,7 +537,7 @@ private struct UserCommentEditor: View {
                         .focused($focused)
                         .onSubmit { onDone() }
                         .accessibilityLabel("Comment")
-                    Button { onDone() } label: { Image(systemName: "checkmark.circle.fill").font(.system(size: 17)) }
+                    Button { onDone() } label: { MatildeIcon.done.image(size: 20) }
                         .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.35 : 1))
                         .help("Done").accessibilityLabel("Done")
                 }
@@ -547,7 +547,7 @@ private struct UserCommentEditor: View {
         .overlay(alignment: .topTrailing) {
             if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Button { onArchive() } label: {
-                    Image(systemName: "archivebox").font(.system(size: 12)).frame(width: 24, height: 24).contentShape(Rectangle())
+                    MatildeIcon.archive.image(size: 16).frame(width: 24, height: 24).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
                 .help("Archive").accessibilityLabel("Archive").padding(.top, 8).padding(.trailing, 8)

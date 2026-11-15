@@ -450,7 +450,7 @@ struct WritingReviewPane: View {
     @ViewBuilder private func compactMarker(_ item: MarginItem, viewportHeight: CGFloat) -> some View {
         switch item {
         case let .review(run, comment):
-            Button { openConversation(run, comment) } label: { Image(systemName: "text.bubble.fill").padding(8) }
+            Button { openConversation(run, comment) } label: { MatildeIcon.askMatilde.image(size: 17).padding(8) }
                 .buttonStyle(.plain).accessibilityLabel("Review: " + comment.suggestion.quote)
                 .background(ConversationPointer())
                 .background(Color(Paper.accent).opacity(hoveredComment == comment.id ? 0.12 : 0), in: RoundedRectangle(cornerRadius: 6))
@@ -462,7 +462,7 @@ struct WritingReviewPane: View {
                 }
         case let .note(note):
             // Narrow windows keep the editor's own popover, anchored to the highlighted passage.
-            Button { withEditor { $0.showCommentPopover(note.id, focus: true) } } label: { Image(systemName: "note.text").padding(8) }
+            Button { withEditor { $0.showCommentPopover(note.id, focus: true) } } label: { MatildeIcon.note.image(size: 17).padding(8) }
                 .buttonStyle(.plain).foregroundStyle(Color(Paper.muted)).accessibilityLabel("Comment: " + note.text)
                 .background(ConversationPointer())
                 .background(Color(Paper.accent).opacity(hoveredComment == note.id ? 0.12 : 0), in: RoundedRectangle(cornerRadius: 6))
@@ -515,7 +515,7 @@ struct WritingReviewPane: View {
         .overlay(alignment: .topTrailing) {
             if (hovered || isSelected) && archivable(item) {
                 Button { archive(item) } label: {
-                    Image(systemName: "archivebox").font(.system(size: 12)).frame(width: 24, height: 24).contentShape(Rectangle())
+                    MatildeIcon.archive.image(size: 16).frame(width: 24, height: 24).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
                 .help("Archive").accessibilityLabel("Archive")
@@ -544,7 +544,7 @@ struct WritingReviewPane: View {
                     .focused($focusedReply, equals: note.id)
                     .onSubmit { closeNote(note.id) }
                     .accessibilityLabel("Comment")
-                Button { closeNote(note.id) } label: { Image(systemName: "checkmark.circle.fill").font(.system(size: 17)) }
+                Button { closeNote(note.id) } label: { MatildeIcon.done.image(size: 20) }
                     .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(empty ? 0.35 : 1))
                     .help("Done").accessibilityLabel("Done")
             }
@@ -693,12 +693,12 @@ struct WritingReviewPane: View {
                                 }
                                 .onSubmit { sendReply(run, comment) }
                             if review.replyingTo == comment.id {
-                                Button { review.cancel() } label: { Image(systemName: "stop.circle.fill").font(.system(size: 17)) }
+                                Button { review.cancel() } label: { MatildeIcon.stopReply.image(size: 20) }
                                     .buttonStyle(.plain).foregroundStyle(Color(Paper.accent))
                                     .help("Cancel").accessibilityLabel("Cancel")
                             } else {
                                 let empty = (replyText[comment.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                Button { sendReply(run, comment) } label: { Image(systemName: "arrow.up.circle.fill").font(.system(size: 17)) }
+                                Button { sendReply(run, comment) } label: { MatildeIcon.send.image(size: 20) }
                                     .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(empty || review.isRunning ? 0.35 : 1))
                                     .disabled(review.isRunning || empty)
                                     .help("Send").accessibilityLabel("Send")
@@ -758,7 +758,7 @@ struct WritingReviewPane: View {
     private func acceptButton(_ run: WritingReview, _ comment: ReviewComment) -> some View {
         let enabled = comment.rewriteApplies && !model.isBranching && model.boardFlight == nil
         return Button { withEditor { review.accept(runID: run.id, commentID: comment.id, input: model.reviewInput, editor: $0) } } label: {
-            Label("Accept", systemImage: "checkmark").font(.callout.weight(.medium))
+            Label { Text("Accept") } icon: { MatildeIcon.check.image(size: 14) }.font(.callout.weight(.medium))
                 .padding(.horizontal, 9).padding(.vertical, 3)
                 .background(Color(Paper.background), in: Capsule())
                 .overlay(Capsule().strokeBorder(Color(Paper.ink).opacity(0.12)))

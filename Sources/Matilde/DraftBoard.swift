@@ -266,11 +266,11 @@ struct DraftBoard: View {
             .onKeyPress(.rightArrow) { select(1, size: size); return .handled }
             .overlay(alignment: .bottom) {
                 HStack(spacing: 16) {
-                    Button { zoom(0.8) } label: { Image(systemName: "minus") }.help("Zoom out").accessibilityLabel("Zoom out")
+                    Button { zoom(0.8) } label: { MatildeIcon.minus.image(size: 15) }.help("Zoom out").accessibilityLabel("Zoom out")
                     Text("\(Int(model.boardViewport.zoom * 100))% ").monospacedDigit().frame(width: 42)
-                    Button { zoom(1.25) } label: { Image(systemName: "plus") }.help("Zoom in").accessibilityLabel("Zoom in")
+                    Button { zoom(1.25) } label: { MatildeIcon.plus.image(size: 15) }.help("Zoom in").accessibilityLabel("Zoom in")
                     Divider().frame(height: 14)
-                    Button { model.fitBoard(size: size) } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }.help("Fit drafts").accessibilityLabel("Fit drafts")
+                    Button { model.fitBoard(size: size) } label: { MatildeIcon.fit.image(size: 15) }.help("Fit drafts").accessibilityLabel("Fit drafts")
                 }.font(.system(size: 12)).buttonStyle(.plain).padding(.horizontal, 18).padding(.vertical, 12)
                     .background(.regularMaterial, in: Capsule()).padding(.bottom, 22)
             }
@@ -383,7 +383,7 @@ struct BoardPageContent: View {
                 DraftTimestamp(draft: sheet.draft)
                 Spacer(minLength: 4)
                 if active {
-                    Image(systemName: "pencil.tip").font(.system(size: 11)).foregroundStyle(Color(Paper.accent))
+                    MatildeIcon.activeDraft.image(size: 14).foregroundStyle(Color(Paper.accent))
                 }
             }
         }.padding(23).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

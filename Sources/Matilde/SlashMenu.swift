@@ -2,26 +2,26 @@ import AppKit
 
 struct SlashCommand {
     let title: String
-    let symbol: String
+    let icon: MatildeIcon
     let keywords: String
     let template: String
     let placeholder: String?
     let block: Bool
 
     static let all: [SlashCommand] = (1...6).map {
-        SlashCommand(title: "Heading \($0)", symbol: "textformat.size", keywords: "h\($0) title heading", template: String(repeating: "#", count: $0) + " Heading", placeholder: "Heading", block: true)
+        SlashCommand(title: "Heading \($0)", icon: .heading, keywords: "h\($0) title heading", template: String(repeating: "#", count: $0) + " Heading", placeholder: "Heading", block: true)
     } + [
-        .init(title: "Bullet list", symbol: "list.bullet", keywords: "ul unordered bullet list", template: "- Item", placeholder: "Item", block: true),
-        .init(title: "Numbered list", symbol: "list.number", keywords: "ol ordered numbered list", template: "1. Item", placeholder: "Item", block: true),
-        .init(title: "Checkbox", symbol: "checkmark.square", keywords: "todo task checklist checkbox", template: "- [ ] Task", placeholder: "Task", block: true),
-        .init(title: "Quote", symbol: "text.quote", keywords: "blockquote quote", template: "> Quote", placeholder: "Quote", block: true),
-        .init(title: "Divider", symbol: "minus", keywords: "horizontal rule divider line", template: "---\n", placeholder: nil, block: true),
-        .init(title: "Code block", symbol: "curlybraces", keywords: "fenced code block", template: "```\nCode\n```", placeholder: "Code", block: true),
-        .init(title: "Bold", symbol: "bold", keywords: "strong bold", template: "**text**", placeholder: "text", block: false),
-        .init(title: "Italic", symbol: "italic", keywords: "emphasis italic", template: "*text*", placeholder: "text", block: false),
-        .init(title: "Inline code", symbol: "chevron.left.forwardslash.chevron.right", keywords: "inline code monospace", template: "`code`", placeholder: "code", block: false),
-        .init(title: "Link", symbol: "link", keywords: "url link", template: "[text](https://example.com)", placeholder: "https://example.com", block: false),
-        .init(title: "Image", symbol: "photo", keywords: "local image picture photo", template: "![Image](image.png)", placeholder: "image.png", block: true)
+        .init(title: "Bullet list", icon: .bulletList, keywords: "ul unordered bullet list", template: "- Item", placeholder: "Item", block: true),
+        .init(title: "Numbered list", icon: .numberedList, keywords: "ol ordered numbered list", template: "1. Item", placeholder: "Item", block: true),
+        .init(title: "Checkbox", icon: .checkbox, keywords: "todo task checklist checkbox", template: "- [ ] Task", placeholder: "Task", block: true),
+        .init(title: "Quote", icon: .quote, keywords: "blockquote quote", template: "> Quote", placeholder: "Quote", block: true),
+        .init(title: "Divider", icon: .minus, keywords: "horizontal rule divider line", template: "---\n", placeholder: nil, block: true),
+        .init(title: "Code block", icon: .codeBlock, keywords: "fenced code block", template: "```\nCode\n```", placeholder: "Code", block: true),
+        .init(title: "Bold", icon: .bold, keywords: "strong bold", template: "**text**", placeholder: "text", block: false),
+        .init(title: "Italic", icon: .italic, keywords: "emphasis italic", template: "*text*", placeholder: "text", block: false),
+        .init(title: "Inline code", icon: .inlineCode, keywords: "inline code monospace", template: "`code`", placeholder: "code", block: false),
+        .init(title: "Link", icon: .link, keywords: "url link", template: "[text](https://example.com)", placeholder: "https://example.com", block: false),
+        .init(title: "Image", icon: .photo, keywords: "local image picture photo", template: "![Image](image.png)", placeholder: "image.png", block: true)
     ]
 
     static func query(in text: String, selection: NSRange) -> (range: NSRange, filter: String)? {
@@ -195,7 +195,7 @@ final class SlashMenuController: NSObject {
                     previousSection = command.section
                 }
                 let button = SlashMenuRow(title: command.title, target: self, action: #selector(clicked(_:)))
-                button.symbol = NSImage(systemSymbolName: command.symbol, accessibilityDescription: nil)?.withSymbolConfiguration(.init(pointSize: 15, weight: .regular))
+                button.symbol = command.icon.nsImage
                 button.headingLevel = command.title.hasPrefix("Heading ") ? String(command.title.suffix(1)) : nil
                 button.tag = index
                 button.isBordered = false

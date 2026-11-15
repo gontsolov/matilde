@@ -459,3 +459,38 @@ Owner requested a new release after merging PR #4 (`be46e7c`, margin comments), 
 
 ### 0.1.15 publication — 2026-11-15
 Release workflow run 43725499642 (dispatched on `main` at `20a6989`, version 0.1.15) passed version/signing validation, tests, arm64 build, DMG packaging, Sparkle archive/feed signing and publication; this was also the first Release run with the Node 24 checkout/upload-artifact actions (DIST-05). GitHub Release `v0.1.15` is published as latest with `Matilde.dmg`, `appcast.xml` and `SHA256SUMS`; the latest feed reports version 0.1.15 with `arm64` hardware requirements. Build remains ad-hoc signed and not Apple-notarized (DIST-02). An installed-app update from 0.1.14 was not exercised.
+
+### 2026-11-15 — Tabler interface icons (UI-17)
+Replaced every SF Symbol outside native menus with Tabler Icons `v3.52.0` (MIT), outline style redrawn at a 1.5 stroke (Tabler default 2; `STROKE_WIDTH` in `scripts/tabler-icons.py`). Resources: unmodified SVGs in `assets/tabler-icons/{outline,filled}/` with Tabler's LICENSE; the script converts them with cairosvg to 24 × 24 pt single-page vector PDFs in `Sources/Matilde/Resources/Icons/` (with LICENSE and SOURCE.md), copied by SwiftPM into `Matilde_Matilde.bundle`, which `build-app.sh` already places in `Contents/Resources`. `MatildeResources.bundle` (shared with the fonts) finds it in both `swift test` and the app. PDFs are committed, so CI needs no new tool. `MatildeIcon.image(size:)` returns a fixed-size template `Image` (toolbars, menus and tab items ignore frames); `.image` is the resizable variant; `nsImage(size:)` sets `isTemplate`.
+
+| Location | SF Symbol | Tabler icon (`MatildeIcon`) | Size (pt) |
+| --- | --- | --- | --- |
+| Toolbar: toggle sidebar | `sidebar.left` | `layout-sidebar` (`.sidebar`) | 20 |
+| Toolbar: new document; sidebar Documents header | `square.and.pencil` | `edit` (`.newDocument`) | 20 / 18 |
+| Toolbar: board ↔ draft | `square.grid.2x2` / `doc.text` | `layout-grid` / `file-text` | 20 |
+| Toolbar: Ask Matilde control (idle / reviewing / error) | `text.bubble` / `stop.circle` / `exclamationmark.bubble` | `message` / `player-stop` / `message-exclamation` | 20 |
+| Toolbar: Stash (closed / open) | `tray` / `tray.fill` | `inbox`, now a button-style toggle | 20 |
+| Toolbar: document actions | `ellipsis.circle` | `dots-circle-horizontal` (`.more`) | 20 |
+| Sidebar search field / clear | `magnifyingglass` / `xmark.circle.fill` | `search` / `circle-x` (`.clear`) | 14 / 15 |
+| Sidebar new folder | `folder.badge.plus` | `folder-plus` | 18 |
+| Folder row (collapsed / expanded) | `folder` / `folder.fill` | `folder` / `folder-open` | 18 |
+| Folder row disclosure | `chevron.right` / `chevron.down` | `chevron-right` / `chevron-down` | 14 |
+| Folder row hover new note | `plus` | `plus` | 18 |
+| Sidebar Settings button; General tab | `gearshape` | `settings` | 18 / 24 |
+| Sidebar row branch count | `arrow.triangle.branch` | `git-branch` (`.branch`) | 14 |
+| Draft header: drafts disclosure / branch | `chevron.up`/`chevron.down` / `arrow.triangle.branch` | `chevron-up`/`chevron-down` / `git-branch` | 13 / 17 |
+| Goal flag (editor header, comparison header) | `flag` | `flag` (`.goal`) | 17 / text size + 4 |
+| Draft tray active draft | `checkmark` | `check` | 13 |
+| Comparison picker / close; Stash close | `rectangle.split.2x1` / `xmark` | `layout-columns` / `x` (`.close`) | 16 / 16, 14 |
+| Board zoom out / in / fit | `minus` / `plus` / `arrow.up.left.and.arrow.down.right` | `minus` / `plus` / `arrows-diagonal-2` | 15 |
+| Board active sheet | `pencil.tip` | `pencil` (`.activeDraft`) | 14 |
+| Narrow-window margin markers (review / private comment) | `text.bubble.fill` / `note.text` | `message` / `note` | 17 |
+| Comment card and popover archive | `archivebox` | `archive` | 16 |
+| Comment composer Done / Send / Stop | `checkmark.circle.fill` / `arrow.up.circle.fill` / `stop.circle.fill` | `circle-check-filled` / `circle-arrow-up-filled` / `player-stop-filled` | 20 |
+| Rewrite Accept | `checkmark` | `check` | 14 |
+| Settings tabs Writing / Ask Matilde / Connections | `textformat` / `text.bubble` / `key` | `typography` / `message` / `key` | 24 |
+| Slash menu | `textformat.size`, `list.bullet`, `list.number`, `checkmark.square`, `text.quote`, `minus`, `curlybraces`, `bold`, `italic`, `chevron.left.forwardslash.chevron.right`, `link`, `photo` | `heading` (not drawn: rows show H1–H6), `list`, `list-numbers`, `checkbox`, `quote`, `minus`, `braces`, `bold`, `italic`, `code`, `link`, `photo` | 24 drawn into the existing 18-pt slot |
+
+Kept on SF Symbols: `doc.on.doc` (Copy Markdown in the document menu) and `trash` (Move to Trash in sidebar, tray and board context menus). These are native NSMenu items where macOS draws its own menu imagery, so a custom glyph would look out of place beside system items. Window controls, menu checkmarks and the app icon are system-drawn and untouched. Filled variants are used only for the solid composer buttons, whose filled disc and dimming show enabled state; Tabler has no filled tray, so Stash shows its open state with the native toggle bezel instead.
+
+Linux sandbox without Swift: `python3 -m unittest discover -s scripts/tests` passed (new `test_icons.py`: every enum case has an SVG and a one-page 24 × 24 vector PDF at the current stroke, no unused files, licenses present, `Package.swift` copies the folder, and only the two kept SF Symbols remain). CI on PR #9 (run 43726158152, macOS-15) passed 127 Swift tests with the one existing opt-in skip, including the new `MatildeIconTests` (every case loads from the bundle as a template vector image and renders; sized copies stay template), with no compiler warnings; the app build, signature and packaging checks passed, including the new step that found all 45 icon PDFs and the LICENSE inside the built `.app`. Not verified on a Mac: visual size/baseline match against the previous symbols, toolbar toggle bezel for Stash, Settings tab image rendering, light/dark tinting and VoiceOver labels.
