@@ -18,6 +18,11 @@ struct ReviewComment: Codable, Identifiable {
     /// Set while a suggestion or assistant reply hasn't been opened. Kept with the review in the
     /// database, never in the Markdown; reviews saved before this existed decode as read.
     var unread: Bool? = nil
+    /// The assistant message whose rewrite is `suggestion.replacement`; `nil` while it is still the
+    /// review's own suggestion (or, for threads saved before this existed, unknown: see `ThreadTimeline`).
+    var rewriteMessageID: UUID? = nil
+    /// The review's own rewrite, kept once a reply replaces it, so it stays first in the thread.
+    var initialReplacement: String? = nil
     var range: NSRange { NSRange(location: location, length: length) }
     var isUnread: Bool { unread == true }
 }
@@ -74,7 +79,9 @@ extension Workspace {
         try db.execute("CREATE TABLE IF NOT EXISTS writing_reviews (id TEXT PRIMARY KEY, draft_id TEXT NOT NULL, created REAL NOT NULL, payload TEXT NOT NULL)")
         return try db.execute("SELECT payload FROM writing_reviews WHERE draft_id = ? ORDER BY created DESC", [draftID]).map { row in
             guard let payload = row["payload"] else { throw ReviewError.message("A saved review could not be read.") }
-            return try JSONDecoder().decode(WritingReview.self, from: Data(payload.utf8))
+            var review = try JSONDecoder().decode(WritingReview.self, from: Data(payload.utf8))
+            for index in review.comments.indices { review.comments[index].attachLegacyRewrite() }
+            return review
         }
     }
     func saveReview(_ review: WritingReview) throws {
@@ -292,13 +299,19 @@ final class WritingReviewModel: ObservableObject {
                       let c = self.history[r].comments.firstIndex(where: { $0.id == commentID }) else { return }
                 var completed = self.history[r].comments[c].messages ?? []
                 if !completed.isEmpty { completed[completed.count - 1].delivery = "sent" }
-                completed.append(ReviewMessage(role: "assistant", text: answer.answer))
+                var reply = ReviewMessage(role: "assistant", text: answer.answer)
+                reply.replacement = answer.replacement
+                completed.append(reply)
                 self.history[r].comments[c].messages = completed
                 if self.openThreadID != commentID { self.history[r].comments[c].unread = true }
                 if let replacement = answer.replacement {
                     let old = self.history[r].comments[c].suggestion
+                    if self.history[r].comments[c].rewriteMessageID == nil {
+                        self.history[r].comments[c].initialReplacement = old.replacement
+                    }
                     self.history[r].comments[c].suggestion = ReviewSuggestion(quote: old.quote, prefix: old.prefix,
                         suffix: old.suffix, explanation: old.explanation, replacement: replacement)
+                    self.history[r].comments[c].rewriteMessageID = reply.id
                     self.history[r].comments[c].rewriteQuote = comment.suggestion.quote
                 }
                 self.persist(self.history[r])
@@ -535,7 +548,7 @@ struct WritingReviewPane: View {
                     Button { openConversation(run, comment) } label: {
                         VStack(alignment: .leading, spacing: 8) {
                             reviewQuote(comment.suggestion.quote, lines: 2, kind: .matilde)
-                            Text(comment.messages?.last?.text ?? (comment.suggestion.explanation.isEmpty ? "Ask about this passage…" : comment.suggestion.explanation)).font(.body).lineSpacing(3).lineLimit(3)
+                            Text(ThreadTimeline.preview(for: comment) ?? "Ask about this passage…").font(.body).lineSpacing(3).lineLimit(3)
                                 .foregroundStyle(Color(comment.isUnread ? Paper.ink : Paper.muted))
                         }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                     }.buttonStyle(.plain)
@@ -697,33 +710,25 @@ struct WritingReviewPane: View {
                         Divider().padding(.vertical, 2)
                         Text(comment.suggestion.explanation).font(.body).lineSpacing(4).textSelection(.enabled)
                     }
-                    if let replacement = comment.suggestion.replacement {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(alignment: .center) {
-                                Text("Suggested rewrite").font(.callout.weight(.medium)).foregroundStyle(.secondary)
-                                Spacer(minLength: 8)
-                                if comment.status == "open" && !run.stale { acceptButton(run, comment) }
+                    let roles = (comment.messages ?? []).map(\.role)
+                    ForEach(ThreadTimeline.items(for: comment)) { item in
+                        switch item {
+                        case let .suggestion(suggestion):
+                            suggestedRewrite(suggestion, run: run, comment: comment)
+                        case let .message(index, message):
+                            if message.role == "user" {
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    UserMessageBubble(text: message.text)
+                                    if message.delivery == "failed" { Text("No reply").font(.body).foregroundStyle(.secondary) }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                            } else {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    if ThreadSpeaker.showsAssistantLabel(at: index, roles: roles) { assistantLabel }
+                                    Text(message.text).font(.body).lineSpacing(3).textSelection(.enabled)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
-                            Text(replacement.isEmpty ? "Remove this passage" : replacement)
-                                .font(.body).lineSpacing(4).textSelection(.enabled)
-                        }.padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(Paper.ink).opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
-                    }
-                    let messages = comment.messages ?? []
-                    let roles = messages.map(\.role)
-                    ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
-                        if message.role == "user" {
-                            VStack(alignment: .trailing, spacing: 4) {
-                                UserMessageBubble(text: message.text)
-                                if message.delivery == "failed" { Text("No reply").font(.body).foregroundStyle(.secondary) }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                        } else {
-                            VStack(alignment: .leading, spacing: 4) {
-                                if ThreadSpeaker.showsAssistantLabel(at: index, roles: roles) { assistantLabel }
-                                Text(message.text).font(.body).lineSpacing(3).textSelection(.enabled)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                     if review.replyingTo == comment.id {
@@ -818,7 +823,10 @@ struct WritingReviewPane: View {
                 .scrollIndicators(.hidden)
                 .onPreferenceChange(ThreadScrollMetricsKey.self) { metrics in
                     guard let metric = metrics[id] else { return }
-                    followers[id].observe(contentTop: metric.top, contentHeight: metric.height, viewportHeight: viewport)
+                    // A reply's rewrite card lays out after the message lands; keep following it.
+                    if followers[id].observe(contentTop: metric.top, contentHeight: metric.height, viewportHeight: viewport) {
+                        reader.scrollTo(bottom, anchor: .bottom)
+                    }
                 }
                 // Follow streamed text only while the reader is at the end (see BottomFollower).
                 .onChange(of: review.replyingTo) { _, replying in
@@ -851,6 +859,24 @@ struct WritingReviewPane: View {
         selected = comment.id
         hoveredComment = nil
         DispatchQueue.main.async { if selected == comment.id { focusedReply = comment.id } }
+    }
+    /// A rewrite where it was offered in the thread. Only the latest can be accepted; earlier
+    /// ones stay in place, muted.
+    private func suggestedRewrite(_ suggestion: ThreadSuggestion, run: WritingReview, comment: ReviewComment) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center) {
+                Text("Suggested rewrite").font(.callout.weight(.medium)).foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                if suggestion.isCurrent && comment.status == "open" && !run.stale { acceptButton(run, comment) }
+            }
+            Text(suggestion.replacement.isEmpty ? "Remove this passage" : suggestion.replacement)
+                .font(.body).lineSpacing(4).textSelection(.enabled)
+                .foregroundStyle(suggestion.isCurrent ? Color(Paper.ink) : Color(Paper.muted))
+        }.padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(Paper.ink).opacity(suggestion.isCurrent ? 0.045 : 0.025), in: RoundedRectangle(cornerRadius: 8))
+            .opacity(suggestion.isCurrent ? 1 : 0.7)
+            .accessibilityElement(children: .contain)
+            .accessibilityValue(suggestion.isCurrent ? "" : "Earlier suggestion")
     }
     /// Sits in the rewrite itself, so the composer stays alone at the bottom of the card.
     private func acceptButton(_ run: WritingReview, _ comment: ReviewComment) -> some View {
