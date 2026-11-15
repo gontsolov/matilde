@@ -149,8 +149,6 @@ struct StashPocket: View {
     @AppStorage(SettingKeys.lineSpacing) private var lineSpacing = 9.0
     @State private var contentHeight: CGFloat = 0
     @State private var headerHeight: CGFloat = 32
-    @State private var hovering = false
-    @State private var peeking = false
     var size: CGSize
     var body: some View {
         let width = max(1, min(420, size.width - 32))
@@ -197,33 +195,10 @@ struct StashPocket: View {
             .offset(y: reduceMotion ? 0 : stash.isOpen ? 0 : height + 12)
             .opacity(stash.isOpen ? 1 : 0)
             .allowsHitTesting(stash.isOpen).accessibilityHidden(!stash.isOpen)
-
-            Button { stash.toggle() } label: {
-                VStack(spacing: 5) {
-                    Capsule().fill(Color(Paper.ink).opacity(0.25)).frame(width: 18, height: 2)
-                    Text("Stash").font(.system(size: 12, weight: .medium))
-                }
-                .frame(width: 76)
-                .padding(.top, peeking ? 11 : 8).padding(.bottom, 8)
-                .background(Color(Paper.background), in: UnevenRoundedRectangle(topLeadingRadius: 4, topTrailingRadius: 4))
-                .overlay(UnevenRoundedRectangle(topLeadingRadius: 4, topTrailingRadius: 4)
-                    .stroke(Color(Paper.ink).opacity(0.14), lineWidth: 1))
-                .shadow(color: .black.opacity(peeking ? 0.10 : 0.05), radius: 4, x: 0, y: -2)
-            }.buttonStyle(.plain).onHover { hovering = $0 }
-                .padding(.trailing, 16)
-                .accessibilityLabel("Open Stash").help("Stash · ⇧⌘J")
-                .opacity(stash.isOpen ? 0 : 1).allowsHitTesting(!stash.isOpen).accessibilityHidden(stash.isOpen)
         }
         .onPreferenceChange(StashHeaderHeight.self) { headerHeight = $0 }
         .foregroundStyle(Color(Paper.ink))
         .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.82), value: stash.isOpen)
-        .animation(reduceMotion ? nil : .spring(response: 0.26, dampingFraction: 0.84), value: peeking)
-        .task(id: hovering) {
-            if hovering {
-                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
-            }
-            peeking = hovering
-        }
         .padding(.trailing, 16)
     }
 }

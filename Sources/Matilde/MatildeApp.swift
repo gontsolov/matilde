@@ -149,6 +149,7 @@ struct ContentView: View {
                         .help(model.boardVisible ? "Return to draft · ⌘0" : "Show draft board · ⌘0")
                         .accessibilityLabel(model.boardVisible ? "Return to draft" : "Show draft board")
                     AskMatildeToolbar(model: model, review: model.review)
+                    StashToolbarButton(stash: model.stash).disabled(model.boardFlight != nil || model.isBranching)
                     Menu {
                         Button("Branch Draft") { model.branch() }
                         Button("Rename…") { model.sheet = .rename }
@@ -471,7 +472,9 @@ struct ContentView: View {
                     window.makeFirstResponder(editor)
                     editor.scrollRangeToVisible(editor.selectedRange())
                 }.id(draft.id)
-            }.padding(.horizontal, 28).padding(.top, 29).padding(.bottom, 10).frame(maxWidth: 736)
+            }
+            // Match the body's left edge: text inset (28) plus line-fragment padding (5).
+            .padding(.horizontal, 33).padding(.top, 29).padding(.bottom, 10).frame(maxWidth: CommentMargin.maximumColumn)
             if draftsVisible {
                 DraftTray(model: model) {
                     withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) { draftsVisible = false }
@@ -617,6 +620,15 @@ struct DocumentSheet: View {
     }
 }
 
+/// Stash lives in the toolbar so the writing margin stays free for comment cards.
+private struct StashToolbarButton: View {
+    @ObservedObject var stash: StashModel
+    var body: some View {
+        Button { stash.toggle() } label: { Image(systemName: stash.isOpen ? "tray.fill" : "tray") }
+            .help("Stash · ⇧⌘J").accessibilityLabel(stash.isOpen ? "Close Stash" : "Open Stash")
+    }
+}
+
 /// Ask Matilde's window controls: click to review the draft (or cancel), open the menu for more.
 private struct AskMatildeToolbar: View {
     @ObservedObject var model: AppModel
@@ -650,7 +662,8 @@ private struct AskMatildeToolbar: View {
     }
 }
 
-/// Centers the writing column, shifting it left when needed so margin comments always fit beside it.
+/// Centers the writing column. With margin cards, the text and card column are centered together
+/// as one group, with the same whitespace on both outer edges.
 private struct CommentMarginColumn<Content: View>: View {
     @ObservedObject var review: WritingReviewModel
     @ObservedObject var comments: UserCommentStore
@@ -662,15 +675,13 @@ private struct CommentMarginColumn<Content: View>: View {
         let opening = comments.marginRequest?.id
         return comments.comments.contains { $0.attached && (!$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.id == comments.activeID || $0.id == opening) }
     }
-    private var fits: Bool { width - CommentMargin.gutter >= CommentMargin.minimumEditorWidth }
+    private var fits: Bool { CommentMargin.fits(width: width) }
     var body: some View {
         let reserve = hasComments && fits
-        let column = min(736, reserve ? width - CommentMargin.gutter : width)
-        let centered = (width - column) / 2
-        let leading = reserve ? max(0, min(centered, width - column - CommentMargin.gutter)) : centered
+        let layout = CommentMargin.layout(width: width, reserve: reserve)
         content()
-            .frame(width: max(0, column))
-            .padding(.leading, max(0, leading))
+            .frame(width: layout.column)
+            .padding(.leading, layout.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: reserve)
             .onChange(of: fits, initial: true) { _, value in comments.marginVisible = value }

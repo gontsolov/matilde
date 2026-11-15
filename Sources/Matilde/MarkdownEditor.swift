@@ -49,18 +49,23 @@ enum Paper {
             return (CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor])?.first
         }
     }()
-    static func body(_ size: CGFloat = 19, bold: Bool = false, italic: Bool = false) -> NSFont {
-        guard newsreader.count == 2 else { return .systemFont(ofSize: size) }
+    static func body(_ size: CGFloat = 19, bold: Bool = false, italic: Bool = false, weight: Double? = nil) -> NSFont {
+        guard newsreader.count == 2 else { return .systemFont(ofSize: size, weight: bold ? .bold : .regular) }
         let axes: [NSNumber: NSNumber] = [
-            NSNumber(value: 0x77676874): NSNumber(value: bold ? 700 : 400),
+            NSNumber(value: 0x77676874): NSNumber(value: weight ?? (bold ? 700 : 400)),
             NSNumber(value: 0x6F70737A): NSNumber(value: Double(size))
         ]
         let descriptor = CTFontDescriptorCreateCopyWithAttributes(newsreader[italic ? 1 : 0], [kCTFontVariationAttribute: axes] as CFDictionary)
         return CTFontCreateWithFontDescriptor(descriptor, size, nil) as NSFont
     }
+    static let headingWeight: Double = 600
     static func emphasize(_ font: NSFont, trait: NSFontTraitMask) -> NSFont {
         let traits = NSFontManager.shared.traits(of: font)
-        return body(font.pointSize, bold: trait == .boldFontMask || traits.contains(.boldFontMask), italic: trait == .italicFontMask || traits.contains(.italicFontMask))
+        // Keep a heading's own weight when only italics are added inside it.
+        let axes = CTFontCopyVariation(font) as? [NSNumber: NSNumber]
+        let weight = trait == .boldFontMask ? nil : axes?[NSNumber(value: 0x77676874)]?.doubleValue
+        return body(font.pointSize, bold: trait == .boldFontMask || traits.contains(.boldFontMask),
+                    italic: trait == .italicFontMask || traits.contains(.italicFontMask), weight: weight)
     }
 }
 
@@ -134,8 +139,9 @@ enum MarkdownStyler {
             }
             if let match = first("^(#{1,6}) ", in: line) {
                 let level = match.range(at: 1).length
-                let size: CGFloat = [31, 26, 23, 21, 20, 19][level - 1]
-                storage.addAttribute(.font, value: Paper.body(size * textSize / 19, bold: true), range: range)
+                // Headings sit clearly below the document title (31 pt, 700) in size and weight.
+                let size: CGFloat = [27, 23, 21, 20, 19, 19][level - 1]
+                storage.addAttribute(.font, value: Paper.body(size * textSize / 19, bold: true, weight: Paper.headingWeight), range: range)
                 conceal(NSRange(location: offset, length: match.range.length), in: storage)
             } else if let match = first("^(\\s*)[-*+] \\[([ xX])\\] ", in: line) {
                 let start = offset + match.range(at: 1).length

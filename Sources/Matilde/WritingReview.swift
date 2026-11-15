@@ -378,15 +378,16 @@ struct WritingReviewPane: View {
     var body: some View {
         if model.active != nil {
             GeometryReader { geometry in
-                let available = geometry.size.width - textRight - 28
-                let compact = available < 240
+                let available = geometry.size.width - textRight - CommentMargin.cardGap - CommentMargin.outerMargin
+                let compact = available < CommentMargin.minimumCardWidth
                 let cardWidth: CGFloat = compact ? 40 : min(CommentMargin.cardWidth, available)
-                let left = min(textRight + 16, geometry.size.width - cardWidth - 12)
+                let left = compact ? min(textRight + 16, geometry.size.width - cardWidth - 12) : textRight + CommentMargin.cardGap
                 let items = marginItems
                 let placed = positions(items, compact: compact, viewportHeight: geometry.size.height)
                 ZStack(alignment: .topLeading) {
                     ReviewAnchorProbe(anchors: items.map { MarginAnchor(id: $0.id, range: $0.range) }, revision: model.reviewInput,
-                                      highlighted: items.first { $0.id == selected && $0.isReview }?.range,
+                                      threads: items.filter(\.isReview).map(\.range),
+                                      highlighted: items.first { $0.id == (selected ?? hoveredComment) && $0.isReview }?.range,
                                       onChange: { anchors = $0 }, onTextRight: { textRight = $0 })
                         .allowsHitTesting(false)
                     ForEach(items) { item in
@@ -480,7 +481,7 @@ struct WritingReviewPane: View {
                 } else {
                     Button { openConversation(run, comment) } label: {
                         VStack(alignment: .leading, spacing: 8) {
-                            reviewQuote(comment.suggestion.quote, lines: 2)
+                            reviewQuote(comment.suggestion.quote, lines: 2, kind: .matilde)
                             Text(comment.messages?.last?.text ?? (comment.suggestion.explanation.isEmpty ? "Ask about this passage…" : comment.suggestion.explanation)).font(.body).lineSpacing(3).lineLimit(3)
                         }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                     }.buttonStyle(.plain)
@@ -491,7 +492,7 @@ struct WritingReviewPane: View {
                 else {
                     Button { openNote(note) } label: {
                         VStack(alignment: .leading, spacing: 8) {
-                            reviewQuote(note.quote, lines: 2)
+                            reviewQuote(note.quote, lines: 2, kind: .note)
                             Text(note.text).font(.body).lineSpacing(3).lineLimit(4)
                                 .foregroundStyle(Color(Paper.ink))
                         }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
@@ -501,17 +502,28 @@ struct WritingReviewPane: View {
                 }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .background(Color(Paper.background), in: RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .background(Color(Paper.background), in: RoundedRectangle(cornerRadius: 10))
         .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(Paper.accent).opacity(isSelected ? 0.025 : hovered ? 0.045 : 0))
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(Paper.accent).opacity(hovered && !isSelected ? 0.03 : 0))
                 .allowsHitTesting(false)
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(isSelected ? Color(Paper.accent).opacity(0.6) : Color(Paper.ink).opacity(hovered ? 0.28 : 0.16), lineWidth: isSelected ? 1.5 : 1)
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(isSelected ? Color(Paper.accent).opacity(0.45) : Color(Paper.ink).opacity(hovered ? 0.16 : 0.09), lineWidth: 1)
                 .allowsHitTesting(false)
         }
-        .shadow(color: .black.opacity(isSelected ? 0.10 : hovered ? 0.08 : 0.04), radius: isSelected ? 10 : 7, y: 3)
+        .overlay(alignment: .topTrailing) {
+            if (hovered || isSelected) && archivable(item) {
+                Button { archive(item) } label: {
+                    Image(systemName: "archivebox").font(.system(size: 12)).frame(width: 24, height: 24).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
+                .help("Archive").accessibilityLabel("Archive")
+                .padding(.top, 8).padding(.trailing, 8)
+                .transition(.opacity)
+            }
+        }
+        .shadow(color: .black.opacity(isSelected ? 0.08 : hovered ? 0.05 : 0.025), radius: isSelected ? 10 : 6, y: 2)
         .onHover { inside in hoveredComment = inside ? id : (hoveredComment == id ? nil : hoveredComment) }
         .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.88), value: isSelected)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovered)
@@ -523,26 +535,20 @@ struct WritingReviewPane: View {
     private func noteEditor(_ note: UserComment) -> some View {
         let empty = note.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return VStack(alignment: .leading, spacing: 12) {
-            reviewQuote(note.quote, lines: 3)
+            reviewQuote(note.quote, lines: 3, kind: .note)
             HStack(alignment: .bottom, spacing: 6) {
-                HStack(alignment: .bottom, spacing: 6) {
-                    TextField("Add a note…", text: Binding(get: { comments.comments.first { $0.id == note.id }?.text ?? "" },
-                                                          set: { comments.update(note.id, text: $0) }), axis: .vertical)
-                        .lineLimit(1...10).textFieldStyle(.plain).font(.body)
-                        .foregroundStyle(Color(Paper.ink))
-                        .focused($focusedReply, equals: note.id)
-                        .onSubmit { closeNote(note.id) }
-                        .accessibilityLabel("Comment")
-                    Button { closeNote(note.id) } label: { Image(systemName: "checkmark.circle.fill").font(.system(size: 17)) }
-                        .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(empty ? 0.35 : 1))
-                        .help("Done").accessibilityLabel("Done")
-                }
-                .composerField()
-                Button { deleteNote(note.id) } label: { Image(systemName: "trash").font(.system(size: 13)) }
-                    .buttonStyle(.plain).foregroundStyle(.secondary)
-                    .frame(width: 22, height: 28)
-                    .help("Delete comment").accessibilityLabel("Delete comment")
+                TextField("Add a note…", text: Binding(get: { comments.comments.first { $0.id == note.id }?.text ?? "" },
+                                                      set: { comments.update(note.id, text: $0) }), axis: .vertical)
+                    .lineLimit(1...10).textFieldStyle(.plain).font(.body)
+                    .foregroundStyle(Color(Paper.ink))
+                    .focused($focusedReply, equals: note.id)
+                    .onSubmit { closeNote(note.id) }
+                    .accessibilityLabel("Comment")
+                Button { closeNote(note.id) } label: { Image(systemName: "checkmark.circle.fill").font(.system(size: 17)) }
+                    .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(empty ? 0.35 : 1))
+                    .help("Done").accessibilityLabel("Done")
             }
+            .composerField()
         }
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
         .background(ConversationFocusBoundary { if selected == note.id { closeNote(note.id) } })
@@ -556,9 +562,23 @@ struct WritingReviewPane: View {
         if selected == id { selected = nil; focusedReply = nil }
         comments.finishEditing(id)
     }
-    private func deleteNote(_ id: UUID) {
-        if selected == id { selected = nil; focusedReply = nil }
-        comments.remove(id)
+    private func archivable(_ item: MarginItem) -> Bool {
+        switch item {
+        case .review: true
+        case let .note(note): !note.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+    /// Archived Ask Matilde threads stay in Review history; archived comments leave the margin.
+    private func archive(_ item: MarginItem) {
+        if selected == item.id { selected = nil; focusedReply = nil }
+        if hoveredComment == item.id { hoveredComment = nil }
+        switch item {
+        case let .review(run, comment):
+            replyText[comment.id] = nil
+            if review.replyingTo == comment.id { review.cancel() }
+            review.dismiss(runID: run.id, commentID: comment.id)
+        case let .note(note): comments.archive(note.id)
+        }
     }
     private func single(_ run: WritingReview, _ comment: ReviewComment) -> WritingReview {
         WritingReview(id: run.id, draftID: run.draftID, created: run.created, model: run.model,
@@ -588,7 +608,10 @@ struct WritingReviewPane: View {
         }
         return result
     }
-    private func reviewQuote(_ text: String, lines: Int) -> some View { PassageQuote(text: text, lines: lines) }
+    /// Leaves room on the right for the archive button that appears on hover.
+    private func reviewQuote(_ text: String, lines: Int, kind: PassageQuote.Kind) -> some View {
+        PassageQuote(text: text, lines: lines, kind: kind).padding(.trailing, 22)
+    }
     @ViewBuilder private func reviewRun(_ run: WritingReview, includeFooter: Bool = true) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             if run.stale { Text("Draft changed · review again for current suggestions").font(.body).foregroundStyle(.secondary) }
@@ -596,7 +619,7 @@ struct WritingReviewPane: View {
             ForEach(run.comments) { comment in
                 VStack(alignment: .leading, spacing: 10) {
                     Button { withEditor { review.locate(runID: run.id, commentID: comment.id, input: model.reviewInput, editor: $0) } } label: {
-                        reviewQuote(comment.suggestion.quote, lines: 3)
+                        reviewQuote(comment.suggestion.quote, lines: 3, kind: .matilde)
                     }.buttonStyle(.plain).foregroundStyle(.secondary).disabled(run.stale)
                     if !comment.suggestion.explanation.isEmpty {
                         Divider().padding(.vertical, 2)
@@ -604,11 +627,15 @@ struct WritingReviewPane: View {
                     }
                     if let replacement = comment.suggestion.replacement {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Suggested rewrite").font(.body.weight(.medium)).foregroundStyle(.secondary)
+                            HStack(alignment: .center) {
+                                Text("Suggested rewrite").font(.callout.weight(.medium)).foregroundStyle(.secondary)
+                                Spacer(minLength: 8)
+                                if comment.status == "open" && !run.stale { acceptButton(run, comment) }
+                            }
                             Text(replacement.isEmpty ? "Remove this passage" : replacement)
                                 .font(.body).lineSpacing(4).textSelection(.enabled)
-                        }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(Paper.ink).opacity(0.055), in: RoundedRectangle(cornerRadius: 8))
+                        }.padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(Paper.ink).opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
                     }
                     ForEach(comment.messages ?? []) { message in
                         VStack(alignment: .leading, spacing: 4) {
@@ -633,14 +660,13 @@ struct WritingReviewPane: View {
                     Color.clear.frame(height: 1).id("thread-end-" + comment.id.uuidString)
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background {
-                        if includeFooter { RoundedRectangle(cornerRadius: 12).fill(Color(Paper.background)) }
+                        if includeFooter { RoundedRectangle(cornerRadius: 10).fill(Color(Paper.background)) }
                     }
                     .overlay {
                         if includeFooter {
-                            RoundedRectangle(cornerRadius: 12).strokeBorder(Color(Paper.ink).opacity(0.14), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 10).strokeBorder(Color(Paper.ink).opacity(0.09), lineWidth: 1)
                         }
                     }
-                    .shadow(color: .black.opacity(includeFooter ? 0.035 : 0), radius: 3, y: 2)
             }
         }
     }
@@ -656,7 +682,6 @@ struct WritingReviewPane: View {
                         }
                     }
                     if comment.status == "open" && !run.stale {
-                        HStack(alignment: .bottom, spacing: 6) {
                         HStack(alignment: .bottom, spacing: 6) {
                             TextField(comment.messages?.isEmpty != false ? "How can I help with this passage?" : "Reply…", text: Binding(get: { replyText[comment.id] ?? "" }, set: { replyText[comment.id] = $0 }), axis: .vertical)
                                 .lineLimit(1...5).textFieldStyle(.plain).font(.body)
@@ -680,15 +705,8 @@ struct WritingReviewPane: View {
                             }
                         }
                         .composerField()
-                            Button { delete(run, comment) } label: { Image(systemName: "trash").font(.system(size: 13)) }
-                                .buttonStyle(.plain).foregroundStyle(.secondary)
-                                .frame(width: 22, height: 28)
-                                .help("Delete comment").accessibilityLabel("Delete comment")
-                        }
                     }
-                    if comment.status == "open", comment.suggestion.replacement != nil {
-                        Button("Accept rewrite") { withEditor { review.accept(runID: run.id, commentID: comment.id, input: model.reviewInput, editor: $0) } }.disabled(run.stale || !comment.rewriteApplies || model.isBranching || model.boardFlight != nil)
-                    } else if comment.status != "open" { Text(comment.status.capitalized).font(.body).foregroundStyle(.secondary) }
+                    if comment.status != "open" { Text(comment.status.capitalized).font(.body).foregroundStyle(.secondary) }
         }
     }
     private func threadView(_ run: WritingReview, _ comment: ReviewComment, maxHeight: CGFloat) -> some View {
@@ -736,10 +754,21 @@ struct WritingReviewPane: View {
         hoveredComment = nil
         DispatchQueue.main.async { if selected == comment.id { focusedReply = comment.id } }
     }
-    private func delete(_ run: WritingReview, _ comment: ReviewComment) {
-        if selected == comment.id { selected = nil; focusedReply = nil }
-        replyText[comment.id] = nil
-        review.delete(runID: run.id, commentID: comment.id)
+    /// Sits in the rewrite itself, so the composer stays alone at the bottom of the card.
+    private func acceptButton(_ run: WritingReview, _ comment: ReviewComment) -> some View {
+        let enabled = comment.rewriteApplies && !model.isBranching && model.boardFlight == nil
+        return Button { withEditor { review.accept(runID: run.id, commentID: comment.id, input: model.reviewInput, editor: $0) } } label: {
+            Label("Accept", systemImage: "checkmark").font(.callout.weight(.medium))
+                .padding(.horizontal, 9).padding(.vertical, 3)
+                .background(Color(Paper.background), in: Capsule())
+                .overlay(Capsule().strokeBorder(Color(Paper.ink).opacity(0.12)))
+                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(enabled ? 1 : 0.4))
+        .disabled(!enabled)
+        .help(enabled ? "Replace the passage with this rewrite" : "The passage changed since this rewrite")
+        .accessibilityLabel("Accept rewrite")
     }
     private func sendReply(_ run: WritingReview, _ comment: ReviewComment) {
         review.reply(runID: run.id, commentID: comment.id, text: replyText[comment.id] ?? "", input: model.reviewInput)
@@ -754,10 +783,30 @@ struct WritingReviewPane: View {
 }
 
 enum CommentMargin {
-    static let cardWidth: CGFloat = 300
-    /// Room kept to the right of the writing column (including its 28-point inset) for margin cards.
-    static let gutter: CGFloat = 300
+    static let cardWidth: CGFloat = 280
+    /// Narrowest card worth showing before falling back to compact markers.
+    static let minimumCardWidth: CGFloat = 220
+    /// Space between the end of the text and the cards.
+    static let cardGap: CGFloat = 36
+    /// The editor's horizontal text inset plus line-fragment padding on each side.
+    static let textInset: CGFloat = 33
+    /// Space kept between the cards and the window edge, matching the text's own inset on the left.
+    static let outerMargin: CGFloat = textInset
+    static let maximumColumn: CGFloat = 736
     static let minimumEditorWidth: CGFloat = 440
+    /// How much wider the text-plus-cards group is than the editor column (which ends 28 points after its text).
+    static var groupExtra: CGFloat { cardGap - 28 + cardWidth - textInset }
+    static func fits(width: CGFloat) -> Bool { width - groupExtra - 2 * outerMargin >= minimumEditorWidth }
+    /// The editor column's width and leading offset. With cards, the group from the text's left
+    /// edge to the cards' right edge is centered, so both outer margins match.
+    static func layout(width: CGFloat, reserve: Bool) -> (column: CGFloat, leading: CGFloat) {
+        guard reserve else {
+            let column = max(0, min(maximumColumn, width))
+            return (column, max(0, (width - column) / 2))
+        }
+        let column = max(0, min(maximumColumn, width - groupExtra - 2 * outerMargin))
+        return (column, max(0, (width - column - groupExtra) / 2 - textInset))
+    }
 }
 
 private enum MarginItem: Identifiable {
@@ -792,31 +841,61 @@ private struct ReviewCardHeights: PreferenceKey {
     static func reduce(value: inout [UUID: CGFloat], nextValue: () -> [UUID: CGFloat]) { value.merge(nextValue(), uniquingKeysWith: { _, new in new }) }
 }
 
-/// Convert actual TextKit line positions into the floating margin's coordinates.
+/// Convert actual TextKit line positions into the floating margin's coordinates, and mark
+/// Ask Matilde passages in the text: a quiet accent underline with a faint tint, stronger for the
+/// thread that is hovered or open. Private comments keep their yellow highlighter instead.
 private struct ReviewAnchorProbe: NSViewRepresentable {
     let anchors: [MarginAnchor]
     let revision: ReviewInput
+    let threads: [NSRange]
     let highlighted: NSRange?
     let onChange: ([UUID: CGFloat]) -> Void
     let onTextRight: (CGFloat) -> Void
     func makeNSView(context: Context) -> Probe { Probe() }
     func updateNSView(_ view: Probe, context: Context) {
-        view.anchors = anchors; view.highlighted = highlighted; view.onChange = onChange; view.onTextRight = onTextRight
+        view.anchors = anchors; view.threads = threads; view.highlighted = highlighted
+        view.onChange = onChange; view.onTextRight = onTextRight
         view.schedule()
     }
     static func dismantleNSView(_ view: Probe, coordinator: ()) { view.clearHighlight() }
+    static let markedAttributes: [NSAttributedString.Key] = [.backgroundColor, .underlineStyle, .underlineColor]
     final class Probe: NSView {
         override var isFlipped: Bool { true }
         var anchors: [MarginAnchor] = []
+        var threads: [NSRange] = []
         var highlighted: NSRange?
-        private weak var highlightedLayout: NSLayoutManager?
-        private var highlightedRange: NSRange?
+        private weak var markedLayout: NSLayoutManager?
+        private var marked: (threads: [NSRange], highlighted: NSRange?, length: Int)?
         func clearHighlight() {
-            if let highlightedRange, let layout = highlightedLayout {
-                let valid = NSIntersectionRange(highlightedRange, NSRange(location: 0, length: layout.textStorage?.length ?? 0))
-                if valid.length > 0 { layout.removeTemporaryAttribute(.backgroundColor, forCharacterRange: valid) }
+            if let layout = markedLayout, let length = layout.textStorage?.length, length > 0 {
+                // Temporary attributes move with edits, so clear them across the whole text.
+                for key in ReviewAnchorProbe.markedAttributes {
+                    layout.removeTemporaryAttribute(key, forCharacterRange: NSRange(location: 0, length: length))
+                }
             }
-            highlightedRange = nil; highlightedLayout = nil
+            marked = nil; markedLayout = nil
+        }
+        private func mark(_ layout: NSLayoutManager, length: Int) {
+            let valid = { (range: NSRange) in range.length > 0 && NSMaxRange(range) <= length }
+            let wanted = (threads: threads.filter(valid), highlighted: highlighted.flatMap { valid($0) ? $0 : nil }, length: length)
+            if let marked, markedLayout === layout, marked.threads == wanted.threads,
+               marked.highlighted == wanted.highlighted, marked.length == wanted.length { return }
+            clearHighlight()
+            for range in wanted.threads {
+                layout.addTemporaryAttributes([
+                    .underlineStyle: NSUnderlineStyle.single.rawValue,
+                    .underlineColor: Paper.accent.withAlphaComponent(0.5),
+                    .backgroundColor: Paper.accent.withAlphaComponent(0.05)
+                ], forCharacterRange: range)
+            }
+            if let range = wanted.highlighted {
+                layout.addTemporaryAttributes([
+                    .underlineStyle: NSUnderlineStyle.single.rawValue,
+                    .underlineColor: Paper.accent.withAlphaComponent(0.85),
+                    .backgroundColor: Paper.accent.withAlphaComponent(0.14)
+                ], forCharacterRange: range)
+            }
+            marked = wanted; markedLayout = layout
         }
         var onChange: (([UUID: CGFloat]) -> Void)?
         var onTextRight: ((CGFloat) -> Void)?
@@ -849,14 +928,7 @@ private struct ReviewAnchorProbe: NSViewRepresentable {
                   let layout = editor.layoutManager, let container = editor.textContainer else { return }
             editor.enclosingScrollView?.contentView.postsBoundsChangedNotifications = true
             layout.ensureLayout(for: container)
-            let requested = highlighted
-            if requested != highlightedRange || highlightedLayout !== layout {
-                clearHighlight()
-                if let requested, NSMaxRange(requested) <= (editor.string as NSString).length {
-                    layout.addTemporaryAttribute(.backgroundColor, value: Paper.accent.withAlphaComponent(0.16), forCharacterRange: requested)
-                    highlightedRange = requested; highlightedLayout = layout
-                }
-            }
+            mark(layout, length: (editor.string as NSString).length)
             var result: [UUID: CGFloat] = [:]
             for comment in anchors where NSMaxRange(comment.range) <= (editor.string as NSString).length && comment.range.length > 0 {
                 let glyph = layout.glyphIndexForCharacter(at: comment.range.location)
