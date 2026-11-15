@@ -435,3 +435,6 @@ A subsequent runner exposed the equivalent automatic-review sleep race; automati
 
 ### 2026-09-15 — Stronger thinking shimmer
 Widened the sweep from 60% to 85% of text width and added a full-ink plateau across its center, preserving speed and Reduce Motion behavior. App/signature build passed; actual component inspected in a disposable native preview. Preview closed and Matilde restarted normally. No API requests sent.
+
+### 2026-11-15 — Sidebar moves, folder new note, permanent search, hidden scrollbars (UI-13–UI-16)
+Built in a Linux sandbox without Swift, so all checks ran on CI (macOS-15, PR #1). 99 Swift tests passed with one existing opt-in Keychain skip, including the six new `NoteMoveTests`. App bundle build and packaging checks passed. Not yet verified on a Mac: drag/drop delivery with the declared `app.matilde.local.note` type, drop highlight, hover `+` placement, search field layout, and scrolling with hidden scrollers (trackpad, wheel, Page Up/Down, arrow keys) in the sidebar, editor, comparison, stash, board, slash menu and Writing assist.
