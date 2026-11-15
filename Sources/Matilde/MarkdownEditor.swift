@@ -796,8 +796,8 @@ struct MarkdownEditor: NSViewRepresentable {
         onMount(view)
         let scroll = NSScrollView()
         scroll.documentView = view
-        scroll.hasVerticalScroller = true
-        scroll.autohidesScrollers = true
+        scroll.hasVerticalScroller = false
+        scroll.hasHorizontalScroller = false
         scroll.drawsBackground = false
         scroll.contentView.postsBoundsChangedNotifications = true
         context.coordinator.view = view

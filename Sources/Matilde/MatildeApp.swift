@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 @main
 struct MatildeApp: App {
@@ -11,6 +12,7 @@ struct MatildeApp: App {
             ContentView(model: model)
                 .frame(minWidth: 760, minHeight: 520)
                 .modifier(AppAppearanceModifier())
+                .scrollIndicators(.hidden)
                 .onAppear { delegate.model = model; NSApp.activate(ignoringOtherApps: true) }
         }
         .defaultSize(width: 1180, height: 820)
@@ -57,7 +59,7 @@ struct MatildeApp: App {
                 Button("Welcome to Matilde") { model.showWelcomeDocument() }.disabled(model.workspace == nil)
             }
         }
-        Settings { AppSettingsView() }
+        Settings { AppSettingsView().scrollIndicators(.hidden) }
     }
 }
 
@@ -86,8 +88,9 @@ struct ContentView: View {
     @ObservedObject var model: AppModel
     @State private var collapsedFolders: Set<String> = []
     @State private var hoveredDraft: String?
-    @State private var searchVisible = false
-    @FocusState private var searchFocused: Bool
+    @State private var hoveredFolder: String?
+    @State private var draggedNote: SidebarNoteDrag?
+    @State private var dropFolder: String?
     @State private var sidebarKeyboard = SidebarKeyboardView()
     private var sidebarFocused: Bool { sidebarKeyboard.window?.firstResponder === sidebarKeyboard }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -167,7 +170,7 @@ struct ContentView: View {
                 }
             }
         }
-        .sheet(item: $model.sheet) { kind in DocumentSheet(model: model, kind: kind) }
+        .sheet(item: $model.sheet) { kind in DocumentSheet(model: model, kind: kind).scrollIndicators(.hidden) }
         .alert("Matilde", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("OK") { model.error = nil }
         } message: { Text(model.error ?? "") }
@@ -176,35 +179,28 @@ struct ContentView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Text("Matilde")
-                    .font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                Spacer(minLength: 4)
-                Button {
-                    searchVisible.toggle()
-                    if searchVisible { searchFocused = true } else { model.search = "" }
-                } label: { sidebarIcon("magnifyingglass") }
-                .help("Search documents").accessibilityLabel("Search documents")
-            }.buttonStyle(.plain).padding(.horizontal, 16).frame(height: 48)
-            if searchVisible {
-                HStack(spacing: 6) {
-                    TextField("Search", text: $model.search).textFieldStyle(.plain)
-                        .focused($searchFocused).onExitCommand { model.search = ""; searchVisible = false }
-                    if !model.search.isEmpty {
-                        Button { model.search = "" } label: { Image(systemName: "xmark.circle.fill") }
-                            .buttonStyle(.plain).accessibilityLabel("Clear search")
-                    }
-                }.font(.system(size: 12)).foregroundStyle(Color(Paper.muted))
-                    .padding(.horizontal, 9).frame(height: 28)
-                    .background(Color(Paper.ink).opacity(0.045), in: RoundedRectangle(cornerRadius: 5))
-                    .padding(.horizontal, 12).padding(.bottom, 12)
-            }
-            HStack {
+                Image(systemName: "magnifyingglass").font(.system(size: 11))
+                TextField("Search", text: $model.search).textFieldStyle(.plain)
+                    .onExitCommand { model.search = "" }
+                if !model.search.isEmpty {
+                    Button { model.search = "" } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain).accessibilityLabel("Clear search")
+                }
+            }.font(.system(size: 12)).foregroundStyle(Color(Paper.muted))
+                .padding(.horizontal, 9).frame(height: 28)
+                .background(Color(Paper.ink).opacity(0.045), in: RoundedRectangle(cornerRadius: 5))
+                .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 8)
+            HStack(spacing: 6) {
                 Text("Documents").font(.system(size: 11, weight: .medium))
                 Spacer()
+                Button { newNote(in: "") } label: { sidebarIcon("square.and.pencil") }
+                    .help("New document").accessibilityLabel("New document")
                 Button { model.sheet = .folder } label: { sidebarIcon("folder.badge.plus") }
                     .help("New folder").accessibilityLabel("New folder")
             }.buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
                 .padding(.horizontal, 16).frame(height: 30).padding(.top, 4)
+                .background(dropHighlight(""))
+                .onDrop(of: [SidebarNoteDrag.type], isTargeted: dropTarget("")) { dropNote($0, into: "") }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
                     ForEach(model.folders, id: \.self) { folder in
@@ -214,30 +210,20 @@ struct ContentView: View {
                         }
                         if !groups.isEmpty || model.search.isEmpty {
                             VStack(alignment: .leading, spacing: 1) {
-                                if !folder.isEmpty {
-                                    Button {
-                                        if collapsedFolders.contains(folder) { collapsedFolders.remove(folder) }
-                                        else { collapsedFolders.insert(folder) }
-                                    } label: {
-                                        HStack(spacing: 8) {
-                                            sidebarIcon(collapsedFolders.contains(folder) && model.search.isEmpty ? "folder" : "folder.fill")
-                                            Text(folder).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                                            Spacer(minLength: 0)
-                                            Image(systemName: collapsedFolders.contains(folder) && model.search.isEmpty ? "chevron.right" : "chevron.down")
-                                                .font(.system(size: 8, weight: .medium))
-                                        }.foregroundStyle(Color(Paper.muted)).padding(.horizontal, 8).frame(height: 30).contentShape(Rectangle())
-                                    }.buttonStyle(.plain).help(folder)
-                                }
+                                if !folder.isEmpty { folderRow(folder) }
                                 if folder.isEmpty || !collapsedFolders.contains(folder) || !model.search.isEmpty {
                                     ForEach(groups) { group in
-                                        draftRow(group)
+                                        draftRow(group, folder: folder)
                                     }
                                 }
                             }
+                            .background(dropHighlight(folder))
+                            .onDrop(of: [SidebarNoteDrag.type], isTargeted: dropTarget(folder)) { dropNote($0, into: folder) }
                         }
                     }
                 }.padding(.horizontal, 8).padding(.bottom, 12)
             }
+            .scrollIndicators(.hidden)
             .background(SidebarKeyboardInput(view: sidebarKeyboard) {
                 if let draft = model.active { model.trashDraft(draft) }
             })
@@ -254,7 +240,54 @@ struct ContentView: View {
         Image(systemName: name).font(.system(size: 13, weight: .regular))
             .frame(width: 18, height: 18).foregroundStyle(Color(Paper.muted))
     }
-    private func draftRow(_ group: SidebarDraftGroup) -> some View {
+    private func folderRow(_ folder: String) -> some View {
+        let collapsed = collapsedFolders.contains(folder) && model.search.isEmpty
+        return Button {
+            if collapsedFolders.contains(folder) { collapsedFolders.remove(folder) }
+            else { collapsedFolders.insert(folder) }
+        } label: {
+            HStack(spacing: 8) {
+                sidebarIcon(collapsed ? "folder" : "folder.fill")
+                Text(folder).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                Spacer(minLength: 0)
+                Color.clear.frame(width: 18, height: 18)
+                Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 8, weight: .medium))
+            }.foregroundStyle(Color(Paper.muted)).padding(.horizontal, 8).frame(height: 30).contentShape(Rectangle())
+        }.buttonStyle(.plain).help(folder)
+            .overlay(alignment: .trailing) {
+                Button { newNote(in: folder) } label: { sidebarIcon("plus") }
+                    .buttonStyle(.plain)
+                    .help("New document in \(folder)").accessibilityLabel("New document in \(folder)")
+                    .padding(.trailing, 22)
+                    .opacity(hoveredFolder == folder ? 1 : 0)
+                    .allowsHitTesting(hoveredFolder == folder)
+            }
+            .onHover { inside in
+                if inside { hoveredFolder = folder } else if hoveredFolder == folder { hoveredFolder = nil }
+            }
+    }
+    private func newNote(in folder: String) {
+        collapsedFolders.remove(folder)
+        model.newDocument(in: folder)
+    }
+    private func dropTarget(_ folder: String) -> Binding<Bool> {
+        Binding(get: { dropFolder == folder }, set: { inside in
+            if inside { dropFolder = folder } else if dropFolder == folder { dropFolder = nil }
+        })
+    }
+    private func dropNote(_ providers: [NSItemProvider], into folder: String) -> Bool {
+        defer { draggedNote = nil; dropFolder = nil }
+        guard SidebarNoteDrag.accepts(providers), let note = draggedNote, note.folder != folder else { return false }
+        model.moveNote(family: note.family, from: note.folder, to: folder)
+        collapsedFolders.remove(folder)
+        return true
+    }
+    private func dropHighlight(_ folder: String) -> some View {
+        RoundedRectangle(cornerRadius: 5)
+            .fill(Color(Paper.accent).opacity(dropFolder == folder && draggedNote != nil && draggedNote?.folder != folder ? 0.1 : 0))
+    }
+    private func draftRow(_ group: SidebarDraftGroup, folder: String) -> some View {
         let draft = group.root
         let selected = model.active?.family == group.id
         var datedDraft = draft
@@ -299,6 +332,10 @@ struct ContentView: View {
                 }
             }
             .onHover { hoveredDraft = $0 ? draft.id : nil }
+            .onDrag {
+                draggedNote = SidebarNoteDrag(family: group.id, folder: folder)
+                return SidebarNoteDrag.provider()
+            }
             .accessibilityAddTraits(selected ? .isSelected : [])
     }
     private func writingSpace(_ draft: Draft) -> some View {

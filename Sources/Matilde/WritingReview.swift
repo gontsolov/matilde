@@ -463,7 +463,7 @@ struct WritingReviewPane: View {
                     ScrollView { ForEach(review.history) { run in
                         Text(run.created, style: .time).font(.body)
                         reviewRun(run)
-                    } }
+                    } }.scrollIndicators(.hidden)
                 }.padding(20).frame(width: 400, height: 560)
             }
         }
@@ -619,6 +619,7 @@ struct WritingReviewPane: View {
                             Color.clear.preference(key: ReviewExpandedHeights.self, value: [comment.id: content.size.height])
                         })
                 }
+                .scrollIndicators(.hidden)
                 .onChange(of: review.replyingTo) { _, id in
                     if id == comment.id {
                         reader.scrollTo("thread-end-" + comment.id.uuidString, anchor: .bottom)
