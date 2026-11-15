@@ -7,7 +7,7 @@ final class MarginLayoutTests: XCTestCase {
         for width in [900.0, 1100, 1400, 1800] as [CGFloat] {
             let layout = CommentMargin.layout(width: width, reserve: true)
             let textLeft = layout.leading + CommentMargin.textInset
-            let cardsRight = layout.leading + layout.column - 28 + CommentMargin.cardGap + CommentMargin.cardWidth
+            let cardsRight = layout.leading + layout.column - 28 + CommentMargin.cardGap + CommentMargin.cardWidth(for: width)
             XCTAssertEqual(textLeft, width - cardsRight, accuracy: 0.5, "width \(width)")
             XCTAssertGreaterThanOrEqual(width - cardsRight, CommentMargin.outerMargin, "width \(width)")
             XCTAssertLessThanOrEqual(layout.column, CommentMargin.maximumColumn)
@@ -18,7 +18,7 @@ final class MarginLayoutTests: XCTestCase {
         let width: CGFloat = 800
         XCTAssertTrue(CommentMargin.fits(width: width))
         let layout = CommentMargin.layout(width: width, reserve: true)
-        let cardsRight = layout.leading + layout.column - 28 + CommentMargin.cardGap + CommentMargin.cardWidth
+        let cardsRight = layout.leading + layout.column - 28 + CommentMargin.cardGap + CommentMargin.cardWidth(for: width)
         XCTAssertEqual(width - cardsRight, CommentMargin.outerMargin, accuracy: 0.5)
         XCTAssertGreaterThanOrEqual(layout.column, CommentMargin.minimumEditorWidth)
 
@@ -26,6 +26,22 @@ final class MarginLayoutTests: XCTestCase {
         XCTAssertEqual(plain.column, CommentMargin.maximumColumn)
         XCTAssertEqual(plain.leading, (1200 - CommentMargin.maximumColumn) / 2)
         XCTAssertFalse(CommentMargin.fits(width: 700))
+    }
+
+    func testCardsAreWiderWhenThereIsRoomAndNarrowBeforeTheEditorShrinksBelowItsMinimum() {
+        XCTAssertEqual(CommentMargin.cardWidth(for: 1400), CommentMargin.cardWidth)
+        XCTAssertGreaterThanOrEqual(CommentMargin.cardWidth, 340)
+        XCTAssertEqual(CommentMargin.cardWidth(for: 750), CommentMargin.reservedCardWidth)
+        XCTAssertEqual(CommentMargin.layout(width: 800, reserve: true).column, CommentMargin.minimumEditorWidth, accuracy: 0.5,
+                       "Between the two widths the cards take the space the editor does not need")
+        for width in stride(from: CGFloat(760), through: 1000, by: 10) {
+            let card = CommentMargin.cardWidth(for: width)
+            XCTAssertGreaterThanOrEqual(card, CommentMargin.reservedCardWidth)
+            XCTAssertLessThanOrEqual(card, CommentMargin.cardWidth)
+            if CommentMargin.fits(width: width) {
+                XCTAssertGreaterThanOrEqual(CommentMargin.layout(width: width, reserve: true).column, CommentMargin.minimumEditorWidth - 0.5, "width \(width)")
+            }
+        }
     }
 
     func testBranchNamesCountUpInsteadOfStackingSuffixes() throws {
