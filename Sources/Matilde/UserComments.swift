@@ -207,6 +207,12 @@ final class UserCommentStore: ObservableObject {
     @Published private(set) var comments: [UserComment] = []
     /// The comment whose popover is open; drawn slightly stronger.
     @Published var activeID: UUID?
+    /// True while the writing margin has room for comment cards; otherwise comments open in a popover.
+    var marginVisible = false
+    struct MarginRequest: Equatable { let id: UUID; let focus: Bool; let token = UUID() }
+    /// Asks the margin to open a comment card.
+    @Published private(set) var marginRequest: MarginRequest?
+    func requestMargin(_ id: UUID, focus: Bool) { marginRequest = MarginRequest(id: id, focus: focus) }
     private(set) var body = ""
     private var workspace: Workspace?
     private(set) var draftID: String?
@@ -401,7 +407,7 @@ extension WritingTextView {
     }
 
     var addCommentMenuItem: NSMenuItem? {
-        guard commentStore != nil, selectedRange().length > 0 else { return nil }
+        guard commentStore != nil, askRange != nil else { return nil }
         let item = NSMenuItem(title: "Add comment", action: #selector(addUserComment(_:)), keyEquivalent: "k")
         item.keyEquivalentModifierMask = [.command, .shift]
         item.target = self
@@ -412,14 +418,23 @@ extension WritingTextView {
         guard let store = commentStore, store.body == string else { NSSound.beep(); return }
         let selection = selectedRange()
         guard selection.location != NSNotFound, NSMaxRange(selection) <= (string as NSString).length else { return }
-        if selection.length == 0 {
-            if let existing = store.comment(containing: selection.location) { showCommentPopover(existing.id) }
-            else { NSSound.beep() }
-            return
+        // Without a selection, open the comment under the caret or comment on the current paragraph.
+        if selection.length == 0, let existing = store.comment(containing: selection.location) {
+            presentComment(existing.id); return
         }
+        guard let range = askRange else { NSSound.beep(); return }
         hideSelectionAssist()
-        guard let comment = store.add(range: selection) else { NSSound.beep(); return }
-        showCommentPopover(comment.id, focus: true)
+        guard let comment = store.add(range: range) else { NSSound.beep(); return }
+        presentComment(comment.id, focus: true)
+    }
+
+    /// Opens a comment in the margin when it has room, else in a popover beside the passage.
+    func presentComment(_ id: UUID, focus: Bool = false) {
+        guard let store = commentStore else { return }
+        guard store.marginVisible else { showCommentPopover(id, focus: focus); return }
+        commentPopover?.close()
+        // After any pending margin blur from this same click has run.
+        DispatchQueue.main.async { [weak store] in store?.requestMargin(id, focus: focus) }
     }
 
     /// Opens a comment when a single click lands on highlighted text.
@@ -432,7 +447,7 @@ extension WritingTextView {
         guard glyph < layoutManager.numberOfGlyphs,
               layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: textContainer).contains(point),
               let comment = store.comment(containing: layoutManager.characterIndexForGlyph(at: glyph)) else { return false }
-        showCommentPopover(comment.id)
+        presentComment(comment.id)
         return true
     }
 
@@ -462,7 +477,7 @@ final class UserCommentPopover: NSPopover, NSPopoverDelegate {
         delegate = self
         let id = comment.id
         contentViewController = NSHostingController(rootView: UserCommentEditor(
-            text: comment.text, focus: focus,
+            quote: comment.quote, text: comment.text, focus: focus,
             onChange: { [weak store] in store?.update(id, text: $0) },
             onDelete: { [weak self, weak store] in store?.remove(id); self?.close() },
             onDone: { [weak self] in self?.close() }))
@@ -481,6 +496,7 @@ final class UserCommentPopover: NSPopover, NSPopoverDelegate {
 }
 
 private struct UserCommentEditor: View {
+    let quote: String
     @State var text: String
     let focus: Bool
     let onChange: @MainActor (String) -> Void
@@ -489,25 +505,79 @@ private struct UserCommentEditor: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            TextField("Comment", text: $text, axis: .vertical)
-                .lineLimit(1...10).textFieldStyle(.plain).font(.body)
-                .foregroundStyle(Color(Paper.ink))
-                .focused($focused)
-                .onSubmit { onDone() }
-                .accessibilityLabel("Comment")
-            HStack {
-                Button { onDelete() } label: { Image(systemName: "trash") }
-                    .buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
+        VStack(alignment: .leading, spacing: 12) {
+            if !quote.isEmpty { PassageQuote(text: quote, lines: 3) }
+            HStack(alignment: .bottom, spacing: 6) {
+                HStack(alignment: .bottom, spacing: 6) {
+                    TextField("Add a note…", text: $text, axis: .vertical)
+                        .lineLimit(1...10).textFieldStyle(.plain).font(.body)
+                        .foregroundStyle(Color(Paper.ink))
+                        .focused($focused)
+                        .onSubmit { onDone() }
+                        .accessibilityLabel("Comment")
+                    Button { onDone() } label: { Image(systemName: "checkmark.circle.fill").font(.system(size: 17)) }
+                        .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.35 : 1))
+                        .help("Done").accessibilityLabel("Done")
+                }
+                .composerField()
+                Button { onDelete() } label: { Image(systemName: "trash").font(.system(size: 13)) }
+                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                    .frame(width: 22, height: 28)
                     .help("Delete comment").accessibilityLabel("Delete comment")
-                Spacer()
-                Button("Done") { onDone() }
-                    .buttonStyle(.plain).foregroundStyle(Color(Paper.accent))
             }
         }
-        .padding(12).frame(width: 280)
+        .padding(14).frame(width: 300)
         .background(Color(Paper.background))
+        .background(PopoverPaperBackground())
         .onChange(of: text) { _, value in onChange(value) }
         .onAppear { if focus || text.isEmpty { DispatchQueue.main.async { focused = true } } }
     }
+}
+
+// MARK: - Shared comment chrome (Ask Matilde threads and private comments)
+
+/// The quoted passage at the top of a comment, set off by a thin rule.
+struct PassageQuote: View {
+    let text: String
+    let lines: Int
+    var body: some View {
+        Text(text).font(.body).foregroundStyle(.secondary).lineSpacing(3).lineLimit(lines)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 10).padding(.vertical, 3)
+            .overlay(alignment: .leading) {
+                Rectangle().fill(Color(Paper.muted).opacity(0.55)).frame(width: 2)
+            }
+    }
+}
+
+extension View {
+    /// The quiet outlined input used by comment composers.
+    func composerField() -> some View {
+        padding(.leading, 10).padding(.trailing, 5).padding(.vertical, 5)
+            .background(Color(Paper.ink).opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(Paper.ink).opacity(0.08)))
+    }
+}
+
+/// Paints the whole popover, arrow included, in paper instead of the default material.
+struct PopoverPaperBackground: NSViewRepresentable {
+    final class Painter: NSView {
+        private var fill: NSView?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard fill == nil, let frame = window?.contentView?.superview else { return }
+            let view = NSView(frame: frame.bounds)
+            view.wantsLayer = true
+            effectiveAppearance.performAsCurrentDrawingAppearance { view.layer?.backgroundColor = Paper.background.cgColor }
+            view.autoresizingMask = [.width, .height]
+            frame.addSubview(view, positioned: .below, relativeTo: nil)
+            fill = view
+        }
+        override func viewDidChangeEffectiveAppearance() {
+            super.viewDidChangeEffectiveAppearance()
+            effectiveAppearance.performAsCurrentDrawingAppearance { fill?.layer?.backgroundColor = Paper.background.cgColor }
+        }
+    }
+    func makeNSView(context: Context) -> Painter { Painter() }
+    func updateNSView(_ view: Painter, context: Context) {}
 }

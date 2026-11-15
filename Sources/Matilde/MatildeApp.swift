@@ -348,13 +348,13 @@ struct ContentView: View {
                 BoardPageSurface(amount: boardAmount, size: geometry.size,
                                  target: model.sheetRect(draft.id, in: geometry.size),
                                  sheet: model.boardSheets.first { $0.id == draft.id },
-                                 editor: writing(draft))
+                                 editor: writing(draft, width: geometry.size.width))
                     .opacity(model.boardVisible && model.boardFlight == nil ? 0 : 1)
                     .allowsHitTesting(!model.boardVisible)
                     .accessibilityHidden(model.boardVisible)
             }
             .overlay {
-                WritingReviewPane(model: model, review: model.review)
+                WritingReviewPane(model: model, review: model.review, comments: model.comments)
             }
             .overlay(alignment: .bottomTrailing) {
                 StashPocket(stash: model.stash, size: geometry.size)
@@ -426,7 +426,16 @@ struct ContentView: View {
             pinchTarget = WritingPinch.progress(total)
         }
     }
-    private func writing(_ draft: Draft) -> some View {
+    private func writing(_ draft: Draft, width: CGFloat) -> some View {
+        CommentMarginColumn(review: model.review, comments: model.comments, width: width) { writingEditor(draft) }
+        .background(PageCapture { model.capturePage = $0 })
+        .overlay {
+            if let moment = model.branchMoment { TearAwayPage(moment: moment).id(moment.id) }
+        }
+        .clipped()
+        .onChange(of: model.active?.id) { _, _ in draftsVisible = false }
+    }
+    private func writingEditor(_ draft: Draft) -> some View {
             MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: draft.cursor, initialScroll: draft.scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 }, saveImage: { data in
                 guard let workspace = model.workspace else { throw WorkspaceError.message("Open a workspace first.") }
                 return try workspace.importImage(data, beside: draft)
@@ -436,13 +445,6 @@ struct ContentView: View {
                                if let range { model.review.beginSelection(range, input: model.reviewInput) } else { model.reviewNow() }
                            },
                            commentStore: model.comments)
-                .frame(maxWidth: 736).frame(maxWidth: .infinity)
-        .background(PageCapture { model.capturePage = $0 })
-        .overlay {
-            if let moment = model.branchMoment { TearAwayPage(moment: moment).id(moment.id) }
-        }
-        .clipped()
-        .onChange(of: model.active?.id) { _, _ in draftsVisible = false }
     }
     private func writingHeader(_ draft: Draft) -> some View {
         VStack(spacing: 0) {
@@ -645,5 +647,32 @@ private struct AskMatildeToolbar: View {
     }
     private func toggleReview() {
         if reviewing { review.cancel() } else if !unavailable { model.reviewNow() }
+    }
+}
+
+/// Centers the writing column, shifting it left when needed so margin comments always fit beside it.
+private struct CommentMarginColumn<Content: View>: View {
+    @ObservedObject var review: WritingReviewModel
+    @ObservedObject var comments: UserCommentStore
+    let width: CGFloat
+    @ViewBuilder let content: () -> Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var hasComments: Bool {
+        if let run = review.history.first, !run.stale, run.comments.contains(where: { $0.status == "open" }) { return true }
+        let opening = comments.marginRequest?.id
+        return comments.comments.contains { $0.attached && (!$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.id == comments.activeID || $0.id == opening) }
+    }
+    private var fits: Bool { width - CommentMargin.gutter >= CommentMargin.minimumEditorWidth }
+    var body: some View {
+        let reserve = hasComments && fits
+        let column = min(736, reserve ? width - CommentMargin.gutter : width)
+        let centered = (width - column) / 2
+        let leading = reserve ? max(0, min(centered, width - column - CommentMargin.gutter)) : centered
+        content()
+            .frame(width: max(0, column))
+            .padding(.leading, max(0, leading))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: reserve)
+            .onChange(of: fits, initial: true) { _, value in comments.marginVisible = value }
     }
 }
