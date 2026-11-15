@@ -596,7 +596,7 @@ Release workflow run 43755942031 (dispatched on `main` at `581acfa`, version 0.1
 ### 2026-11-15 — Sidebar right-click actions (UI-27)
 Context menus on note rows, folder rows and the empty sidebar list (`MatildeApp.swift`), backed by `SidebarActions.swift` (pure helpers plus `Workspace.duplicate`, `renameFolder`, `trashFolder`) and `AppModel` actions. Existing paths reused: `moveNote` for Move To, `trashDraft` for note Trash (now picking the next note in sidebar order as a last fallback instead of the alphabetically first draft), `newDocument(in:)`, the rename/goal/new-folder sheets, `compare`, `branch`. Folder Trash and rename run in one SQLite transaction with the filesystem step last and roll back on failure; nothing is deleted permanently.
 
-Linux sandbox without Swift: code reading only. New `SidebarActionsTests` (folder contents/count, move targets, neighbour choice, rename paths, folder Trash with reconnection and rollback, folder rename, duplicate) run in CI.
+Linux sandbox without Swift: code reading only. CI on PR #23 (run 43761841332, macOS-15, head `8f30297`) passed: 209 Swift tests (one opt-in skip) including all 10 new `SidebarActionsTests` (folder contents/count, move targets, neighbour choice, rename paths, folder Trash with reconnection and rollback, folder rename, duplicate), app build and packaging checks. The menus themselves are unverified on a Mac.
 
 Manual Mac checklist (disposable workspace under `build/`):
 - Right-click a note: every item listed in UI-27 appears; ⇧⌘B and ⌘⌫ show only on the open note. Branch Draft on another note opens it and plays the curl of that note's page.
