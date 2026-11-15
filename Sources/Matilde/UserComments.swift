@@ -20,9 +20,21 @@ struct UserComment: Identifiable, Equatable {
     var attached: Bool { length > 0 }
 }
 
-/// Keeps comment ranges on their passages. Native edits move or resize the range directly
-/// (reusing `WritingEdit`, as Writing assist quotes do); unknown changes fall back to the
-/// saved quote plus surrounding context.
+/// A highlighted passage: a UTF-16 range plus the quote and context used to find it again.
+/// A zero length means the passage was deleted; the quote is kept so undo can restore it.
+protocol AnchoredPassage {
+    var location: Int { get set }
+    var length: Int { get set }
+    var quote: String { get set }
+    var prefix: String { get set }
+    var suffix: String { get set }
+}
+
+extension UserComment: AnchoredPassage {}
+
+/// Keeps private and Ask Matilde comments on their passages. Native edits move or resize the
+/// range directly (via `WritingEdit`); unknown changes fall back to the saved quote plus
+/// surrounding context.
 enum CommentAnchor {
     static let contextLength = 40
 
@@ -43,7 +55,7 @@ enum CommentAnchor {
                 source.substring(with: NSRange(location: NSMaxRange(range), length: end - NSMaxRange(range))))
     }
 
-    static func refreshed(_ comment: UserComment, range: NSRange, in text: String) -> UserComment {
+    static func refreshed<T: AnchoredPassage>(_ comment: T, range: NSRange, in text: String) -> T {
         var comment = comment
         let parts = Self.context(of: range, in: text)
         comment.location = range.location; comment.length = range.length
@@ -66,7 +78,7 @@ enum CommentAnchor {
     }
 
     /// Context score for a quote occurrence: 2 when both prefix and suffix match.
-    private static func score(_ found: NSRange, _ comment: UserComment, in source: NSString) -> Int {
+    private static func score<T: AnchoredPassage>(_ found: NSRange, _ comment: T, in source: NSString) -> Int {
         let prefix = comment.prefix as NSString, suffix = comment.suffix as NSString
         let before = prefix.length == 0 ? found.location == 0
             : found.location >= prefix.length && source.substring(with: NSRange(location: found.location - prefix.length, length: prefix.length)) == comment.prefix
@@ -80,7 +92,7 @@ enum CommentAnchor {
     }
 
     /// Exact quote with both context sides intact. Safe to apply on every keystroke.
-    static func strictMatch(_ comment: UserComment, in text: String) -> NSRange? {
+    static func strictMatch<T: AnchoredPassage>(_ comment: T, in text: String) -> NSRange? {
         let source = text as NSString
         return nearest(occurrences(of: comment.quote, in: source).filter { score($0, comment, in: source) == 2 }, to: comment.location)
     }
@@ -88,10 +100,11 @@ enum CommentAnchor {
     /// Full re-anchoring for reopened drafts and external changes: the saved range if it still
     /// holds the quote, then the best context match, a unique quote, or the text between
     /// a unique prefix and suffix when the passage itself was edited.
-    static func relocate(_ comment: UserComment, in text: String) -> NSRange? {
+    static func relocate<T: AnchoredPassage>(_ comment: T, in text: String) -> NSRange? {
         let source = text as NSString
-        if comment.length > 0, NSMaxRange(comment.range) <= source.length,
-           source.substring(with: comment.range) == comment.quote { return comment.range }
+        let saved = NSRange(location: comment.location, length: comment.length)
+        if comment.length > 0, comment.location >= 0, NSMaxRange(saved) <= source.length,
+           source.substring(with: saved) == comment.quote { return saved }
         let found = occurrences(of: comment.quote, in: source)
         let scored = found.map { ($0, score($0, comment, in: source)) }
         if let best = scored.map({ $0.1 }).max(), best > 0 {
@@ -113,18 +126,20 @@ enum CommentAnchor {
         return matches.first
     }
 
-    /// Apply one replacement edit. Text typed inside a passage extends it; trimming an edge
-    /// shrinks it; removing all of it detaches the comment but keeps its quote for reattachment.
-    static func track(_ comment: UserComment, edit: WritingEdit, in text: String) -> UserComment {
+    /// Apply one replacement edit. Edits before a passage shift it; text typed inside extends
+    /// it; deleting part of it shrinks it to what remains; replacing exactly the passage keeps the
+    /// comment on the new text. Only deleting all of it detaches the comment (hidden), keeping
+    /// its quote so undo reattaches it.
+    static func track<T: AnchoredPassage>(_ comment: T, edit: WritingEdit, in text: String) -> T {
         var comment = comment
-        guard comment.attached else {
+        guard comment.length > 0 else {
             if let range = strictMatch(comment, in: text) { return refreshed(comment, range: range, in: text) }
             return comment
         }
-        let e = edit.range, r = comment.range
+        let e = edit.range, r = NSRange(location: comment.location, length: comment.length)
         if NSMaxRange(e) <= r.location {
             comment.location += edit.delta
-            return refreshed(comment, range: comment.range, in: text)
+            return refreshed(comment, range: NSRange(location: comment.location, length: comment.length), in: text)
         }
         if e.location >= NSMaxRange(r) { return refreshed(comment, range: r, in: text) }
         if let range = strictMatch(comment, in: text) { return refreshed(comment, range: range, in: text) }
@@ -387,7 +402,8 @@ extension WritingTextView {
 
     var addCommentMenuItem: NSMenuItem? {
         guard commentStore != nil, selectedRange().length > 0 else { return nil }
-        let item = NSMenuItem(title: "Add comment", action: #selector(addUserComment(_:)), keyEquivalent: "")
+        let item = NSMenuItem(title: "Add comment", action: #selector(addUserComment(_:)), keyEquivalent: "k")
+        item.keyEquivalentModifierMask = [.command, .shift]
         item.target = self
         return item
     }

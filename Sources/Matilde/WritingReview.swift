@@ -6,11 +6,15 @@ struct ReviewComment: Codable, Identifiable {
     let id: UUID
     var suggestion: ReviewSuggestion
     var location: Int
-    let length: Int
+    var length: Int
+    /// "open", "removed" (passage deleted; undo restores it), "accepted", "dismissed";
+    /// "stale" only in reviews saved before passages were tracked.
     var status: String = "open"
     var messages: [ReviewMessage]? = nil
     var replyError: String? = nil
     var userInitiated: Bool? = nil
+    /// The passage a suggested rewrite was written for, once the writer has edited it.
+    var rewriteQuote: String? = nil
     var range: NSRange { NSRange(location: location, length: length) }
 }
 
@@ -54,7 +58,8 @@ struct WritingReview: Codable, Identifiable {
                   !comments.contains(where: { NSIntersectionRange($0.range, range).length > 0 }) else {
                 throw ReviewError.message("The review couldn’t be matched reliably to this draft. Please review again.")
             }
-            comments.append(ReviewComment(id: UUID(), suggestion: suggestion, location: range.location, length: range.length))
+            let comment = ReviewComment(id: UUID(), suggestion: suggestion, location: range.location, length: range.length)
+            comments.append(CommentAnchor.refreshed(comment, range: range, in: input.body))
         }
         return Self(id: UUID(), draftID: draftID, created: Date(), model: model, revision: revision(input), stale: false, comments: comments, source: input)
     }
@@ -95,7 +100,9 @@ final class WritingReviewModel: ObservableObject {
     @Published private(set) var replyingTo: UUID?
     @Published private(set) var focusedCommentID: UUID?
     @Published private(set) var focusRequest = UUID()
+    @Published var historyVisible = false
     var automaticAllowed: () -> Bool = { true }
+    var reportError: (String) -> Void = { _ in }
     var automaticDelay: Duration = .seconds(30)
     var automaticConfiguration: () -> LangdockConfiguration = { .current }
     var automaticKey: (() -> String?)? // Test seam; production loads Keychain only when due.
@@ -109,7 +116,7 @@ final class WritingReviewModel: ObservableObject {
             self.workspace = workspace; self.draftID = draftID
             error = nil
             do { history = try draftID.map { try workspace?.reviewHistory(draftID: $0) ?? [] } ?? [] }
-            catch { history = []; self.error = "Saved reviews could not be loaded." }
+            catch { history = []; fail("Saved reviews could not be loaded.") }
             focusedCommentID = nil
             for r in history.indices {
                 for c in history[r].comments.indices where history[r].comments[c].messages?.last?.delivery == "pending" {
@@ -138,7 +145,8 @@ final class WritingReviewModel: ObservableObject {
             return
         }
         let suggestion = ReviewSuggestion(quote: body.substring(with: range), prefix: "", suffix: "", explanation: "", replacement: nil)
-        var comment = ReviewComment(id: UUID(), suggestion: suggestion, location: range.location, length: range.length)
+        var comment = CommentAnchor.refreshed(ReviewComment(id: UUID(), suggestion: suggestion, location: range.location, length: range.length),
+                                              range: range, in: input.body)
         comment.userInitiated = true
         history[0].comments.append(comment)
         persist(history[0]); focusedCommentID = comment.id; focusRequest = UUID()
@@ -166,17 +174,18 @@ final class WritingReviewModel: ObservableObject {
         if let replyingTo { failReply(replyingTo, message: "Reply cancelled. Try again.") }
         generation = UUID(); task?.cancel(); task = nil; isRunning = false; requestRevision = nil; replyingTo = nil; idleTask?.cancel()
     }
-    func start(input: ReviewInput, configuration: LangdockConfiguration = .current, key: String? = nil) {
+    /// Errors from automatic reviews only mark the toolbar control; others are also reported.
+    func start(input: ReviewInput, configuration: LangdockConfiguration = .current, key: String? = nil, automatic: Bool = false) {
         cancel(); error = nil
         automaticBaseline = input; attemptedRevision = WritingReview.revision(input)
         guard let draftID, workspace != nil else { return }
-        guard !input.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { error = "Write a little first, then review your draft."; return }
+        guard !input.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { fail("Write a little first, then review your draft.", quietly: automatic); return }
         let credential: String
         do {
             guard !configuration.model.isEmpty else { throw ReviewError.message("Choose a model in Settings → Connections first.") }
             guard let loaded = try key ?? APIKeyStore().load(), !loaded.isEmpty else { throw ReviewError.message("Add your Langdock API key in Settings → Connections first.") }
             credential = loaded
-        } catch { self.error = error.localizedDescription; return }
+        } catch { fail(error.localizedDescription, quietly: automatic); return }
         let token = generation
         isRunning = true
         requestRevision = WritingReview.revision(input)
@@ -202,7 +211,7 @@ final class WritingReviewModel: ObservableObject {
             } catch {
                 guard let self, self.generation == token else { return }
                 self.isRunning = false; self.task = nil
-                self.error = (error as? ReviewError)?.localizedDescription ?? "The review could not be saved or completed. Please try again."
+                self.fail((error as? ReviewError)?.localizedDescription ?? "The review could not be saved or completed. Please try again.", quietly: automatic)
             }
         }
     }
@@ -227,7 +236,7 @@ final class WritingReviewModel: ObservableObject {
             // Background work must never open a Keychain password dialog.
             // Saving the key or the first manual request authorizes this process session.
             guard let key = self.automaticKey?() ?? APIKeyStore().cachedKey else { return }
-            self.start(input: input, configuration: configuration, key: key)
+            self.start(input: input, configuration: configuration, key: key, automatic: true)
         }
     }
     func reply(runID: UUID, commentID: UUID, text: String, input: ReviewInput,
@@ -279,9 +288,10 @@ final class WritingReviewModel: ObservableObject {
                 completed.append(ReviewMessage(role: "assistant", text: answer.answer))
                 self.history[r].comments[c].messages = completed
                 if let replacement = answer.replacement {
-                    let old = comment.suggestion
+                    let old = self.history[r].comments[c].suggestion
                     self.history[r].comments[c].suggestion = ReviewSuggestion(quote: old.quote, prefix: old.prefix,
                         suffix: old.suffix, explanation: old.explanation, replacement: replacement)
+                    self.history[r].comments[c].rewriteQuote = comment.suggestion.quote
                 }
                 self.persist(self.history[r])
                 self.streamingReply = ""; self.isRunning = false; self.replyingTo = nil; self.task = nil
@@ -304,9 +314,22 @@ final class WritingReviewModel: ObservableObject {
     }
     private func persist(_ run: WritingReview) {
         do { try workspace?.saveReview(run) }
-        catch { self.error = "This review change could not be saved. Your writing is unaffected." }
+        catch { fail("This review change could not be saved. Your writing is unaffected.") }
+    }
+    private func fail(_ message: String, quietly: Bool = false) {
+        error = message
+        if !quietly { reportError(message) }
     }
     func dismiss(runID: UUID, commentID: UUID) { setStatus("dismissed", runID: runID, commentID: commentID) }
+    /// Explicit deletion from the side panel; the thread is removed from saved history.
+    func delete(runID: UUID, commentID: UUID) {
+        guard let run = history.firstIndex(where: { $0.id == runID }),
+              history[run].comments.contains(where: { $0.id == commentID }) else { return }
+        if replyingTo == commentID { cancel() }
+        history[run].comments.removeAll { $0.id == commentID }
+        if focusedCommentID == commentID { focusedCommentID = nil }
+        persist(history[run])
+    }
     private func setStatus(_ status: String, runID: UUID, commentID: UUID) {
         guard let run = history.firstIndex(where: { $0.id == runID }), let comment = history[run].comments.firstIndex(where: { $0.id == commentID }) else { return }
         history[run].comments[comment].status = status
@@ -323,15 +346,15 @@ final class WritingReviewModel: ObservableObject {
         guard let run = history.first(where: { $0.id == runID }), run.draftID == draftID, !run.stale,
               run.revision == WritingReview.revision(input), editor.string == input.body,
               let comment = run.comments.first(where: { $0.id == commentID }), comment.status == "open",
-              let replacement = comment.suggestion.replacement,
+              let replacement = comment.suggestion.replacement, comment.rewriteApplies,
               comment.matches(editor.string) else {
-            error = "The passage has changed. Review the current draft before accepting a rewrite."; return
+            fail("The passage has changed. Review the current draft before accepting a rewrite."); return
         }
         editor.breakUndoCoalescing()
         editor.window?.makeFirstResponder(editor)
         let expected = (editor.string as NSString).replacingCharacters(in: comment.range, with: replacement)
         editor.insertText(replacement, replacementRange: comment.range)
-        guard editor.string == expected else { error = "The rewrite could not be applied. Your review is still available."; return }
+        guard editor.string == expected else { fail("The rewrite could not be applied. Your review is still available."); return }
         setStatus("accepted", runID: runID, commentID: commentID)
         // Track unaffected passages through this accepted native edit.
         invalidate(ReviewInput(title: input.title, goal: input.goal, body: editor.string))
@@ -347,7 +370,6 @@ struct WritingReviewPane: View {
     @State private var selected: UUID?
     @State private var heights: [UUID: CGFloat] = [:]
     @State private var expandedHeights: [UUID: CGFloat] = [:]
-    @State private var historyVisible = false
     @FocusState private var focusedReply: UUID?
     @State private var replyText: [UUID: String] = [:]
     private var run: WritingReview? { review.history.first }
@@ -363,44 +385,6 @@ struct WritingReviewPane: View {
                                       highlightedID: run?.stale == false ? selected : nil,
                                       onChange: { anchors = $0 }, onTextRight: { textRight = $0 })
                         .allowsHitTesting(false)
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(alignment: .firstTextBaseline) {
-                            Menu {
-                                if compact {
-                                    Button(review.isRunning ? "Cancel review" : "Review now") {
-                                        if review.isRunning { review.cancel() } else { model.reviewNow() }
-                                    }
-                                }
-                                Button(review.automaticPaused ? "Resume automatic reviews" : "Pause automatic reviews") { review.toggleAutomatic() }
-                                Button("Review history") { historyVisible = true }
-                                    .disabled(review.history.isEmpty)
-                            } label: {
-                                Text("Writing assist").font(.body.weight(.medium))
-                            }
-                            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                            .foregroundStyle(Color(Paper.ink))
-                            .accessibilityLabel("Writing assist").help("Writing assist · Review history")
-                            if !compact {
-                                Spacer(minLength: 16)
-                                Button(review.isRunning ? "Cancel" : "Review") {
-                                    if review.isRunning { review.cancel() } else { model.reviewNow() }
-                                }
-                                .font(.body.weight(.medium)).buttonStyle(.plain)
-                                .foregroundStyle(Color(Paper.accent))
-                                .accessibilityLabel(review.isRunning ? "Cancel review" : "Review now")
-                            }
-                        }
-                        if review.isRunning && review.replyingTo == nil { HStack { ProgressView().controlSize(.small); Text("Reviewing…").font(.body).foregroundStyle(.secondary) } }
-                        if review.automaticPaused && !compact { Text("Automatic reviews paused").font(.caption).foregroundStyle(.secondary) }
-                        if !compact {
-                            if let error = review.error { Text(error).font(.body).foregroundStyle(.secondary) }
-                            else if run?.stale == true || run?.comments.contains(where: { $0.status == "stale" }) == true { Text("Draft changed · review again").font(.body).foregroundStyle(.secondary) }
-                            else if run?.comments.isEmpty == true { Text("No changes suggested.").font(.body).foregroundStyle(.secondary) }
-                        }
-                    }.padding(.top, 18).padding(.bottom, 12)
-                        .frame(width: compact ? 110 : cardWidth, alignment: .leading)
-                        .background(Color(Paper.background))
-                        .offset(x: compact ? max(0, geometry.size.width - 122) : left).zIndex(1)
                     if let run, !run.stale {
                         ForEach(run.comments.filter { $0.status == "open" }) { comment in
                             if let y = positions(compact: compact, viewportHeight: geometry.size.height)[comment.id] {
@@ -473,9 +457,9 @@ struct WritingReviewPane: View {
             }
             .opacity(model.boardVisible || model.isBranching || model.boardFlight != nil ? 0 : 1)
             .allowsHitTesting(!model.boardVisible && !model.isBranching && model.boardFlight == nil)
-            .sheet(isPresented: $historyVisible) {
+            .sheet(isPresented: $review.historyVisible) {
                 VStack(alignment: .leading) {
-                    HStack { Text("Review history").font(.headline); Spacer(); Button("Done") { historyVisible = false } }
+                    HStack { Text("Review history").font(.headline); Spacer(); Button("Done") { review.historyVisible = false } }
                     ScrollView { ForEach(review.history) { run in
                         Text(run.created, style: .time).font(.body)
                         reviewRun(run)
@@ -547,7 +531,7 @@ struct WritingReviewPane: View {
                     }
                     ForEach(comment.messages ?? []) { message in
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(message.role == "user" ? "You" : "Writing assist").font(.body.weight(.medium))
+                            Text(message.role == "user" ? "You" : "Ask Matilde").font(.body.weight(.medium))
                                 .foregroundStyle(message.role == "user" ? Color(Paper.accent) : Color(Paper.ink))
                             Text(message.text).font(.body).lineSpacing(3).textSelection(.enabled)
                             if message.delivery == "failed" { Text("No reply").font(.body).foregroundStyle(.secondary) }
@@ -556,7 +540,7 @@ struct WritingReviewPane: View {
                     }
                     if review.replyingTo == comment.id {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Writing assist").font(.body.weight(.medium)).foregroundStyle(Color(Paper.ink))
+                            Text("Ask Matilde").font(.body.weight(.medium)).foregroundStyle(Color(Paper.ink))
                             if review.streamingReply.isEmpty {
                                 ThinkingShimmer()
                             } else {
@@ -596,7 +580,7 @@ struct WritingReviewPane: View {
                                 .lineLimit(1...5).textFieldStyle(.plain).font(.body)
                                 .focused($focusedReply, equals: comment.id)
                                 .onAppear {
-                                    if selected == comment.id && !historyVisible {
+                                    if selected == comment.id && !review.historyVisible {
                                         DispatchQueue.main.async { if selected == comment.id { focusedReply = comment.id } }
                                     }
                                 }
@@ -614,7 +598,13 @@ struct WritingReviewPane: View {
                     if comment.status == "open" {
                         HStack {
                             if comment.suggestion.replacement != nil {
-                                Button("Accept rewrite") { withEditor { review.accept(runID: run.id, commentID: comment.id, input: model.reviewInput, editor: $0) } }.disabled(run.stale || comment.status == "stale" || model.isBranching || model.boardFlight != nil)
+                                Button("Accept rewrite") { withEditor { review.accept(runID: run.id, commentID: comment.id, input: model.reviewInput, editor: $0) } }.disabled(run.stale || !comment.rewriteApplies || model.isBranching || model.boardFlight != nil)
+                            }
+                            Spacer()
+                            if !run.stale {
+                                Button { delete(run, comment) } label: { Image(systemName: "trash") }
+                                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                                    .help("Delete comment").accessibilityLabel("Delete comment")
                             }
                         }
                     } else { Text(comment.status.capitalized).font(.body).foregroundStyle(.secondary) }
@@ -658,6 +648,11 @@ struct WritingReviewPane: View {
         selected = comment.id
         hoveredComment = nil
         DispatchQueue.main.async { if selected == comment.id { focusedReply = comment.id } }
+    }
+    private func delete(_ run: WritingReview, _ comment: ReviewComment) {
+        if selected == comment.id { selected = nil; focusedReply = nil }
+        replyText[comment.id] = nil
+        review.delete(runID: run.id, commentID: comment.id)
     }
     private func sendReply(_ run: WritingReview, _ comment: ReviewComment) {
         review.reply(runID: run.id, commentID: comment.id, text: replyText[comment.id] ?? "", input: model.reviewInput)

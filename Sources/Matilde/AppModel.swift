@@ -51,6 +51,7 @@ final class AppModel: ObservableObject {
     init() {
         stash.reportError = { [weak self] in self?.error = $0 }
         comments.reportError = { [weak self] in self?.error = $0 }
+        review.reportError = { [weak self] in self?.error = $0 }
         review.automaticAllowed = { [weak self] in
             guard let self else { return false }
             return NSApp.isActive && !self.boardVisible && !self.isBranching && self.boardFlight == nil && self.sheet == nil

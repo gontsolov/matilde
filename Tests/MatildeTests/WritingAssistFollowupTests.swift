@@ -15,7 +15,7 @@ final class WritingAssistFollowupTests: XCTestCase {
     func suggestion(_ quote: String) -> ReviewSuggestion {
         ReviewSuggestion(quote: quote, prefix: "", suffix: "", explanation: "Be precise.", replacement: nil)
     }
-    func testTracksUnicodeEditsAndOnlyInvalidatesOverlappingComment() throws {
+    func testTracksUnicodeEditsAndKeepsEditedCommentOnItsPassage() throws {
         var run = try WritingReview.make(draftID: "a", input: input, model: "fake", suggestions: [suggestion("First 🌱 claim."), suggestion("Another claim.")])
         let prefixed = ReviewInput(title: input.title, goal: input.goal, body: "Intro 🐳. " + input.body)
         run.track(prefixed)
@@ -23,22 +23,32 @@ final class WritingAssistFollowupTests: XCTestCase {
         XCTAssertEqual(run.comments[0].location, "Intro 🐳. ".utf16.count)
         let edited = ReviewInput(title: input.title, goal: input.goal, body: prefixed.body.replacingOccurrences(of: "First 🌱", with: "New"))
         run.track(edited)
-        XCTAssertEqual(run.comments[0].status, "stale")
+        XCTAssertEqual(run.comments[0].status, "open")
+        XCTAssertEqual(run.comments[0].suggestion.quote, "New claim.")
+        XCTAssertTrue(run.comments[0].matches(edited.body))
         XCTAssertEqual(run.comments[1].status, "open")
         XCTAssertTrue(run.comments[1].matches(edited.body))
         XCTAssertFalse(run.stale)
+        XCTAssertEqual(run.revision, WritingReview.revision(edited))
         let saved = try JSONEncoder().encode(run)
         XCTAssertEqual(try JSONDecoder().decode(WritingReview.self, from: saved).source, edited)
     }
-    func testLegacyReviewLoadsAndGoalChangeInvalidatesContext() throws {
+    func testLegacyReviewLoadsAndGoalChangeKeepsComments() throws {
         let run = try WritingReview.make(draftID: "a", input: input, model: "fake", suggestions: [suggestion("Another claim.")])
         var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(run)) as? [String: Any])
         json.removeValue(forKey: "source")
-        let legacy = try JSONDecoder().decode(WritingReview.self, from: JSONSerialization.data(withJSONObject: json))
+        var legacy = try JSONDecoder().decode(WritingReview.self, from: JSONSerialization.data(withJSONObject: json))
         XCTAssertNil(legacy.source)
+        let moved = ReviewInput(title: input.title, goal: input.goal, body: "Opening. " + input.body)
+        legacy.track(moved)
+        XCTAssertEqual(legacy.comments[0].status, "open")
+        XCTAssertTrue(legacy.comments[0].matches(moved.body))
         var changed = run
-        changed.track(ReviewInput(title: input.title, goal: "Different purpose", body: input.body))
-        XCTAssertTrue(changed.stale)
+        let goal = ReviewInput(title: "New title", goal: "Different purpose", body: input.body)
+        changed.track(goal)
+        XCTAssertFalse(changed.stale)
+        XCTAssertEqual(changed.comments[0].status, "open")
+        XCTAssertEqual(changed.revision, WritingReview.revision(goal))
     }
     func testAutomaticReviewDebouncesDeduplicatesPausesAndCancelsOnSwitch() async throws {
         let previous = UserDefaults.standard.object(forKey: "writingAssist.paused")

@@ -250,7 +250,7 @@ final class WritingHeaderView: NSHostingView<AnyView> {
 }
 
 final class WritingTextView: NSTextView {
-    var onAskSelection: ((NSRange) -> Void)?
+    var onAskSelection: ((NSRange?) -> Void)?
     var selectionAssistPanel: SelectionAssistPanel?
     var commentStore: UserCommentStore? { didSet { if commentStore !== oldValue { observeComments() } } }
     var commentObservation: AnyObject?
@@ -262,8 +262,9 @@ final class WritingTextView: NSTextView {
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = super.menu(for: event) ?? NSMenu()
         var items: [NSMenuItem] = []
-        if onAskSelection != nil, selectedRange().length > 0 {
-            let item = NSMenuItem(title: "Ask Writing assist…", action: #selector(askAboutSelection), keyEquivalent: "")
+        if onAskSelection != nil {
+            let item = NSMenuItem(title: "Ask Matilde…", action: #selector(askAboutSelection), keyEquivalent: "a")
+            item.keyEquivalentModifierMask = [.command, .shift]
             item.target = self
             items.append(item)
         }
@@ -282,7 +283,7 @@ final class WritingTextView: NSTextView {
     }()
     override func keyDown(with event: NSEvent) {
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command, .shift],
-           event.charactersIgnoringModifiers?.lowercased() == "a", onAskSelection != nil, selectedRange().length > 0 {
+           event.charactersIgnoringModifiers?.lowercased() == "a", onAskSelection != nil {
             askAboutSelection(); return
         }
         if slashMenu.handle(event) { return }
@@ -748,7 +749,7 @@ struct MarkdownEditor: NSViewRepresentable {
     var onContentHeight: ((CGFloat) -> Void)? = nil
 
     var differenceRanges: [NSRange] = []
-    var onAskSelection: ((NSRange) -> Void)? = nil
+    var onAskSelection: ((NSRange?) -> Void)? = nil
     var commentStore: UserCommentStore? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }

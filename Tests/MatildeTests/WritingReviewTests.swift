@@ -50,7 +50,10 @@ final class WritingReviewTests: XCTestCase {
         let branch = try workspace.branch(root, text: input.body)
         XCTAssertTrue(try workspace.reviewHistory(draftID: branch.id).isEmpty)
         let reopened = try Workspace(root: workspace.root)
-        XCTAssertEqual(try reopened.reviewHistory(draftID: root.id).first?.comments.first?.suggestion, suggestion)
+        let saved = try XCTUnwrap(reopened.reviewHistory(draftID: root.id).first?.comments.first?.suggestion)
+        XCTAssertEqual(saved.quote, suggestion.quote)
+        XCTAssertEqual(saved.explanation, suggestion.explanation)
+        XCTAssertEqual(saved.replacement, suggestion.replacement)
     }
 
     func testAcceptanceIsUndoableAndStaleReviewCannotApply() throws {
