@@ -528,6 +528,18 @@ Composer text/button alignment (24-point line box and button, 3-point line spaci
 
 Linux sandbox without Swift: code reading and Python tests (8 passed). CI on PR #13 (run 43732696295, macOS-15, after fixing one wrong test expectation from the first run) passed: 139 Swift tests (one opt-in skip), app build, signature and packaging checks. Live Mac UI not checked: ⇧↩/⌥↩ newline vs ↩ send and IME (e.g. Japanese) confirmation, composer centring at one and several lines, fade/blur look in light and dark, bubble width, scrolling up during a streamed reply and resuming at the end, card width at several window sizes and the narrow fallback.
 
+### 2026-11-15 — No window top bar (UI-20)
+Hid the title bar and toolbar; moved the sidebar toggle beside the floating traffic lights and the document actions into a floating top-right cluster that fades while typing. Added `WindowChromeTests` (fade state, jitter threshold, hover pinning, focus loss, Command-shortcut classification, toggle/control placement). Built and tested only through CI (macOS-15); the Linux worker sandbox has no Swift toolchain. No live UI inspection yet.
+
+Manual Mac checklist (disposable workspace under `build/`):
+- No title text, divider or toolbar background; sidebar and canvas reach the top edge in light and dark mode.
+- Traffic lights over the sidebar with the toggle vertically centered beside them; search field clear of them. Collapsed sidebar: lights and toggle over the canvas without covering the header or text.
+- Cluster: new document, board/return, Ask Matilde click and its menu, Stash selected state, document menu (including Compare Side by Side) all work; ⌘N, ⌘0, ⇧⌘A, ⇧⌘J, ⌘\ and the Writing menu unchanged.
+- Typing in the editor fades the cluster and the floating toggle; moving the pointer, hovering the area, clicking, Escape/Tab out of the editor or switching apps brings them back. Typing in title/goal/search does not hide them. Reduce Motion switches without animating.
+- Dragging the top band of the sidebar, canvas and comparison pane moves the window; double-click follows System Settings › Desktop & Dock; board panning still works; scrolling with the pointer at the top edge scrolls the editor.
+- Scrolled text fades out under the controls; comment cards, stash (stops below the band), draft tray, board zoom controls, comparison controls, sheets and Settings window look right.
+- Full screen: toggle moves to the leading edge, controls stay usable when the menu bar reveals; exit restores positions. Restored scroll positions still land correctly.
+
 ### AI-15 unread margin threads and UI-23 card motion — 2026-11-15
 Unread state lives on `ReviewComment.unread` (optional, encoded only when set) inside the existing `writing_reviews` JSON payload, so no schema change and nothing in the Markdown. `WritingReviewModel.start` marks new suggestions unread; a completed reply marks its thread unread unless it is the margin's open thread (`openThreadID`, set by the pane's `selected` through `threadOpened`); `markRead` clears every copy of a carried thread. Card motion is in `WritingReviewPane`: `MarginCardMotion` transitions, a glide window keyed to changes in the set of placed cards, a per-note layer identity, and a short stagger after a note switch.
 

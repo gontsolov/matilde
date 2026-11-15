@@ -890,6 +890,10 @@ struct MarkdownEditor: NSViewRepresentable {
         onMount(view)
         let scroll = NSScrollView()
         scroll.documentView = view
+        // The window has a full-size content view; insets for the floating title bar are
+        // laid out explicitly, so AppKit must not add its own.
+        scroll.automaticallyAdjustsContentInsets = false
+        scroll.contentInsets = NSEdgeInsetsZero
         scroll.hasVerticalScroller = false
         scroll.hasHorizontalScroller = false
         scroll.drawsBackground = false
