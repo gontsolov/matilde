@@ -59,6 +59,12 @@ class AppIconTests(unittest.TestCase):
             title, _ = app_icons.svg_info(name)
             self.assertIn(f'case .{case}: return "{title}"', swift)
 
+    def test_gold_foil_is_gone(self):
+        """Removed choice: no case, source or bundled image, so a saved value falls back to the default."""
+        self.assertNotIn("gold-foil", {n for _, n in self.names})
+        self.assertFalse(app_icons.svg_path("gold-foil").exists())
+        self.assertFalse((app_icons.PNG_DIR / "gold-foil.png").exists())
+
     def test_bundling(self):
         self.assertIn('.copy("Resources/AppIcons")', (ROOT / "Package.swift").read_text())
         self.assertTrue(re.search(r"AppIcons/\*\.png", (ROOT / ".github/workflows/ci.yml").read_text()))

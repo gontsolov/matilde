@@ -12,7 +12,6 @@ import SwiftUI
 enum AppIconChoice: String, CaseIterable, Identifiable {
     case matilde = "matilde"
     case leather = "leather"
-    case goldFoil = "gold-foil"
     case neon = "neon"
     case blueprint = "blueprint"
     case chalk = "chalk"
@@ -24,7 +23,6 @@ enum AppIconChoice: String, CaseIterable, Identifiable {
         switch self {
         case .matilde: return "Matilde"
         case .leather: return "Leather"
-        case .goldFoil: return "Gold Foil"
         case .neon: return "Neon"
         case .blueprint: return "Blueprint"
         case .chalk: return "Chalk"

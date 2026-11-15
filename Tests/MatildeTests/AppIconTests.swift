@@ -54,4 +54,11 @@ final class AppIconTests: XCTestCase {
         XCTAssertEqual(AppIconChoice.stored(in: defaults), .standard)
         XCTAssertEqual(AppIconChoice.resolved(nil), .standard)
     }
+
+    func testRemovedGoldFoilChoiceFallsBackToMatilde() {
+        XCTAssertNil(AppIconChoice(rawValue: "gold-foil"))
+        XCTAssertNil(MatildeResources.bundle.url(forResource: "gold-foil", withExtension: "png", subdirectory: "AppIcons"))
+        defaults.set("gold-foil", forKey: SettingKeys.appIcon)
+        XCTAssertEqual(AppIconChoice.stored(in: defaults), .matilde)
+    }
 }
