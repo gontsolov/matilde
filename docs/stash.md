@@ -100,3 +100,6 @@ Remaining acceptance work is STASH-02: physical trackpad isolation, Reduce Motio
 
 
 2026-09-14 adaptive-height refinement: starts at 420 points tall and grows to fit native text layout plus header and text insets. Maximum height is the writing-area height minus a 16-point top margin; content scrolls after reaching that limit. Width stays fixed at up to 420 points. Shrinking text can reduce height back toward the minimum. Native layout reports include the trailing empty line and update after wrapping/width changes.
+
+
+2026-11-15 entry-point change: the bottom-right pull tab was removed. Stash opens from the tray button in the window toolbar or with ⇧⌘J; the panel still rises from the bottom-right of the writing area. Earlier notes about the corner tab are historical.

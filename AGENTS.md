@@ -2,7 +2,7 @@
 
 ## Product and collaboration
 
-Matilde (also called Tilde during naming) is a native macOS writing app. The priority is an excellent, quiet writing experience with independently editable alternate drafts. AI will support writing later; it is not the center of the product.
+Matilde (also called Tilde during naming) is a native macOS writing app. The priority is an excellent, quiet writing experience with independently editable alternate drafts. AI (Ask Matilde) supports the writing; it is not the center of the product.
 
 - Carry requested changes through implementation and appropriate verification. The owner prefers action over repeated permission requests for routine, reversible work.
 - Routine commits and pushes are authorized. **Do not publish a release, push a version tag, dispatch the Release workflow, or bump versions merely because a change is complete. Release only when the owner explicitly asks.** Normal main pushes run CI only.
@@ -26,7 +26,7 @@ Matilde (also called Tilde during naming) is a native macOS writing app. The pri
 - Japanese paper feeling: warm ivory, muted olive-gray text, restrained brown accents, tactile details, generous writing space. Keep navigation compact and quiet.
 - Bundled **Newsreader** Roman and Italic variable fonts for document titles, writing, and Markdown headings. Use system typography for controls. Font files and the SIL Open Font License are in `Sources/Matilde/Resources/Fonts/`; no runtime font download.
 - Interface icons are Tabler Icons (outline, redrawn at a 1.5 stroke; filled only for state or solid composer actions), all named in the `MatildeIcon` enum. Use `MatildeIcon.x.image(size:)`/`nsImage(size:)` rather than `Image(systemName:)`; SF Symbols remain only on native menu items. To add or change an icon, edit the enum's raw value and run `python3 scripts/tabler-icons.py` (pinned Tabler release, needs `cairosvg`), then commit the SVG and generated PDF.
-- Sidebar document rows use two lines at approximately 53 points: title above a 12-point relative edited timestamp and optional main-document goal. Document/branch rows have no icons; branches omit goals and use indentation with a subtle continuous vertical guide below the parent. Folder controls remain compact, with an 18-point icon column, subtle hover/selection, a hover `+` that creates a note in that folder, and collapsible folders. Folder expansion is currently session-only. The sidebar has no title header: a permanent search field sits at the top; the workspace dropdown was deliberately removed. Notes move between folders by dragging rows onto folders (`NoteMove.swift`); moves keep draft IDs/metadata, never overwrite files and copy referenced `.assets` images. Scrollbars are hidden everywhere; keep new scroll views indicator-free.
+- The sidebar shows one two-line row per draft family: the family title with a quiet branch icon and alternate-draft count, above the main document's goal (or “No goal set”) and a 12-point relative edited timestamp. Branches have no rows of their own; the draft switcher above the title and the board choose between them. Folder controls remain compact, with an 18-point icon column, subtle hover/selection, a hover `+` that creates a note in that folder, and collapsible folders. Folder expansion is currently session-only. The sidebar has no title header: a permanent search field sits at the top; the workspace dropdown was deliberately removed. Notes move between folders by dragging rows onto folders (`NoteMove.swift`); moves keep draft IDs/metadata, never overwrite files and copy referenced `.assets` images. Scrollbars are hidden everywhere; keep new scroll views indicator-free.
 - Markdown renders live, with syntax concealed during normal editing. The owner explicitly dislikes Bear's visible formatting symbols. Preserve the underlying Markdown losslessly.
 - New Document creates a unique `Untitled.md` immediately, with no dialog. Focus the inline title, styled as a heading. The optional goal sits underneath as paragraph text with a flag icon. Both remain editable; changing the title renames the file without overwriting existing files.
 - Title, goal, and draft controls scroll with the body in one native scroll view. Show a compact toolbar title after the header leaves view; restore this state from the saved scroll offset. The SwiftUI header is hosted inside the AppKit writing view and exposed as an accessibility child.
@@ -59,7 +59,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 
 - Manage one workspace folder, with subfolders. First launch offers Start writing, creating/reusing `~/Documents/Matilde`; choosing another folder is secondary. Never replace existing workspace files.
 - Writing lives in ordinary `.md` files. `.matilde/workspace.sqlite` holds goals, draft identity/relationships, state, Ask Matilde history and private user comments (`user_comments`, anchored by UTF-16 range plus quote/context; never written into Markdown); `.matilde/snapshots` holds immutable branching snapshots. Backing up the entire workspace preserves these together.
-- Restore workspace, active draft, cursor, scroll, and sidebar/focus state. Canvas viewport persists per family, but app startup currently opens the editor rather than restoring board mode.
+- Restore workspace, active draft, cursor, scroll, and sidebar/focus state at launch. Switching notes or drafts lands at the top with the caret at the body start (owner's choice); only a new branch keeps its inherited position. Canvas viewport persists per family, but app startup currently opens the editor rather than restoring board mode.
 - Autosave is currently debounced about 650 ms. Flush on switching, explicit Command-S, and quitting. Preserve this protection when changing navigation or updater behavior.
 - External file edits reload automatically, with existing recovery handling for dirty text. Advanced conflict resolution and identity preservation across external moves remain follow-ups.
 - Branching snapshots the source, creates a separate uniquely named Markdown file beside it, inherits the goal and writing position, and opens the child. Both drafts remain editable; a snapshot is distinct from either live draft.
@@ -77,7 +77,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 - Styling must not rewrite the source text. Keep UTF-16 `NSRange` handling correct for Unicode and preserve native selection and undo behavior.
 - Command-B/Command-I toggle formatting, including nested emphasis. List continuation resets task checkboxes, exits empty lists, respects code fences, and handles numeric overflow.
 - Checklist clicks must hit the actual glyph, not nearby whitespace or an active text selection.
-- Loading a draft has asynchronous layout/scroll restoration. Generation guards cancel stale restoration. Typing during initial layout must be saved immediately; never leave change reporting disabled during the delay.
+- An editor already on screen lands synchronously on a draft switch (layout and scroll before the next draw); only the first mount waits for SwiftUI sizing before restoring. Generation guards cancel stale restoration. Typing during initial layout must be saved immediately; never leave change reporting disabled during the delay.
 - Canvas opening waits for the destination editor to be ready. Avoid races between draft identity, text loading, restored position, and animation completion.
 
 ## Branching and canvas
@@ -146,7 +146,9 @@ The build script assembles `build/Matilde.app`, bundles fonts, interface icons, 
 
 ## Further context
 
-- `docs/architecture.md`: product decisions and deferred AI design.
+- `docs/architecture.md`: product decisions and AI design history.
+- `docs/langdock-integration.md`: Ask Matilde behavior, context boundary and verification.
+- `docs/stash.md`: stash design and refinements.
 - `docs/canvas-followup.md`: implemented canvas behavior and remaining interaction work.
 - `docs/releases.md`: release commands, signing setup, optional notarization, and verification.
 - `docs/verification.md`: chronological checks, fixes, and limitations.

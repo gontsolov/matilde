@@ -244,6 +244,14 @@ final class WritingHeaderView: NSHostingView<AnyView> {
         measure(at: max(0, width))
     }
 
+    /// SwiftUI reports later size changes of the header (a title rewrapping, the drafts tray)
+    /// here; re-lay out the writing view now so the body follows in the same frame.
+    override func invalidateIntrinsicContentSize() {
+        super.invalidateIntrinsicContentSize()
+        guard let editor = superview as? WritingTextView, !editor.isLayingOut else { return }
+        editor.needsLayout = true
+    }
+
     func measure(at width: CGFloat) {
         guard measuredWidth != width else { return }
         measuredWidth = width
@@ -302,6 +310,7 @@ final class WritingTextView: NSTextView {
     override func didChangeText() {
         super.didChangeText()
         updateSlashMenu()
+        refreshBodyPlaceholder()
     }
     /// True between the text storage's beginEditing and the end of its processing, when layout
     /// and geometry queries are invalid (autocorrection can change text in that window).
@@ -386,7 +395,10 @@ final class WritingTextView: NSTextView {
         onContentHeight(ceil(used + textContainerInset.height * 2))
     }
     private(set) var headerHeight: CGFloat = 0
+    private(set) var isLayingOut = false
     override func layout() {
+        isLayingOut = true
+        defer { isLayingOut = false }
         if imageLayoutWidth != bounds.width {
             imageLayoutWidth = bounds.width
             styleImages()
@@ -405,8 +417,55 @@ final class WritingTextView: NSTextView {
         super.layout()
         reportContentHeight()
     }
+    /// Drawn, never inserted: the placeholder is not part of the text, the Markdown or undo.
+    var bodyPlaceholder: String? {
+        didSet {
+            setAccessibilityPlaceholderValue(bodyPlaceholder)
+            needsDisplay = true
+        }
+    }
+    var showsBodyPlaceholder: Bool {
+        bodyPlaceholder != nil && EditorLanding.showsBodyPlaceholder(textLength: (string as NSString).length, hasMarkedText: hasMarkedText())
+    }
+    /// The placeholder's first baseline and left edge match the caret on the empty first line.
+    var bodyPlaceholderOrigin: NSPoint {
+        let font = typingAttributes[.font] as? NSFont ?? Paper.body()
+        var line = layoutManager?.extraLineFragmentRect ?? .zero
+        if line.height <= 0 { line = NSRect(x: 0, y: 0, width: 0, height: layoutManager?.defaultLineHeight(for: font) ?? font.ascender - font.descender) }
+        let baseline = layoutManager?.defaultBaselineOffset(for: font) ?? font.ascender
+        return NSPoint(x: textContainerOrigin.x + (textContainer?.lineFragmentPadding ?? 0),
+                       y: textContainerOrigin.y + line.minY + baseline)
+    }
+    private func drawBodyPlaceholder() {
+        guard showsBodyPlaceholder, let placeholder = bodyPlaceholder, let context = NSGraphicsContext.current?.cgContext else { return }
+        let font = typingAttributes[.font] as? NSFont ?? Paper.body()
+        let text = NSAttributedString(string: placeholder, attributes: [.font: font, .foregroundColor: Paper.muted.withAlphaComponent(0.7)])
+        let line = CTLineCreateWithAttributedString(text)
+        let origin = bodyPlaceholderOrigin
+        context.saveGState()
+        context.textMatrix = CGAffineTransform(scaleX: 1, y: isFlipped ? -1 : 1)
+        context.textPosition = origin
+        CTLineDraw(line, context)
+        context.restoreGState()
+    }
+    private var bodyPlaceholderWasShown = false
+    func refreshBodyPlaceholder() {
+        guard bodyPlaceholder != nil, showsBodyPlaceholder != bodyPlaceholderWasShown else { return }
+        bodyPlaceholderWasShown = showsBodyPlaceholder
+        needsDisplay = true
+    }
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        refreshBodyPlaceholder()
+    }
+    override func unmarkText() {
+        super.unmarkText()
+        refreshBodyPlaceholder()
+    }
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        drawBodyPlaceholder()
+        bodyPlaceholderWasShown = showsBodyPlaceholder
         guard let storage = textStorage, let layoutManager, let textContainer else { return }
         let origin = textContainerOrigin
         for item in renderedImages {
@@ -761,6 +820,8 @@ struct MarkdownEditor: NSViewRepresentable {
     var differenceRanges: [NSRange] = []
     var onAskSelection: ((NSRange?) -> Void)? = nil
     var commentStore: UserCommentStore? = nil
+    /// Quiet hint drawn in an empty body.
+    var placeholder: String? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
@@ -801,6 +862,7 @@ struct MarkdownEditor: NSViewRepresentable {
         view.setAccessibilityLabel(accessibilityName)
         view.onAskSelection = onAskSelection
         view.commentStore = commentStore
+        view.bodyPlaceholder = placeholder
         view.onEscape = onEscape
         view.onContentHeight = onContentHeight
         onMount(view)
@@ -823,6 +885,7 @@ struct MarkdownEditor: NSViewRepresentable {
         context.coordinator.parent = self
         context.coordinator.view?.onAskSelection = onAskSelection
         context.coordinator.view?.commentStore = commentStore
+        if context.coordinator.view?.bodyPlaceholder != placeholder { context.coordinator.view?.bodyPlaceholder = placeholder }
         context.coordinator.view?.onContentHeight = onContentHeight
         // Assign only on change: re-enabling on every SwiftUI update restarts AppKit's
         // spell checking and autocorrection state while it is applying a correction.
@@ -868,6 +931,26 @@ struct MarkdownEditor: NSViewRepresentable {
             restyle()
             view.setSelectedRange(NSRange(location: min(max(0, selection), (parent.text as NSString).length), length: 0))
             view.undoManager?.removeAllActions()
+            view.refreshBodyPlaceholder()
+            // An editor already on screen (switching notes) lands synchronously, before the
+            // next draw, so the new note never appears at the previous note's offset first.
+            // Only the first load, before SwiftUI has sized the scroll view, waits for layout.
+            if let scroll, view.window != nil, scroll.contentSize.height > 0 {
+                land(at: position, in: scroll)
+                updating = false
+                restoringPosition = false
+                DispatchQueue.main.async { [weak self] in
+                    // Focus, toolbar title and readiness are SwiftUI state, so they follow
+                    // on the next turn of the run loop rather than inside this view update.
+                    guard let self, self.loadedID == parent.draftID else { return }
+                    if restore && parent.focusOnLoad, self.loadGeneration == generation {
+                        self.view?.window?.makeFirstResponder(self.view)
+                    }
+                    self.reportPosition()
+                    self.parent.onReady(parent.draftID)
+                }
+                return
+            }
             updating = false
             // Wait for SwiftUI to size the scroll view and establish first responder.
             // Suppress temporary layout positions so they cannot overwrite the saved state.
@@ -875,16 +958,21 @@ struct MarkdownEditor: NSViewRepresentable {
                 guard let self, self.loadGeneration == generation, self.loadedID == parent.draftID, let scroll = self.scroll else { return }
                 self.updating = true
                 if restore && parent.focusOnLoad { self.view?.window?.makeFirstResponder(self.view) }
-                self.view?.layoutManager?.ensureLayout(for: self.view!.textContainer!)
-                self.view?.sizeToFit()
-                let maxY = max(0, (scroll.documentView?.bounds.height ?? 0) - scroll.contentSize.height)
-                scroll.contentView.scroll(to: NSPoint(x: 0, y: min(CGFloat(position), maxY)))
-                scroll.reflectScrolledClipView(scroll.contentView)
+                self.land(at: position, in: scroll)
                 self.updating = false
                 self.restoringPosition = false
                 self.reportPosition()
                 self.parent.onReady(parent.draftID)
             }
+        }
+        /// Lay the text out completely and scroll to `position` (clamped) in one step.
+        private func land(at position: Double, in scroll: NSScrollView) {
+            guard let view, let container = view.textContainer else { return }
+            view.layoutManager?.ensureLayout(for: container)
+            view.sizeToFit()
+            let maxY = max(0, (scroll.documentView?.bounds.height ?? 0) - scroll.contentSize.height)
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: min(CGFloat(position), maxY)))
+            scroll.reflectScrolledClipView(scroll.contentView)
         }
         func restyle() {
             guard let view, let storage = view.textStorage else { return }
@@ -902,6 +990,8 @@ struct MarkdownEditor: NSViewRepresentable {
             view.sizeToFit()
             view.reportContentHeight()
             view.typingAttributes = [.font: Paper.body(CGFloat(parent.textSize)), .foregroundColor: Paper.ink]
+            // The placeholder follows the writing size.
+            if view.showsBodyPlaceholder { view.needsDisplay = true }
         }
         private var changePending = false
         func textDidChange(_ notification: Notification) {
