@@ -110,7 +110,7 @@ struct ContentView: View {
     var body: some View {
         HStack(spacing: 0) {
             if model.workspace != nil && model.sidebar {
-                sidebar.frame(width: 244).ignoresSafeArea(.container, edges: .top)
+                sidebar.frame(width: WindowChrome.sidebarWidth).ignoresSafeArea(.container, edges: .top)
                 Rectangle().fill(Color(Paper.ink).opacity(0.09)).frame(width: 1)
             }
             HSplitView {
@@ -131,7 +131,7 @@ struct ContentView: View {
                 .ignoresSafeArea(.container, edges: .top)
             }
             .overlay(alignment: .top) {
-                WindowDragArea().frame(height: chrome.bandHeight).ignoresSafeArea(.container, edges: .top)
+                WindowDragArea().frame(height: WindowChrome.headerHeight).ignoresSafeArea(.container, edges: .top)
             }
             .overlay(alignment: .topTrailing) { windowControls.ignoresSafeArea(.container, edges: .top) }
             if let comparison = model.comparison {
@@ -147,7 +147,7 @@ struct ContentView: View {
         .foregroundStyle(Color(Paper.ink))
         .tint(Color(Paper.accent))
         .ignoresSafeArea(.container, edges: .top)
-        // Same spot whether the sidebar is open or collapsed: in the traffic lights' row.
+        // In the header row: at the sidebar's trailing edge when open, past the traffic lights when collapsed.
         .overlay(alignment: .topLeading) { sidebarToggle.ignoresSafeArea(.container, edges: .top) }
         .background(WindowChromeAttachment(chrome: chrome))
         .onChange(of: model.boardVisible) { _, _ in chrome.reveal() }
@@ -164,11 +164,11 @@ struct ContentView: View {
             Button { model.toggleSidebar() } label: { MatildeIcon.sidebar.image(size: MatildeIcon.toolbarSize) }
                 .buttonStyle(FloatingIconButtonStyle())
                 .help("Toggle sidebar · ⌘\\").accessibilityLabel("Toggle sidebar")
-                .padding(.top, chrome.controlTop)
+                .padding(.top, WindowChrome.controlTop)
                 .onHover { chrome.hover($0) }
                 .opacity(!model.sidebar && chrome.hidden ? 0 : 1)
                 .animation(chromeAnimation, value: chrome.hidden)
-                .padding(.leading, chrome.toggleLeading)
+                .padding(.leading, chrome.toggleLeading(sidebarOpen: model.sidebar))
         }
     }
     private var chromeAnimation: Animation? {
@@ -208,24 +208,24 @@ struct ContentView: View {
                 } label: { MatildeIcon.more.image(size: MatildeIcon.toolbarSize) }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 .foregroundStyle(Color(Paper.muted))
-                .frame(width: 28, height: 24).contentShape(Rectangle())
+                .frame(width: WindowChrome.controlWidth, height: WindowChrome.controlHeight).contentShape(Rectangle())
                 .help("Document actions").accessibilityLabel("Document actions")
             }
         }
-        .padding(.horizontal, 3).padding(.vertical, 2)
+        .padding(WindowChrome.clusterPadding)
         // Same paper as the canvas: invisible at rest, keeps icons legible over scrolled text.
         .background(Color(Paper.background).opacity(model.boardVisible ? 0.9 : 0.8), in: RoundedRectangle(cornerRadius: 8))
         .contentShape(Rectangle())
         .onHover { chrome.hover($0) }
         .opacity(chrome.hidden ? 0 : 1)
         .animation(chromeAnimation, value: chrome.hidden)
-        .padding(.top, max(0, chrome.controlTop - 2)).padding(.trailing, 8)
+        .padding(.top, WindowChrome.controlTop - WindowChrome.clusterPadding).padding(.trailing, WindowChrome.clusterTrailing)
     }
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Title-bar band: the traffic lights and the sidebar toggle float here.
-            WindowDragArea().frame(height: chrome.bandHeight)
+            // Header row: the traffic lights and the sidebar toggle float here.
+            WindowDragArea().frame(height: WindowChrome.headerHeight)
             HStack(spacing: 6) {
                 MatildeIcon.search.image(size: 14)
                 TextField("Search", text: $model.search).textFieldStyle(.plain)
@@ -237,7 +237,7 @@ struct ContentView: View {
             }.font(.system(size: 12)).foregroundStyle(Color(Paper.muted))
                 .padding(.horizontal, 9).frame(height: 28)
                 .background(Color(Paper.ink).opacity(0.045), in: RoundedRectangle(cornerRadius: 5))
-                .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 8)
+                .padding(.horizontal, WindowChrome.sidebarContentInset).padding(.bottom, 8)
             HStack(spacing: 6) {
                 Text("Documents").font(.system(size: 11, weight: .medium))
                 Spacer()
@@ -406,7 +406,7 @@ struct ContentView: View {
             }
             .overlay(alignment: .bottomTrailing) {
                 StashPocket(stash: model.stash, size: CGSize(width: geometry.size.width,
-                                                             height: geometry.size.height - WindowChrome.barHeight))
+                                                             height: geometry.size.height - WindowChrome.headerHeight))
                     .opacity(model.boardFlight == nil && !model.isBranching ? 1 : 0)
                     .allowsHitTesting(model.boardFlight == nil && !model.isBranching)
             }
@@ -522,7 +522,7 @@ struct ContentView: View {
                 }.id(draft.id)
             }
             // Match the body's left edge: text inset (28) plus line-fragment padding (5).
-            .padding(.horizontal, 33).padding(.top, 29 + WindowChrome.canvasTopInset).padding(.bottom, 10).frame(maxWidth: CommentMargin.maximumColumn)
+            .padding(.horizontal, 33).padding(.top, WindowChrome.canvasTopInset).padding(.bottom, 10).frame(maxWidth: CommentMargin.maximumColumn)
             if draftsVisible {
                 DraftTray(model: model) {
                     withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) { draftsVisible = false }
