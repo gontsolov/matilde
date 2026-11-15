@@ -24,6 +24,8 @@ final class AppModel: ObservableObject {
     @Published var error: String?
     @Published var sheet: Sheet?
     @Published var search = ""
+    /// Sidebar folders the writer collapsed this session.
+    @Published var collapsedFolders: Set<String> = []
     @Published var headerTitle = "" { didSet { if headerTitle != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput) } } }
     @Published var headerGoal = "" { didSet { if headerGoal != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput) } } }
     @Published var focusTitleID: String?
@@ -41,6 +43,10 @@ final class AppModel: ObservableObject {
     private var headerDirty = false
     var cursor = 0
     var scroll = 0.0
+    /// The one draft whose saved cursor and scroll the editor restores when it loads: the
+    /// session's draft at launch and a new branch (which inherits its source's position).
+    /// Every other switch lands at the top of the note.
+    private(set) var restoresPositionID: String?
     private var savedText = ""
     private var saveTask: Task<Void, Never>?
     private var positionTask: Task<Void, Never>?
@@ -98,6 +104,8 @@ final class AppModel: ObservableObject {
         comparison = nil
         workspace = newWorkspace; drafts = contents.drafts; folders = contents.folders
         sidebar = try newWorkspace.state("sidebar") != "false"
+        collapsedFolders = []
+        restoresPositionID = selected?.id
         active = selected; text = content; savedText = content
         if let selected { try newWorkspace.rememberFamilyDraft(selected) }
         boardVisible = false; boardSheets = []; boardFlight = nil; editorReadyID = nil
@@ -143,7 +151,10 @@ final class AppModel: ObservableObject {
         if folders != contents.folders { folders = contents.folders }
         if let id = active?.id, let updated = drafts.first(where: { $0.id == id }), updated != active { active = updated }
     }
-    func select(_ draft: Draft) {
+    func initialPosition(for draft: Draft) -> (cursor: Int, scroll: Double) {
+        EditorLanding.position(cursor: draft.cursor, scroll: draft.scroll, restores: draft.id == restoresPositionID)
+    }
+    func select(_ draft: Draft, keepingPosition: Bool = false) {
         guard draft.id != active?.id else { return }
         attempt {
             try flush()
@@ -154,9 +165,11 @@ final class AppModel: ObservableObject {
             try stash.load(workspace: workspace, family: current.family)
             editorReadyID = nil
             if comparison?.draft.id == current.id { comparison = nil; try workspace.setState("comparisonDraft", "") }
+            restoresPositionID = keepingPosition ? current.id : nil
             active = current; text = content; savedText = content
             try loadHeader()
-            cursor = current.cursor; scroll = current.scroll; status = "Saved"
+            let landing = initialPosition(for: current)
+            cursor = landing.cursor; scroll = landing.scroll; status = "Saved"
             try workspace.setState("active", draft.id)
             try workspace.rememberFamilyDraft(current)
         }
@@ -204,6 +217,22 @@ final class AppModel: ObservableObject {
             guard active?.id == destination.id else { return }
             if boardVisible { persistBoard(); boardVisible = false; boardFlight = nil }
         }
+    }
+
+    /// Note (family) IDs in the sidebar's visible order.
+    var visibleNotes: [String] {
+        SidebarOrder.visible(drafts, folders: folders, collapsed: collapsedFolders, search: search)
+            .flatMap { $0.groups.map(\.id) }
+    }
+    var canCycleNotes: Bool {
+        workspace != nil && !isBranching && boardFlight == nil && SidebarOrder.neighbor(of: active?.family, in: visibleNotes, forward: true) != nil
+    }
+    /// Open the next or previous note in the sidebar, wrapping at the ends. Switching flushes
+    /// unsaved writing through the normal path (`selectFamily` → `flush`).
+    func cycleNote(forward: Bool) {
+        guard workspace != nil, !isBranching, boardFlight == nil,
+              let family = SidebarOrder.neighbor(of: active?.family, in: visibleNotes, forward: forward) else { return }
+        selectFamily(family)
     }
 
     var reviewInput: ReviewInput { ReviewInput(title: headerTitle, goal: headerGoal, body: text) }
@@ -418,7 +447,7 @@ final class AppModel: ObservableObject {
             var source = active
             source.cursor = cursor; source.scroll = scroll
             let draft = try workspace.branch(source, text: text)
-            try refresh(); select(draft)
+            try refresh(); select(draft, keepingPosition: true)
             guard self.active?.id == draft.id else { return }
             let moment = BranchMoment(sourceTitle: source.title, image: image)
             branchMoment = moment
