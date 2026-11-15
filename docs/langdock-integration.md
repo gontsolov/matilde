@@ -44,3 +44,6 @@ Partial answer text is transient. Only a complete stop/DONE response passing the
 
 Verified with synthetic streaming transport (including incremental updates, JSON mode), escape/Unicode, refusal, truncation and size-limit tests. Live provider streaming has not yet been exercised; no owner writing was submitted during these checks.
 Reference: https://docs.langdock.com/en/developer/completion-api/openai
+
+### Editable guidance (2026-11-15)
+Settings → Writing assist shows the guidance that shapes reviews and replies, prefilled with the built-in default, with Reset to Default. It is stored in UserDefaults under `writingAssist.guidance`; blank text falls back to the default and input is capped at 4,000 characters. Each system prompt is the guidance followed by a fixed part the user cannot edit: the review or reply task, the instruction to treat the draft as untrusted writing, and the JSON response shape the app parses (`WritingAssistPrompt.swift`). The fixed part states that it takes precedence over the guidance. Local response validation is unchanged, so guidance that asks for another format still fails safely. Unit tests cover custom guidance in review, reply and streamed reply requests and the fixed part in every prompt; live provider behavior with custom guidance has not been checked.

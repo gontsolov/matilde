@@ -88,6 +88,7 @@ struct AppSettingsView: View {
     @AppStorage("langdock.baseURL") private var langdockURL = "https://api.langdock.com"
     @AppStorage("langdock.region") private var langdockRegion = "eu"
     @AppStorage("langdock.model") private var langdockModel = ""
+    @AppStorage(WritingAssistPrompt.guidanceKey) private var guidance = WritingAssistPrompt.defaultGuidance
     @State private var models: [String] = []
     @State private var loadingModels = false
     @State private var modelTask: Task<Void, Never>?
@@ -130,6 +131,18 @@ struct AppSettingsView: View {
                 }
             }.formStyle(.grouped)
                 .tabItem { Label("Writing", systemImage: "textformat") }
+            Form {
+                Section("Guidance") {
+                    TextEditor(text: $guidance)
+                        .font(.body).frame(minHeight: 200)
+                        .accessibilityLabel("Writing assist guidance")
+                    Button("Reset to Default") {
+                        guidance = WritingAssistPrompt.defaultGuidance
+                        UserDefaults.standard.removeObject(forKey: WritingAssistPrompt.guidanceKey)
+                    }.disabled(guidance == WritingAssistPrompt.defaultGuidance)
+                }
+            }.formStyle(.grouped)
+                .tabItem { Label("Writing assist", systemImage: "text.bubble") }
             Form {
                 Section("Langdock") {
                     LabeledContent("API key", value: hasKey ? "Saved in Keychain" : "Not configured")
