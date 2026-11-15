@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Paper Plane</title>
+  <desc>A ruled notebook page folded into a paper plane, trailing across an apricot sky.</desc>
+  <defs>
+    <!-- macOS icon grid: 824 x 824 continuous-corner body centred on a 1024 canvas. -->
+    <path id="body" d="M383.41 100H640.59C722.19 100 763 100 799.79 112.14C854.88 133.52 890.48 169.12 911.86 224.21C924 261 924 301.81 924 383.41V640.59C924 722.19 924 763 911.86 799.79C890.48 854.88 854.88 890.48 799.79 911.86C763 924 722.19 924 640.59 924H383.41C301.81 924 261 924 224.21 911.86C169.12 890.48 133.52 854.88 112.14 799.79C100 763 100 722.19 100 640.59V383.41C100 301.81 100 261 112.14 224.21C133.52 169.12 169.12 133.52 224.21 112.14C261 100 301.81 100 383.41 100Z"/>
+    <clipPath id="clip"><use xlink:href="#body"/></clipPath>
+    <linearGradient id="rim" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".45"/>
+      <stop offset=".18" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".85" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".22"/>
+    </linearGradient>
+
+    <linearGradient id="sky" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7B98E"/>
+      <stop offset="1" stop-color="#FBE3C6"/>
+    </linearGradient>
+    <path id="plane" d="M808 250 L196 480 L468 566 L556 792 Z"/>
+    <clipPath id="wingClip"><path d="M808 250 L196 480 L468 566 Z"/></clipPath>
+  </defs>
+  <!-- Standard soft drop shadow, drawn as stacked strokes so every SVG renderer agrees. -->
+  <g fill="none" stroke="#000" transform="translate(0 12)">
+    <use xlink:href="#body" stroke-opacity=".022" stroke-width="56"/>
+    <use xlink:href="#body" stroke-opacity=".03" stroke-width="40"/>
+    <use xlink:href="#body" stroke-opacity=".04" stroke-width="26"/>
+    <use xlink:href="#body" stroke-opacity=".06" stroke-width="12"/>
+  </g>
+  <use xlink:href="#body" fill="none" stroke="#000" stroke-opacity=".14" stroke-width="4" transform="translate(0 3)"/>
+  <g clip-path="url(#clip)">
+    <rect width="1024" height="1024" fill="url(#sky)"/>
+    <path d="M430 628 C340 700 300 600 220 640 C150 676 170 760 96 820" fill="none" stroke="#C8673F" stroke-width="14" stroke-linecap="round" stroke-dasharray="22 30" stroke-opacity=".85"/>
+    <g transform="translate(18 40)" stroke="#000" fill="none">
+      <use xlink:href="#plane" stroke-opacity="0.073" stroke-width="40" stroke-linejoin="round"/>
+      <use xlink:href="#plane" stroke-opacity="0.073" stroke-width="24" stroke-linejoin="round"/>
+      <use xlink:href="#plane" stroke-opacity="0.073" stroke-width="10" stroke-linejoin="round"/>
+    </g>
+    <use xlink:href="#plane" fill="#000" fill-opacity="0.220" transform="translate(18 40)"/>
+    <!-- Folded keel, then the ruled wing on top. -->
+    <path d="M808 250 L468 566 L556 792 Z" fill="#CFC6B6"/>
+    <path d="M808 250 L468 566 L498 642 Z" fill="#B3A995"/>
+    <path d="M808 250 L196 480 L468 566 Z" fill="#FFFDF8"/>
+    <g clip-path="url(#wingClip)" fill="none" stroke-width="5">
+      <g stroke="#9DB8CF" stroke-opacity=".8">
+      <path d="M90 569 L947 247"/>
+      <path d="M106 612 L963 290"/>
+      <path d="M122 655 L979 333"/>
+      <path d="M138 698 L995 376"/>
+      <path d="M155 741 L1011 419"/>
+      </g>
+      <path d="M266 470 L488 596" stroke="#E07A6A" stroke-opacity=".8"/>
+    </g>
+    <path d="M808 250 L468 566" stroke="#E9E3D7" stroke-width="4"/>
+    <use xlink:href="#body" fill="none" stroke="url(#rim)" stroke-width="8"/>
+  </g>
+</svg>

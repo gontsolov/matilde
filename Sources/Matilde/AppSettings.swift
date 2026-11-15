@@ -3,6 +3,7 @@ import Security
 
 enum SettingKeys {
     static let appearance = "appearance.mode"
+    static let appIcon = "appearance.appIcon"
     static let textSize = "writing.textSize"
     static let lineSpacing = "writing.lineSpacing"
     static let spellChecking = "writing.spellChecking"
@@ -82,6 +83,7 @@ struct APIKeyStore {
 
 struct AppSettingsView: View {
     @AppStorage(SettingKeys.appearance) private var appearance = AppAppearance.system.rawValue
+    @AppStorage(SettingKeys.appIcon) private var appIcon = AppIconChoice.standard.rawValue
     @AppStorage(SettingKeys.textSize) private var textSize = 19.0
     @AppStorage(SettingKeys.lineSpacing) private var lineSpacing = 9.0
     @AppStorage(SettingKeys.spellChecking) private var spellChecking = false
@@ -105,6 +107,7 @@ struct AppSettingsView: View {
                 Picker("Appearance", selection: $appearance) {
                     ForEach(AppAppearance.allCases) { mode in Text(mode.title).tag(mode.rawValue) }
                 }.pickerStyle(.segmented)
+                Section("App Icon") { AppIconPicker(selection: $appIcon) }
             }.formStyle(.grouped)
                 .tabItem { Label { Text("General") } icon: { MatildeIcon.settings.image(size: MatildeIcon.tabSize) } }
 
@@ -180,6 +183,7 @@ struct AppSettingsView: View {
         .tint(Color(Paper.accent)).modifier(AppAppearanceModifier())
         .onAppear { perform { hasKey = try keyStore.containsKey() } }
         .onDisappear { key = ""; modelTask?.cancel(); loadingModels = false }
+        .onChange(of: appIcon) { _, value in AppIconChoice.resolved(value).apply() }
         .onChange(of: langdockURL) { _, _ in resetModels() }
         .onChange(of: langdockRegion) { _, _ in resetModels() }
         .confirmationDialog("Remove the saved Langdock API key?", isPresented: $removingKey) {

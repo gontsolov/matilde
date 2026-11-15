@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Typewriter</title>
+  <desc>A glass-topped typewriter key, chrome-ringed, on olive felt, set in Newsreader.</desc>
+  <defs>
+    <!-- macOS icon grid: 824 x 824 continuous-corner body centred on a 1024 canvas. -->
+    <path id="body" d="M383.41 100H640.59C722.19 100 763 100 799.79 112.14C854.88 133.52 890.48 169.12 911.86 224.21C924 261 924 301.81 924 383.41V640.59C924 722.19 924 763 911.86 799.79C890.48 854.88 854.88 890.48 799.79 911.86C763 924 722.19 924 640.59 924H383.41C301.81 924 261 924 224.21 911.86C169.12 890.48 133.52 854.88 112.14 799.79C100 763 100 722.19 100 640.59V383.41C100 301.81 100 261 112.14 224.21C133.52 169.12 169.12 133.52 224.21 112.14C261 100 301.81 100 383.41 100Z"/>
+    <clipPath id="clip"><use xlink:href="#body"/></clipPath>
+    <linearGradient id="rim" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".35"/>
+      <stop offset=".18" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".85" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".22"/>
+    </linearGradient>
+
+    <radialGradient id="felt" cx="400" cy="300" r="800" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9FA184"/>
+      <stop offset="1" stop-color="#5E624B"/>
+    </radialGradient>
+    <circle id="ring" cx="512" cy="488" r="286"/>
+    <linearGradient id="chrome" x1="0" y1="202" x2="0" y2="774" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset=".3" stop-color="#C9C9C4"/>
+      <stop offset=".5" stop-color="#8D8E89"/>
+      <stop offset=".62" stop-color="#E9E9E4"/>
+      <stop offset="1" stop-color="#6F706B"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="490" x2="0" y2="812" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#55564F"/>
+      <stop offset="1" stop-color="#2A2B27"/>
+    </linearGradient>
+    <radialGradient id="glass" cx="470" cy="400" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B3A37"/>
+      <stop offset=".7" stop-color="#1B1A18"/>
+      <stop offset="1" stop-color="#0E0D0C"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="226" x2="0" y2="470" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".34"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Standard soft drop shadow, drawn as stacked strokes so every SVG renderer agrees. -->
+  <g fill="none" stroke="#000" transform="translate(0 12)">
+    <use xlink:href="#body" stroke-opacity=".022" stroke-width="56"/>
+    <use xlink:href="#body" stroke-opacity=".03" stroke-width="40"/>
+    <use xlink:href="#body" stroke-opacity=".04" stroke-width="26"/>
+    <use xlink:href="#body" stroke-opacity=".06" stroke-width="12"/>
+  </g>
+  <use xlink:href="#body" fill="none" stroke="#000" stroke-opacity=".14" stroke-width="4" transform="translate(0 3)"/>
+  <g clip-path="url(#clip)">
+    <rect width="1024" height="1024" fill="url(#felt)"/>
+    <g transform="translate(0 70)" stroke="#000" fill="none">
+      <use xlink:href="#ring" stroke-opacity="0.133" stroke-width="70" stroke-linejoin="round"/>
+      <use xlink:href="#ring" stroke-opacity="0.133" stroke-width="44" stroke-linejoin="round"/>
+      <use xlink:href="#ring" stroke-opacity="0.133" stroke-width="20" stroke-linejoin="round"/>
+    </g>
+    <use xlink:href="#ring" fill="#000" fill-opacity="0.400" transform="translate(0 70)"/>
+    <!-- Key side, ring, glass cap, letter, reflection. -->
+    <circle cx="512" cy="526" r="286" fill="url(#side)"/>
+    <use xlink:href="#ring" fill="url(#chrome)"/>
+    <circle cx="512" cy="488" r="246" fill="#2A2926"/>
+    <circle cx="512" cy="492" r="240" fill="url(#glass)"/>
+    <path d="M661 608.7 691.4 617.1V622.7H575.4V617.1L606.4 609.8L590.2 395.8L593 396.2L501.9 625H479.5L384.9 399.8L387.7 399.4L374.4 610.2L406.5 617.1V622.7H332.6V617.1L362 610.2L375.7 393.1L344.2 380.6V375H432.1L515.1 574.1L509.3 574L588.1 375H676.5V380.6L643.3 388.5Z" fill="#F4ECDC" transform="translate(0 -12)"/>
+    <path d="M308 420 C330 310 420 252 512 252 C604 252 694 310 716 420 C650 372 580 356 512 356 C444 356 374 372 308 420 Z" fill="url(#gloss)"/>
+    <use xlink:href="#body" fill="none" stroke="url(#rim)" stroke-width="8"/>
+  </g>
+</svg>

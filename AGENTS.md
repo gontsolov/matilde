@@ -49,6 +49,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | `Sources/Matilde/DraftBoard.swift` | Pinned draft canvas, shared page previews, mounted editor surface, pan/zoom, hover/cursors, keyboard navigation |
 | `Sources/Matilde/DraftInteraction.swift` | Branch preview tray and in-memory page capture used for the curl |
 | `Sources/Matilde/PageCurlView.swift` | SceneKit page mesh, materials, and diagonal branch animation |
+| `Sources/Matilde/AppIcon.swift` | App icon choices, stored preference, runtime Dock icon and the Settings picker; SVG sources in `assets/app-icons`, PNGs from `scripts/app-icons.py` |
 | `Sources/Matilde/MatildeIcon.swift` | Tabler icon names, template image loading and sizes; PDFs in `Resources/Icons`, source SVGs in `assets/tabler-icons` |
 | `Sources/Matilde/AppUpdater.swift` | Sparkle controller and native Check for Updates action |
 | `Tests/MatildeTests/` | Workspace, Markdown, curl geometry, and native editor regression tests |

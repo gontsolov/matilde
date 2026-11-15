@@ -72,7 +72,10 @@ struct MatildeApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var model: AppModel?
-    func applicationDidFinishLaunching(_ notification: Notification) { NSApp.setActivationPolicy(.regular) }
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        AppIconChoice.stored().apply()
+    }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         do { try model?.flush(); return .terminateNow }
         catch {
