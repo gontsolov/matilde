@@ -298,7 +298,14 @@ final class WritingTextView: NSTextView {
     }
     override func didChangeText() {
         super.didChangeText()
-        slashMenu.update()
+        updateSlashMenu()
+    }
+    /// True between the text storage's beginEditing and the end of its processing, when layout
+    /// and geometry queries are invalid (autocorrection can change text in that window).
+    var isStorageEditing: Bool { !(textStorage?.editedMask.isEmpty ?? true) }
+    func updateSlashMenu() {
+        guard isStorageEditing else { slashMenu.update(); return }
+        DispatchQueue.main.async { [weak self] in self?.slashMenu.update() }
     }
 
     var saveImage: ((Data) throws -> String)?
@@ -814,7 +821,11 @@ struct MarkdownEditor: NSViewRepresentable {
         context.coordinator.view?.onAskSelection = onAskSelection
         context.coordinator.view?.commentStore = commentStore
         context.coordinator.view?.onContentHeight = onContentHeight
-        context.coordinator.view?.isContinuousSpellCheckingEnabled = spellChecking
+        // Assign only on change: re-enabling on every SwiftUI update restarts AppKit's
+        // spell checking and autocorrection state while it is applying a correction.
+        if let view = context.coordinator.view, view.isContinuousSpellCheckingEnabled != spellChecking {
+            view.isContinuousSpellCheckingEnabled = spellChecking
+        }
         context.coordinator.view?.saveImage = saveImage
         context.coordinator.view?.resolveImage = resolveImage
         context.coordinator.view?.mediaError = mediaError
@@ -889,8 +900,23 @@ struct MarkdownEditor: NSViewRepresentable {
             view.reportContentHeight()
             view.typingAttributes = [.font: Paper.body(CGFloat(parent.textSize)), .foregroundColor: Paper.ink]
         }
+        private var changePending = false
         func textDidChange(_ notification: Notification) {
             guard !updating, let view else { return }
+            // AppKit's autocorrection and text replacement can report a change while the text
+            // storage is still inside its editing batch. Restyling then forces glyph generation
+            // and layout mid-edit, which AppKit treats as a fatal inconsistency. Wait for the
+            // batch to finish instead.
+            if view.isStorageEditing {
+                guard !changePending else { return }
+                changePending = true
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.changePending = false
+                    self.textDidChange(notification)
+                }
+                return
+            }
             loadGeneration += 1
             let wasRestoring = restoringPosition
             restoringPosition = false
@@ -899,7 +925,7 @@ struct MarkdownEditor: NSViewRepresentable {
             parent.onChange(view.string)
             reportPosition()
         }
-        func textViewDidChangeSelection(_ notification: Notification) { reportPosition(); view?.slashMenu.update() }
+        func textViewDidChangeSelection(_ notification: Notification) { reportPosition(); view?.updateSlashMenu() }
         func reportPosition() {
             guard !updating, !restoringPosition, let view else { return }
             let offset = scroll?.contentView.bounds.origin.y ?? 0
@@ -956,6 +982,73 @@ final class WritingLayoutManager: NSLayoutManager {
         }
         return result
     }
+    // AppKit draws spelling markers at the bottom of the line fragment, which includes the
+    // writing line spacing, so they float well below the words. Hide them from AppKit's glyph
+    // drawing and draw them just under the baseline instead.
+    private var drawingGlyphs = false
+    override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
+        drawingGlyphs = true
+        super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
+        drawingGlyphs = false
+        drawSpellingMarkers(forGlyphRange: glyphsToShow, at: origin)
+    }
+    override func temporaryAttributes(atCharacterIndex charIndex: Int, effectiveRange effectiveCharRange: NSRangePointer?) -> [NSAttributedString.Key: Any] {
+        var attributes = super.temporaryAttributes(atCharacterIndex: charIndex, effectiveRange: effectiveCharRange)
+        if drawingGlyphs { attributes[.spellingState] = nil }
+        return attributes
+    }
+    override func temporaryAttribute(_ attrName: NSAttributedString.Key, atCharacterIndex location: Int, effectiveRange range: NSRangePointer?) -> Any? {
+        let value = super.temporaryAttribute(attrName, atCharacterIndex: location, effectiveRange: range)
+        return drawingGlyphs && attrName == .spellingState ? nil : value
+    }
+    override func temporaryAttributes(atCharacterIndex location: Int, longestEffectiveRange range: NSRangePointer?, in rangeLimit: NSRange) -> [NSAttributedString.Key: Any] {
+        var attributes = super.temporaryAttributes(atCharacterIndex: location, longestEffectiveRange: range, in: rangeLimit)
+        if drawingGlyphs { attributes[.spellingState] = nil }
+        return attributes
+    }
+
+    /// Dotted spelling (red) and grammar (green) markers, in container coordinates.
+    func spellingMarkerRects(forGlyphRange visible: NSRange) -> [(rect: NSRect, grammar: Bool)] {
+        guard let storage = textStorage, storage.length > 0 else { return [] }
+        let characters = characterRange(forGlyphRange: visible, actualGlyphRange: nil)
+        var result: [(NSRect, Bool)] = []
+        var index = characters.location
+        while index < NSMaxRange(characters) {
+            var run = NSRange()
+            let value = super.temporaryAttribute(.spellingState, atCharacterIndex: index, longestEffectiveRange: &run, in: characters)
+            defer { index = max(index + 1, NSMaxRange(run)) }
+            let state = (value as? Int) ?? (value as? NSNumber)?.intValue ?? 0
+            let spelling = state & NSAttributedString.SpellingState.spelling.rawValue != 0
+            let grammar = state & NSAttributedString.SpellingState.grammar.rawValue != 0
+            guard spelling || grammar, run.length > 0 else { continue }
+            let glyphs = glyphRange(forCharacterRange: run, actualCharacterRange: nil)
+            enumerateLineFragments(forGlyphRange: glyphs) { line, _, container, fragment, _ in
+                let part = NSIntersectionRange(fragment, glyphs)
+                guard part.length > 0 else { return }
+                let bounds = self.boundingRect(forGlyphRange: part, in: container)
+                guard bounds.width > 1 else { return }
+                let character = self.characterIndexForGlyph(at: part.location)
+                let font = storage.attribute(.font, at: character, effectiveRange: nil) as? NSFont ?? Paper.body()
+                let baseline = line.minY + self.location(forGlyphAt: part.location).y
+                let y = baseline + max(2, min(-font.descender * 0.75, 4))
+                result.append((NSRect(x: bounds.minX, y: y, width: bounds.width, height: 2.4), grammar && !spelling))
+            }
+        }
+        return result
+    }
+    private func drawSpellingMarkers(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
+        for marker in spellingMarkerRects(forGlyphRange: glyphsToShow) {
+            let rect = marker.rect.offsetBy(dx: origin.x, dy: origin.y)
+            (marker.grammar ? NSColor.systemGreen : NSColor.systemRed).withAlphaComponent(0.8).setFill()
+            let step: CGFloat = 4, diameter = rect.height
+            let count = max(1, Int((rect.width + step - diameter) / step))
+            let start = rect.minX + (rect.width - (CGFloat(count - 1) * step + diameter)) / 2
+            for dot in 0..<count {
+                NSBezierPath(ovalIn: NSRect(x: start + CGFloat(dot) * step, y: rect.minY, width: diameter, height: diameter)).fill()
+            }
+        }
+    }
+
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
         drawCommentHighlights(forGlyphRange: glyphsToShow, at: origin)
