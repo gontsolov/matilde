@@ -8,7 +8,7 @@ let package = Package(
     dependencies: [.package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6")],
     targets: [
         .systemLibrary(name: "CSQLite"),
-        .executableTarget(name: "Matilde", dependencies: ["CSQLite", .product(name: "Sparkle", package: "Sparkle")], resources: [.copy("Resources/Fonts")]),
+        .executableTarget(name: "Matilde", dependencies: ["CSQLite", .product(name: "Sparkle", package: "Sparkle")], resources: [.copy("Resources/Fonts"), .copy("Resources/Icons")]),
         .testTarget(name: "MatildeTests", dependencies: ["Matilde"])
     ],
     swiftLanguageModes: [.v5]

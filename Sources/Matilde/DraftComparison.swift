@@ -81,10 +81,10 @@ struct DraftComparisonPane: View {
                     ForEach(model.drafts.filter { $0.id != model.active?.id }) { draft in
                         Button(draft.title) { model.compare(draft) }
                     }
-                } label: { Label(comparison.draft.title, systemImage: "rectangle.split.2x1") }
+                } label: { Label { Text(comparison.draft.title) } icon: { MatildeIcon.compare.image(size: 16) } }
                 Spacer()
                 Toggle("Show changes", isOn: $model.showsComparisonChanges).toggleStyle(.button)
-                Button { model.closeComparison() } label: { Image(systemName: "xmark") }
+                Button { model.closeComparison() } label: { MatildeIcon.close.image(size: 16) }
                     .buttonStyle(.plain).accessibilityLabel("Close comparison")
             }.padding(14)
             if let error = comparison.error {
@@ -96,7 +96,7 @@ struct DraftComparisonPane: View {
                            header: AnyView(VStack(alignment: .leading, spacing: 12) {
                                Text(comparison.draft.title).font(Font(Paper.body(30))).bold()
                                if !comparison.draft.goal.isEmpty {
-                                   Label(comparison.draft.goal, systemImage: "flag").font(Font(Paper.body(CGFloat(textSize)))).foregroundStyle(Color(Paper.muted))
+                                   Label { Text(comparison.draft.goal) } icon: { MatildeIcon.goal.image(size: CGFloat(textSize).rounded() + 4) }.font(Font(Paper.body(CGFloat(textSize)))).foregroundStyle(Color(Paper.muted))
                                }
                            }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 28).padding(.top, 28).padding(.bottom, 10)),
                            saveImage: { try comparison.workspace.importImage($0, beside: comparison.draft) },

@@ -22,5 +22,10 @@ jobs:
           codesign --verify --deep --strict build/Matilde.app
           test "$(lipo -archs build/Matilde.app/Contents/MacOS/Matilde)" = arm64
           plutil -lint build/Matilde.app/Contents/Info.plist
+          icons=$(find build/Matilde.app/Contents/Resources/Matilde_Matilde.bundle -path '*/Icons/*.pdf' | wc -l | tr -d ' ')
+          expected=$(grep -cE '^ +case [A-Za-z]+ = "' Sources/Matilde/MatildeIcon.swift)
+          echo "Bundled $icons of $expected icons"
+          test "$icons" -eq "$expected"
+          find build/Matilde.app/Contents/Resources/Matilde_Matilde.bundle -path '*/Icons/LICENSE' | grep -q .
           bash -n scripts/*.sh
           python3 -m unittest discover -s scripts/tests

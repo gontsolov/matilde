@@ -25,7 +25,7 @@ Matilde (also called Tilde during naming) is a native macOS writing app. The pri
 - SwiftUI app with native macOS controls. Bear is the closest writing reference; Obsidian, Raycast Notes, and Notion are secondary references. The sidebar takes inspiration from Linear.
 - Japanese paper feeling: warm ivory, muted olive-gray text, restrained brown accents, tactile details, generous writing space. Keep navigation compact and quiet.
 - Bundled **Newsreader** Roman and Italic variable fonts for document titles, writing, and Markdown headings. Use system typography for controls. Font files and the SIL Open Font License are in `Sources/Matilde/Resources/Fonts/`; no runtime font download.
-- Use consistent native SF Symbols. There is no need to introduce an external icon library for ordinary controls.
+- Interface icons are Tabler Icons (outline, redrawn at a 1.5 stroke; filled only for state or solid composer actions), all named in the `MatildeIcon` enum. Use `MatildeIcon.x.image(size:)`/`nsImage(size:)` rather than `Image(systemName:)`; SF Symbols remain only on native menu items. To add or change an icon, edit the enum's raw value and run `python3 scripts/tabler-icons.py` (pinned Tabler release, needs `cairosvg`), then commit the SVG and generated PDF.
 - Sidebar document rows use two lines at approximately 53 points: title above a 12-point relative edited timestamp and optional main-document goal. Document/branch rows have no icons; branches omit goals and use indentation with a subtle continuous vertical guide below the parent. Folder controls remain compact, with an 18-point icon column, subtle hover/selection, a hover `+` that creates a note in that folder, and collapsible folders. Folder expansion is currently session-only. The sidebar has no title header: a permanent search field sits at the top; the workspace dropdown was deliberately removed. Notes move between folders by dragging rows onto folders (`NoteMove.swift`); moves keep draft IDs/metadata, never overwrite files and copy referenced `.assets` images. Scrollbars are hidden everywhere; keep new scroll views indicator-free.
 - Markdown renders live, with syntax concealed during normal editing. The owner explicitly dislikes Bear's visible formatting symbols. Preserve the underlying Markdown losslessly.
 - New Document creates a unique `Untitled.md` immediately, with no dialog. Focus the inline title, styled as a heading. The optional goal sits underneath as paragraph text with a flag icon. Both remain editable; changing the title renames the file without overwriting existing files.
@@ -49,6 +49,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | `Sources/Matilde/DraftBoard.swift` | Pinned draft canvas, shared page previews, mounted editor surface, pan/zoom, hover/cursors, keyboard navigation |
 | `Sources/Matilde/DraftInteraction.swift` | Branch preview tray and in-memory page capture used for the curl |
 | `Sources/Matilde/PageCurlView.swift` | SceneKit page mesh, materials, and diagonal branch animation |
+| `Sources/Matilde/MatildeIcon.swift` | Tabler icon names, template image loading and sizes; PDFs in `Resources/Icons`, source SVGs in `assets/tabler-icons` |
 | `Sources/Matilde/AppUpdater.swift` | Sparkle controller and native Check for Updates action |
 | `Tests/MatildeTests/` | Workspace, Markdown, curl geometry, and native editor regression tests |
 | `Config/release.json` | Local version, stable bundle identifier, repository, update URL and public signing key |
@@ -116,7 +117,7 @@ python3 -m unittest discover -s scripts/tests
 bash scripts/build-app.sh
 ```
 
-The build script assembles `build/Matilde.app`, bundles fonts, icon and Sparkle, and verifies its code signature. The build always targets arm64 (Apple silicon); packaging rejects Intel or universal Matilde executables. The signed feed must require arm64 so existing Intel installs are not offered incompatible updates. Do not manually reconstruct the bundle when the script suffices.
+The build script assembles `build/Matilde.app`, bundles fonts, interface icons, app icon and Sparkle, and verifies its code signature. The build always targets arm64 (Apple silicon); packaging rejects Intel or universal Matilde executables. The signed feed must require arm64 so existing Intel installs are not offered incompatible updates. Do not manually reconstruct the bundle when the script suffices.
 
 - Run checks appropriate to the change. Documentation-only work does not require rebuilding the app. For editor/storage changes, run relevant regression tests and the build; for UI changes, inspect the running app as well.
 - Use supported computer-use tools for UI testing and restarting. Quit normally so pending writing flushes, then launch the built bundle. Do not force-kill an app holding unsaved writing.

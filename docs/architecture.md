@@ -23,7 +23,7 @@ The visual direction is Japanese paper: restrained, tactile, and carefully detai
 - Include a focus mode that hides the sidebar for uninterrupted writing.
 - Keep the interface minimal and native: standard macOS toolbar, system typography for controls, Newsreader for document titles and writing, and short functional labels without slogans. Edit the title and goal directly on the page; show a flag icon beside the goal.
 - Use bundled Newsreader from Google Fonts for writing and Markdown headings, including bold and italic. Controls retain native system typography; document titles use the same Newsreader styling as Markdown headings. Font files and the SIL Open Font License ship with the app; no runtime font download is needed.
-- Sidebar direction follows the supplied Linear reference: 30-point rows, consistent SF Symbols in an 18-point icon column, subtle selection and hover backgrounds, a permanent search field at the top (the title header and workspace menu were removed), collapsible folder groups with a hover new-note button, and drag-and-drop moves between folders. Retain the light paper palette. Folder collapse state is currently session-only.
+- Sidebar direction follows the supplied Linear reference: 30-point rows, consistent Tabler icons in an 18-point icon column, subtle selection and hover backgrounds, a permanent search field at the top (the title header and workspace menu were removed), collapsible folder groups with a hover new-note button, and drag-and-drop moves between folders. Retain the light paper palette. Folder collapse state is currently session-only.
 
 ### Workspace and persistence
 

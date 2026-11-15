@@ -106,7 +106,7 @@ struct AppSettingsView: View {
                     ForEach(AppAppearance.allCases) { mode in Text(mode.title).tag(mode.rawValue) }
                 }.pickerStyle(.segmented)
             }.formStyle(.grouped)
-                .tabItem { Label("General", systemImage: "gearshape") }
+                .tabItem { Label { Text("General") } icon: { MatildeIcon.settings.image(size: MatildeIcon.tabSize) } }
 
             Form {
                 Section {
@@ -130,7 +130,7 @@ struct AppSettingsView: View {
                     Button("Restore Writing Defaults") { textSize = 19; lineSpacing = 9; spellChecking = false }
                 }
             }.formStyle(.grouped)
-                .tabItem { Label("Writing", systemImage: "textformat") }
+                .tabItem { Label { Text("Writing") } icon: { MatildeIcon.typography.image(size: MatildeIcon.tabSize) } }
             Form {
                 Section("Guidance") {
                     TextEditor(text: $guidance)
@@ -142,7 +142,7 @@ struct AppSettingsView: View {
                     }.disabled(guidance == WritingAssistPrompt.defaultGuidance)
                 }
             }.formStyle(.grouped)
-                .tabItem { Label("Ask Matilde", systemImage: "text.bubble") }
+                .tabItem { Label { Text("Ask Matilde") } icon: { MatildeIcon.askMatilde.image(size: MatildeIcon.tabSize) } }
             Form {
                 Section("Langdock") {
                     LabeledContent("API key", value: hasKey ? "Saved in Keychain" : "Not configured")
@@ -174,7 +174,7 @@ struct AppSettingsView: View {
                     if let keyError { Text(keyError).foregroundStyle(.red).font(.callout) }
                 }
             }.formStyle(.grouped)
-                .tabItem { Label("Connections", systemImage: "key") }
+                .tabItem { Label { Text("Connections") } icon: { MatildeIcon.key.image(size: MatildeIcon.tabSize) } }
         }
         .padding(12).frame(width: 540, height: 380)
         .tint(Color(Paper.accent)).modifier(AppAppearanceModifier())

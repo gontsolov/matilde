@@ -127,7 +127,7 @@ struct ContentView: View {
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 if model.workspace != nil {
-                    Button { model.toggleSidebar() } label: { Image(systemName: "sidebar.left") }
+                    Button { model.toggleSidebar() } label: { MatildeIcon.sidebar.image(size: MatildeIcon.toolbarSize) }
                         .help("Toggle sidebar").accessibilityLabel("Toggle sidebar")
                 }
             }
@@ -141,11 +141,11 @@ struct ContentView: View {
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 if model.workspace != nil {
-                    Button { model.newDocument() } label: { Image(systemName: "square.and.pencil") }
+                    Button { model.newDocument() } label: { MatildeIcon.newDocument.image(size: MatildeIcon.toolbarSize) }
                         .help("New document").accessibilityLabel("New document")
                 }
                 if model.active != nil {
-                    Button { model.boardRequest += 1 } label: { Image(systemName: model.boardVisible ? "doc.text" : "square.grid.2x2") }
+                    Button { model.boardRequest += 1 } label: { (model.boardVisible ? MatildeIcon.document : .board).image(size: MatildeIcon.toolbarSize) }
                         .help(model.boardVisible ? "Return to draft · ⌘0" : "Show draft board · ⌘0")
                         .accessibilityLabel(model.boardVisible ? "Return to draft" : "Show draft board")
                     AskMatildeToolbar(model: model, review: model.review)
@@ -166,7 +166,7 @@ struct ContentView: View {
                         Button("Move to Trash", role: .destructive) {
                             if let draft = model.active { model.trashDraft(draft) }
                         }.disabled(model.isBranching || model.boardFlight != nil)
-                    } label: { Image(systemName: "ellipsis.circle") }
+                    } label: { MatildeIcon.more.image(size: MatildeIcon.toolbarSize) }
                     .help("Document actions").accessibilityLabel("Document actions")
                 }
             }
@@ -180,11 +180,11 @@ struct ContentView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").font(.system(size: 11))
+                MatildeIcon.search.image(size: 14)
                 TextField("Search", text: $model.search).textFieldStyle(.plain)
                     .onExitCommand { model.search = "" }
                 if !model.search.isEmpty {
-                    Button { model.search = "" } label: { Image(systemName: "xmark.circle.fill") }
+                    Button { model.search = "" } label: { MatildeIcon.clear.image(size: 15) }
                         .buttonStyle(.plain).accessibilityLabel("Clear search")
                 }
             }.font(.system(size: 12)).foregroundStyle(Color(Paper.muted))
@@ -194,9 +194,9 @@ struct ContentView: View {
             HStack(spacing: 6) {
                 Text("Documents").font(.system(size: 11, weight: .medium))
                 Spacer()
-                Button { newNote(in: "") } label: { sidebarIcon("square.and.pencil") }
+                Button { newNote(in: "") } label: { sidebarIcon(.newDocument) }
                     .help("New document").accessibilityLabel("New document")
-                Button { model.sheet = .folder } label: { sidebarIcon("folder.badge.plus") }
+                Button { model.sheet = .folder } label: { sidebarIcon(.newFolder) }
                     .help("New folder").accessibilityLabel("New folder")
             }.buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
                 .padding(.horizontal, 16).frame(height: 30).padding(.top, 4)
@@ -230,15 +230,15 @@ struct ContentView: View {
             })
             .simultaneousGesture(TapGesture().onEnded { sidebarKeyboard.window?.makeFirstResponder(sidebarKeyboard) })
             HStack {
-                SettingsLink { Image(systemName: "gearshape").font(.system(size: 14)) }
+                SettingsLink { MatildeIcon.settings.image(size: 18) }
                     .buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
                     .help("Settings · ⌘,").accessibilityLabel("Settings")
                 Spacer()
             }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 14)
         }.background(Color(Paper.sidebar))
     }
-    private func sidebarIcon(_ name: String) -> some View {
-        Image(systemName: name).font(.system(size: 13, weight: .regular))
+    private func sidebarIcon(_ icon: MatildeIcon) -> some View {
+        icon.image(size: 18)
             .frame(width: 18, height: 18).foregroundStyle(Color(Paper.muted))
     }
     private func folderRow(_ folder: String) -> some View {
@@ -248,16 +248,15 @@ struct ContentView: View {
             else { collapsedFolders.insert(folder) }
         } label: {
             HStack(spacing: 8) {
-                sidebarIcon(collapsed ? "folder" : "folder.fill")
+                sidebarIcon(collapsed ? .folder : .folderOpen)
                 Text(folder).font(.system(size: 12, weight: .medium)).lineLimit(1)
                 Spacer(minLength: 0)
                 Color.clear.frame(width: 18, height: 18)
-                Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-                    .font(.system(size: 8, weight: .medium))
+                (collapsed ? MatildeIcon.chevronRight : .chevronDown).image(size: 14)
             }.foregroundStyle(Color(Paper.muted)).padding(.horizontal, 8).frame(height: 30).contentShape(Rectangle())
         }.buttonStyle(.plain).help(folder)
             .overlay(alignment: .trailing) {
-                Button { newNote(in: folder) } label: { sidebarIcon("plus") }
+                Button { newNote(in: folder) } label: { sidebarIcon(.plus) }
                     .buttonStyle(.plain)
                     .help("New document in \(folder)").accessibilityLabel("New document in \(folder)")
                     .padding(.trailing, 22)
@@ -304,7 +303,7 @@ struct ContentView: View {
                         .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
                     if !group.branches.isEmpty {
                         HStack(spacing: 3) {
-                            Image(systemName: "arrow.triangle.branch")
+                            MatildeIcon.branch.image(size: 14)
                             Text("\(group.branches.count)")
                         }
                             .font(.system(size: 11)).foregroundStyle(Color(Paper.muted)).fixedSize()
@@ -457,11 +456,11 @@ struct ContentView: View {
                         } label: {
                             HStack(spacing: 5) {
                                 Text("\(model.related.count) \(model.related.count == 1 ? "draft" : "drafts")")
-                                Image(systemName: draftsVisible ? "chevron.up" : "chevron.down").font(.system(size: 8))
+                                (draftsVisible ? MatildeIcon.chevronUp : .chevronDown).image(size: 13)
                             }.font(.system(size: 11))
                         }.help("Show drafts").accessibilityLabel("Show drafts")
                         Button { draftsVisible = false; model.branch() } label: {
-                            Image(systemName: "arrow.triangle.branch").font(.system(size: 13))
+                            MatildeIcon.branch.image(size: 17)
                         }.help("Branch draft · ⇧⌘B").accessibilityLabel("Branch draft").disabled(model.isBranching)
                     }.buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
                     Spacer()
@@ -528,7 +527,7 @@ struct InlineTitle: View {
                 return .handled
             }
             HStack(alignment: .firstTextBaseline, spacing: 9) {
-                Image(systemName: "flag").font(.system(size: 13)).foregroundStyle(Color(Paper.muted))
+                MatildeIcon.goal.image(size: 17).iconBaseline().foregroundStyle(Color(Paper.muted))
                 TextField("What do you want to write?", text: Binding(
                     get: { model.headerGoal }, set: { model.editHeader(goal: $0) }
                 ), axis: .vertical)
@@ -624,8 +623,8 @@ struct DocumentSheet: View {
 private struct StashToolbarButton: View {
     @ObservedObject var stash: StashModel
     var body: some View {
-        Button { stash.toggle() } label: { Image(systemName: stash.isOpen ? "tray.fill" : "tray") }
-            .help("Stash · ⇧⌘J").accessibilityLabel(stash.isOpen ? "Close Stash" : "Open Stash")
+        Toggle(isOn: Binding(get: { stash.isOpen }, set: { _ in stash.toggle() })) { MatildeIcon.stash.image(size: MatildeIcon.toolbarSize) }
+            .toggleStyle(.button).help("Stash · ⇧⌘J").accessibilityLabel("Stash")
     }
 }
 
@@ -651,7 +650,7 @@ private struct AskMatildeToolbar: View {
             Button(review.automaticPaused ? "Resume automatic reviews" : "Pause automatic reviews") { review.toggleAutomatic() }
             Button("Review history…") { review.historyVisible = true }.disabled(review.history.isEmpty)
         } label: {
-            Image(systemName: review.error != nil ? "exclamationmark.bubble" : reviewing ? "stop.circle" : "text.bubble")
+            (review.error != nil ? MatildeIcon.askMatildeError : reviewing ? .stop : .askMatilde).image(size: MatildeIcon.toolbarSize)
         } primaryAction: { toggleReview() }
         .fixedSize()
         .help(review.error ?? (reviewing ? "Cancel review" : "Ask Matilde"))

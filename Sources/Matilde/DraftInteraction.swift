@@ -62,7 +62,7 @@ struct DraftTray: View {
                                     Text(preview.draft.title).font(.system(size: 12, weight: .medium)).lineLimit(1)
                                     Spacer(minLength: 0)
                                     if preview.id == model.active?.id {
-                                        Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold))
+                                        MatildeIcon.check.image(size: 13)
                                     }
                                 }
                                 Text(preview.excerpt.isEmpty ? "Empty draft" : preview.excerpt)
