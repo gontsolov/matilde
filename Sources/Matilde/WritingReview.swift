@@ -441,12 +441,7 @@ struct WritingReviewPane: View {
     }
     @State private var textRight: CGFloat = 736
     /// Ask Matilde threads and private comments, in passage order, shown together in the margin.
-    private var marginItems: [MarginItem] {
-        var items: [MarginItem] = []
-        if let run, !run.stale { items += run.comments.filter { $0.status == "open" }.map { .review(run, $0) } }
-        items += comments.comments.filter { $0.attached && (!$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.id == selected) }.map { .note($0) }
-        return items.sorted { $0.range.location < $1.range.location }
-    }
+    private var marginItems: [MarginItem] { MarginItem.items(run: run, notes: comments.comments, editing: selected) }
     @ViewBuilder private func compactMarker(_ item: MarginItem, viewportHeight: CGFloat) -> some View {
         switch item {
         case let .review(run, comment):
@@ -462,7 +457,7 @@ struct WritingReviewPane: View {
                 }
         case let .note(note):
             // Narrow windows keep the editor's own popover, anchored to the highlighted passage.
-            Button { withEditor { $0.showCommentPopover(note.id, focus: true) } } label: { MatildeIcon.note.image(size: 17).padding(8) }
+            Button { withEditor { $0.revealComment(note.id); $0.showCommentPopover(note.id, focus: true) } } label: { MatildeIcon.note.image(size: 17).padding(8) }
                 .buttonStyle(.plain).foregroundStyle(Color(Paper.muted)).accessibilityLabel("Comment: " + note.text)
                 .background(ConversationPointer())
                 .background(Color(Paper.accent).opacity(hoveredComment == note.id ? 0.12 : 0), in: RoundedRectangle(cornerRadius: 6))
@@ -554,6 +549,7 @@ struct WritingReviewPane: View {
         .background(ConversationFocusBoundary { if selected == note.id { closeNote(note.id) } })
     }
     private func openNote(_ note: UserComment) {
+        withEditor { $0.revealComment(note.id) }
         selected = note.id
         hoveredComment = nil
         DispatchQueue.main.async { if selected == note.id { focusedReply = note.id } }
@@ -809,9 +805,18 @@ enum CommentMargin {
     }
 }
 
-private enum MarginItem: Identifiable {
+enum MarginItem: Identifiable {
     case review(WritingReview, ReviewComment)
     case note(UserComment)
+    /// Open Ask Matilde threads of the current review and the writer's own comments, in passage
+    /// order. Comments whose passage was removed stay hidden until it returns (for example after
+    /// undo); an empty comment only shows while it is being written.
+    static func items(run: WritingReview?, notes: [UserComment], editing: UUID?) -> [MarginItem] {
+        var items: [MarginItem] = []
+        if let run, !run.stale { items += run.comments.filter { $0.status == "open" }.map { .review(run, $0) } }
+        items += notes.filter { $0.attached && (!$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.id == editing) }.map { .note($0) }
+        return items.enumerated().sorted { ($0.element.range.location, $0.offset) < ($1.element.range.location, $1.offset) }.map(\.element)
+    }
     var id: UUID {
         switch self { case let .review(_, comment): comment.id; case let .note(note): note.id }
     }

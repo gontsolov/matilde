@@ -199,6 +199,26 @@ extension Workspace {
             throw error
         }
     }
+    /// Copies a draft's comments onto a branch created from `text`, anchored to the same passages.
+    /// Each copy has its own id, so editing, archiving or deleting it in one draft leaves the other
+    /// alone. Comments whose passage was removed stay hidden in the copy; archived and empty ones
+    /// are not copied. Runs inside the caller's transaction.
+    func copyUserComments(from source: String, to target: String, text: String) throws {
+        for comment in try userComments(draftID: source)
+        where !comment.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            var copy = UserComment(id: UUID(), draftID: target, text: comment.text, location: comment.location, length: comment.length,
+                                   quote: comment.quote, prefix: comment.prefix, suffix: comment.suffix,
+                                   created: comment.created, modified: comment.modified)
+            if copy.attached {
+                if let range = CommentAnchor.relocate(copy, in: text) { copy = CommentAnchor.refreshed(copy, range: range, in: text) }
+                else { copy.length = 0 }
+            }
+            try db.execute("INSERT INTO user_comments (id, draft_id, body, location, length, quote, prefix, suffix, created, modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                           [copy.id.uuidString, copy.draftID, copy.text, String(copy.location), String(copy.length),
+                            copy.quote, copy.prefix, copy.suffix,
+                            String(copy.created.timeIntervalSince1970), String(copy.modified.timeIntervalSince1970)])
+        }
+    }
     func archiveUserComment(_ id: UUID) throws {
         try ensureUserComments()
         try db.execute("UPDATE user_comments SET archived = 1 WHERE id = ?", [id.uuidString])
@@ -449,6 +469,15 @@ extension WritingTextView {
         hideSelectionAssist()
         guard let comment = store.add(range: range) else { NSSound.beep(); return }
         presentComment(comment.id, focus: true)
+    }
+
+    /// Scrolls a comment's passage into view and marks it, without moving the caret.
+    func revealComment(_ id: UUID) {
+        guard let store = commentStore, store.body == string,
+              let comment = store.comments.first(where: { $0.id == id && $0.attached }),
+              NSMaxRange(comment.range) <= (string as NSString).length else { return }
+        store.activeID = id
+        scrollRangeToVisible(comment.range)
     }
 
     /// Opens a comment in the margin when it has room, else in a popover beside the passage.
