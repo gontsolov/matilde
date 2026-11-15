@@ -88,6 +88,7 @@ struct AppSettingsView: View {
     @AppStorage("langdock.baseURL") private var langdockURL = "https://api.langdock.com"
     @AppStorage("langdock.region") private var langdockRegion = "eu"
     @AppStorage("langdock.model") private var langdockModel = ""
+    @AppStorage(WritingAssistPrompt.guidanceKey) private var guidance = WritingAssistPrompt.defaultGuidance
     @State private var models: [String] = []
     @State private var loadingModels = false
     @State private var modelTask: Task<Void, Never>?
@@ -131,6 +132,18 @@ struct AppSettingsView: View {
             }.formStyle(.grouped)
                 .tabItem { Label("Writing", systemImage: "textformat") }
             Form {
+                Section("Guidance") {
+                    TextEditor(text: $guidance)
+                        .font(.body).frame(minHeight: 200)
+                        .accessibilityLabel("Ask Matilde guidance")
+                    Button("Reset to Default") {
+                        guidance = WritingAssistPrompt.defaultGuidance
+                        UserDefaults.standard.removeObject(forKey: WritingAssistPrompt.guidanceKey)
+                    }.disabled(guidance == WritingAssistPrompt.defaultGuidance)
+                }
+            }.formStyle(.grouped)
+                .tabItem { Label("Ask Matilde", systemImage: "text.bubble") }
+            Form {
                 Section("Langdock") {
                     LabeledContent("API key", value: hasKey ? "Saved in Keychain" : "Not configured")
                     SecureField(hasKey ? "Enter a replacement key" : "Enter your API key", text: $key)
@@ -156,7 +169,7 @@ struct AppSettingsView: View {
                         Button(loadingModels ? "Loading…" : "Load models") { loadModels() }.disabled(!hasKey || loadingModels)
                     }
                     if let connectionMessage { Text(connectionMessage).font(.caption).foregroundStyle(.secondary) }
-                    Text("Reviews send the active draft’s title, goal and text to Langdock, manually or after 30 seconds without typing. Pause automatic reviews from Writing assist. Replies include the relevant comment thread. Stash, other drafts and image files are excluded. Reviews stay in your workspace; rewrites change your text only when you accept them. Your API key stays in Keychain.")
+                    Text("Reviews send the active draft’s title, goal and text to Langdock, manually or after 30 seconds without typing. Pause automatic reviews from Ask Matilde. Replies include the relevant comment thread. Stash, other drafts and image files are excluded. Reviews stay in your workspace; rewrites change your text only when you accept them. Your API key stays in Keychain.")
                         .font(.callout).foregroundStyle(.secondary)
                     if let keyError { Text(keyError).foregroundStyle(.red).font(.callout) }
                 }

@@ -438,3 +438,8 @@ Widened the sweep from 60% to 85% of text width and added a full-ink plateau acr
 
 ### 2026-11-15 — Sidebar moves, folder new note, permanent search, hidden scrollbars (UI-13–UI-16)
 Built in a Linux sandbox without Swift, so all checks ran on CI (macOS-15, PR #1). 99 Swift tests passed with one existing opt-in Keychain skip, including the six new `NoteMoveTests`. App bundle build and packaging checks passed. Not yet verified on a Mac: drag/drop delivery with the declared `app.matilde.local.note` type, drop highlight, hover `+` placement, search field layout, and scrolling with hidden scrollers (trackpad, wheel, Page Up/Down, arrow keys) in the sidebar, editor, comparison, stash, board, slash menu and Writing assist.
+
+### 2026-11-15 — Ask Matilde rename, toolbar, shortcut and comment anchoring
+- Renamed user-visible "Writing assist" to "Ask Matilde"; moved review, pause/resume and history into one toolbar control; ⇧⌘A works without a selection (current paragraph, or a review on an empty line).
+- AI and private comments now share range tracking and disappear only on full passage deletion (undo restores) or explicit deletion; title/goal changes keep them.
+- CI (macOS-15, run 43714079370): 113 Swift tests passed with one opt-in skip; app build, signature and packaging checks passed. No Mac UI session was available, so the toolbar look, menu shortcut display, error states and live edit/undo behaviour are unverified.

@@ -7,12 +7,32 @@ struct ReviewMessage: Codable, Identifiable, Equatable {
     var delivery: String? = nil
 }
 
-extension ReviewComment {
+extension ReviewSuggestion {
+    func with(quote: String, prefix: String, suffix: String) -> Self {
+        Self(quote: quote, prefix: prefix, suffix: suffix, explanation: explanation, replacement: replacement)
+    }
+}
+
+extension ReviewComment: AnchoredPassage {
+    var quote: String {
+        get { suggestion.quote }
+        set { suggestion = suggestion.with(quote: newValue, prefix: suggestion.prefix, suffix: suggestion.suffix) }
+    }
+    var prefix: String {
+        get { suggestion.prefix }
+        set { suggestion = suggestion.with(quote: suggestion.quote, prefix: newValue, suffix: suggestion.suffix) }
+    }
+    var suffix: String {
+        get { suggestion.suffix }
+        set { suggestion = suggestion.with(quote: suggestion.quote, prefix: suggestion.prefix, suffix: newValue) }
+    }
     func matches(_ text: String) -> Bool {
         let source = text as NSString
-        return status != "stale" && range.location >= 0 && NSMaxRange(range) <= source.length
+        return status != "stale" && status != "removed" && length > 0 && range.location >= 0 && NSMaxRange(range) <= source.length
             && source.substring(with: range) == suggestion.quote
     }
+    /// A rewrite replaces the passage it was written for, never text the writer has since changed.
+    var rewriteApplies: Bool { suggestion.replacement != nil && (rewriteQuote ?? suggestion.quote) == suggestion.quote }
 }
 
 /// A native edit is one replacement. Find its UTF-16 span without splitting Unicode characters.
@@ -34,25 +54,31 @@ struct WritingEdit {
 }
 
 extension WritingReview {
+    /// Keep comments on their passages through any change. A comment leaves the margin only when
+    /// all of its passage is deleted (status "removed"; undo restores it) or it is deleted explicitly.
+    /// Title and goal changes never hide comments.
     mutating func track(_ input: ReviewInput) {
-        guard let previous = source, previous.title == input.title, previous.goal == input.goal else {
-            stale = true
-            for i in comments.indices where comments[i].status == "open" { comments[i].status = "stale" }
-            return
-        }
-        let edit = WritingEdit.between(previous.body, input.body)
-        for i in comments.indices where comments[i].status == "open" {
-            let range = comments[i].range
-            if NSMaxRange(edit.range) <= range.location {
-                comments[i].location += edit.delta
-            } else if edit.range.location < NSMaxRange(range) {
-                comments[i].status = "stale"
+        let edit = source.map { WritingEdit.between($0.body, input.body) }
+        for i in comments.indices {
+            let before = comments[i]
+            guard ["open", "removed", "stale"].contains(before.status) else { continue }
+            if let edit, before.status != "stale" {
+                if edit.range.length > 0 || edit.insertedLength > 0 {
+                    comments[i] = CommentAnchor.track(before, edit: edit, in: input.body)
+                }
+            } else if let range = CommentAnchor.relocate(before, in: input.body) {
+                // No saved source, or a review saved before passages were tracked.
+                comments[i] = CommentAnchor.refreshed(before, range: range, in: input.body)
+            } else {
+                comments[i].length = 0
             }
-            if !comments[i].matches(input.body) { comments[i].status = "stale" }
+            comments[i].status = comments[i].length > 0 ? "open" : "removed"
+            if before.rewriteQuote == nil, before.suggestion.replacement != nil, comments[i].quote != before.quote {
+                comments[i].rewriteQuote = before.quote
+            }
         }
         source = input
         revision = Self.revision(input)
-        stale = !comments.isEmpty && comments.allSatisfy { $0.status == "stale" }
     }
 }
 

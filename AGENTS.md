@@ -57,7 +57,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 ## Files, persistence, and data safety
 
 - Manage one workspace folder, with subfolders. First launch offers Start writing, creating/reusing `~/Documents/Matilde`; choosing another folder is secondary. Never replace existing workspace files.
-- Writing lives in ordinary `.md` files. `.matilde/workspace.sqlite` holds goals, draft identity/relationships, and state; `.matilde/snapshots` holds immutable branching snapshots. Backing up the entire workspace preserves these together.
+- Writing lives in ordinary `.md` files. `.matilde/workspace.sqlite` holds goals, draft identity/relationships, state, Ask Matilde history and private user comments (`user_comments`, anchored by UTF-16 range plus quote/context; never written into Markdown); `.matilde/snapshots` holds immutable branching snapshots. Backing up the entire workspace preserves these together.
 - Restore workspace, active draft, cursor, scroll, and sidebar/focus state. Canvas viewport persists per family, but app startup currently opens the editor rather than restoring board mode.
 - Autosave is currently debounced about 650 ms. Flush on switching, explicit Command-S, and quitting. Preserve this protection when changing navigation or updater behavior.
 - External file edits reload automatically, with existing recovery handling for dirty text. Advanced conflict resolution and identity preservation across external moves remain follow-ups.
@@ -90,14 +90,16 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 - Do not reintroduce screenshot swapping, approximate replacement editors, fixed completion timers, or layout reflow during board flights. In-memory capture remains appropriate for the separate branch curl.
 - Future refinements: physical trackpad/resistance verification, dragging/re-pinning individual sheets, large-family usability, and stronger spatial connection between the curl and board placement.
 
-## AI: Writing assist
+## AI: Ask Matilde
 
 The owner authorized Langdock reviews, replies and automatic review. See `docs/langdock-integration.md` and ROADMAP.md for current scope and verification gaps.
 
-- Keep AI quiet and optional: automatic reviews follow meaningful edits plus thirty seconds idle, with persistent pause/resume in the title menu. Never send on opening a draft alone.
+- Keep AI quiet and optional: automatic reviews follow meaningful edits plus thirty seconds idle, with persistent pause/resume in the Ask Matilde toolbar menu. Never send on opening a draft alone.
 - Requests supply the active title, goal and body; replies additionally include the relevant thread. Exclude stash, other drafts and image files; preserve image/path scrubbing and Keychain credential storage.
-- Exact UTF-16 quote anchors track unaffected edits. Overlapping edits invalidate the comment; title/goal edits invalidate context. Edits and switches cancel pending requests and discard late responses.
-- Selection help uses the floating Ask Writing assist action, context menu and Shift-Command-A. It creates an exact anchored thread and focuses the composer without sending until submission. Messages persist optimistically with pending/sent/failed state; cancellation and retries must preserve questions without duplication.
+- User-visible name is "Ask Matilde" (internal identifiers and UserDefaults keys keep `writingAssist`). Review/Cancel, pause/resume and history live in one window-toolbar control; the side pane shows only comment cards and threads.
+- AI and private comments stay on their passages (`CommentAnchor`, shared via `AnchoredPassage`): edits before shift them, edits inside grow/shrink them, partial deletion shrinks them to what remains. They disappear only when the entire passage is deleted (AI status `removed`, user comment detached; undo restores both) or when deleted explicitly (trash in the thread footer or the comment popover). Title/goal edits never hide comments. A rewrite applies only while its passage is unchanged (`rewriteQuote`). Edits and switches still cancel pending requests and discard late responses.
+- Selection help uses the floating Ask Matilde action, context menu and Shift-Command-A. Without a selection the shortcut uses the current paragraph (trimmed); on an empty line it reviews the draft. It creates an exact anchored thread and focuses the composer without sending until submission. Messages persist optimistically with pending/sent/failed state; cancellation and retries must preserve questions without duplication.
+- Settings → Ask Matilde edits only the guidance part of the system prompt; the task, untrusted-writing boundary and JSON response shape in `WritingAssistPrompt.swift` stay fixed and are always appended.
 - Persist histories and replies locally; branches start independent histories. Rewrites always require acceptance and native undo.
 - Follow-up directions and automatic naming remain separate requested/planned work; do not expand AI scope unasked.
 

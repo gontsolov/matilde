@@ -6,6 +6,7 @@ import Combine
 final class AppModel: ObservableObject {
     let stash = StashModel()
     let review = WritingReviewModel()
+    let comments = UserCommentStore()
     @Published var comparison: DraftComparison? { didSet { observeComparison() } }
     @Published private(set) var comparisonDifferences: [NSRange] = []
     @Published var showsComparisonChanges = true { didSet { updateComparisonDifferences() } }
@@ -17,7 +18,7 @@ final class AppModel: ObservableObject {
     @Published var drafts: [Draft] = []
     @Published var folders: [String] = [""]
     @Published var active: Draft?
-    @Published var text = "" { didSet { if text != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput); updateComparisonDifferences() } } }
+    @Published var text = "" { didSet { if text != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput); comments.changed(workspace: workspace, draftID: active?.id, body: text); updateComparisonDifferences() } } }
     @Published var sidebar = true
     @Published var status = "Saved"
     @Published var error: String?
@@ -49,6 +50,8 @@ final class AppModel: ObservableObject {
 
     init() {
         stash.reportError = { [weak self] in self?.error = $0 }
+        comments.reportError = { [weak self] in self?.error = $0 }
+        review.reportError = { [weak self] in self?.error = $0 }
         review.automaticAllowed = { [weak self] in
             guard let self else { return false }
             return NSApp.isActive && !self.boardVisible && !self.isBranching && self.boardFlight == nil && self.sheet == nil
@@ -377,7 +380,10 @@ final class AppModel: ObservableObject {
         }
     }
     private func loadHeader() throws {
-        defer { review.bind(workspace: workspace, draftID: active?.id, input: reviewInput) }
+        defer {
+            review.bind(workspace: workspace, draftID: active?.id, input: reviewInput)
+            comments.bind(workspace: workspace, draftID: active?.id, body: text)
+        }
         headerTitle = try active.map { try workspace?.state("untitled:\($0.id)") == "true" ? "" : $0.title } ?? ""
         headerGoal = active?.goal ?? ""
         headerDirty = false

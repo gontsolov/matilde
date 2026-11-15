@@ -38,9 +38,12 @@ struct MatildeApp: App {
                 }.keyboardShortcut("l", modifiers: [.command, .shift])
                     .disabled(model.active == nil || model.boardVisible)
                 Divider()
-                Button("Ask about Selection…") {
+                Button("Ask Matilde…") {
                     NSApp.sendAction(#selector(WritingTextView.askAboutSelection), to: nil, from: nil)
                 }.keyboardShortcut("a", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
+                Button("Add Comment") {
+                    NSApp.sendAction(#selector(WritingTextView.addUserComment(_:)), to: nil, from: nil)
+                }.keyboardShortcut("k", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
                 Button("Branch Draft") { model.branch() }.keyboardShortcut("b", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
                 Button(model.boardVisible ? "Return to Draft" : "Show Draft Board") { model.boardRequest += 1 }.keyboardShortcut("0").disabled(model.active == nil)
                 Button("Toggle Stash") { model.stash.toggle() }.keyboardShortcut("j", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardFlight != nil || model.isBranching)
@@ -145,11 +148,9 @@ struct ContentView: View {
                     Button { model.boardRequest += 1 } label: { Image(systemName: model.boardVisible ? "doc.text" : "square.grid.2x2") }
                         .help(model.boardVisible ? "Return to draft · ⌘0" : "Show draft board · ⌘0")
                         .accessibilityLabel(model.boardVisible ? "Return to draft" : "Show draft board")
+                    AskMatildeToolbar(model: model, review: model.review)
                     Menu {
-                        Button("Ask about Selection…") {
-                    NSApp.sendAction(#selector(WritingTextView.askAboutSelection), to: nil, from: nil)
-                }.keyboardShortcut("a", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
-                Button("Branch Draft") { model.branch() }
+                        Button("Branch Draft") { model.branch() }
                         Button("Rename…") { model.sheet = .rename }
                         Button("Writing Goal…") { model.sheet = .goal }
                         Divider()
@@ -158,7 +159,6 @@ struct ContentView: View {
                                 Button(draft.title) { model.compare(draft) }
                             }
                         }.disabled(model.drafts.count < 2 || model.isBranching || model.boardFlight != nil)
-                        Button("Review now") { model.reviewNow() }.disabled(model.isBranching || model.boardVisible || model.boardFlight != nil)
                         Button("Copy Markdown", systemImage: "doc.on.doc") { model.copyMarkdown() }
                         Button("Show in Finder") { model.reveal() }
                         Divider()
@@ -432,7 +432,10 @@ struct ContentView: View {
                 return try workspace.importImage(data, beside: draft)
             }, resolveImage: { model.workspace?.image(at: $0, beside: draft) }, mediaError: { model.error = $0 },
                            textSize: writingTextSize, lineSpacing: writingLineSpacing, spellChecking: writingSpellChecking, differenceRanges: model.comparisonDifferences,
-                           onAskSelection: { model.review.beginSelection($0, input: model.reviewInput) })
+                           onAskSelection: { range in
+                               if let range { model.review.beginSelection(range, input: model.reviewInput) } else { model.reviewNow() }
+                           },
+                           commentStore: model.comments)
                 .frame(maxWidth: 736).frame(maxWidth: .infinity)
         .background(PageCapture { model.capturePage = $0 })
         .overlay {
@@ -609,5 +612,38 @@ struct DocumentSheet: View {
             }
             dismiss()
         } catch { self.error = error.localizedDescription }
+    }
+}
+
+/// Ask Matilde's window controls: click to review the draft (or cancel), open the menu for more.
+private struct AskMatildeToolbar: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var review: WritingReviewModel
+    private var reviewing: Bool { review.isRunning && review.replyingTo == nil }
+    private var unavailable: Bool { model.boardVisible || model.isBranching || model.boardFlight != nil }
+    var body: some View {
+        HStack(spacing: 6) {
+            if reviewing { ProgressView().controlSize(.small).accessibilityLabel("Reviewing") }
+            menu
+        }
+    }
+    private var menu: some View {
+        Menu {
+            Button("Ask Matilde…") {
+                NSApp.sendAction(#selector(WritingTextView.askAboutSelection), to: nil, from: nil)
+            }.keyboardShortcut("a", modifiers: [.command, .shift]).disabled(model.boardVisible)
+            Button(reviewing ? "Cancel review" : "Review now") { toggleReview() }.disabled(unavailable && !reviewing)
+            Divider()
+            Button(review.automaticPaused ? "Resume automatic reviews" : "Pause automatic reviews") { review.toggleAutomatic() }
+            Button("Review history…") { review.historyVisible = true }.disabled(review.history.isEmpty)
+        } label: {
+            Image(systemName: review.error != nil ? "exclamationmark.bubble" : reviewing ? "stop.circle" : "text.bubble")
+        } primaryAction: { toggleReview() }
+        .fixedSize()
+        .help(review.error ?? (reviewing ? "Cancel review" : "Ask Matilde"))
+        .accessibilityLabel("Ask Matilde")
+    }
+    private func toggleReview() {
+        if reviewing { review.cancel() } else if !unavailable { model.reviewNow() }
     }
 }

@@ -95,7 +95,7 @@ Future direction:
 - Support AI-assisted automatic draft naming and later renaming. Exact triggers and user controls remain to be designed.
 - Persist comments and their history locally.
 
-Initial anchors use exact quotes and surrounding context with UTF-16 ranges. Any writing/title/goal change makes existing suggestions stale; acceptance revalidates the source and uses native undo. Only the active title, goal and text are sent, with image references and known absolute local paths scrubbed. Finer anchor tracking remains future work.
+Initial anchors use exact quotes and surrounding context with UTF-16 ranges. Any writing/title/goal change makes existing suggestions stale; acceptance revalidates the source and uses native undo. (Superseded 2026-11-15: comments now follow their passages through edits and disappear only when the whole passage or the comment is deleted; see “Comment anchoring and toolbar” in `langdock-integration.md`.) Only the active title, goal and text are sent, with image references and known absolute local paths scrubbed. Finer anchor tracking remains future work.
 
 ## Next architecture questions
 
