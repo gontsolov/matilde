@@ -250,6 +250,7 @@ final class Workspace {
             do {
                 try db.execute("INSERT INTO drafts (id,path,family,parent,goal,cursor,scroll) VALUES (?,?,?,?,?,?,?)", [child, path, source.family, source.id, source.goal, String(source.cursor), String(source.scroll)])
                 try db.execute("INSERT INTO snapshots VALUES (?,?,?,?,?)", [snapshot, source.id, child, snapshotPath, ISO8601DateFormatter().string(from: Date())])
+                try copyUserComments(from: source.id, to: child, text: text)
                 try db.execute("COMMIT")
             } catch { _ = try? db.execute("ROLLBACK"); throw error }
         } catch {
