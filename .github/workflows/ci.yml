@@ -27,5 +27,9 @@ jobs:
           echo "Bundled $icons of $expected icons"
           test "$icons" -eq "$expected"
           find build/Matilde.app/Contents/Resources/Matilde_Matilde.bundle -path '*/Icons/LICENSE' | grep -q .
+          appicons=$(find build/Matilde.app/Contents/Resources/Matilde_Matilde.bundle -path '*/AppIcons/*.png' | wc -l | tr -d ' ')
+          expected=$(ls Sources/Matilde/Resources/AppIcons/*.png | wc -l | tr -d ' ')
+          echo "Bundled $appicons of $expected app icons"
+          test "$appicons" -eq "$expected"
           bash -n scripts/*.sh
           python3 -m unittest discover -s scripts/tests
