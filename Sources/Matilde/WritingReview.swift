@@ -374,6 +374,7 @@ struct WritingReviewPane: View {
     @State private var footerHeights: [UUID: CGFloat] = [:]
     @FocusState private var focusedReply: UUID?
     @State private var replyText: [UUID: String] = [:]
+    @State private var followers = BottomFollowers()
     private var run: WritingReview? { review.history.first }
     var body: some View {
         if model.active != nil {
@@ -522,7 +523,8 @@ struct WritingReviewPane: View {
         .onHover { inside in hoveredComment = inside ? id : (hoveredComment == id ? nil : hoveredComment) }
         .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.88), value: isSelected)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovered)
-        .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.88), value: expandedHeights[id])
+        // Streamed text grows the card without animating each new line.
+        .animation(reduceMotion || review.replyingTo == id ? nil : .spring(response: 0.28, dampingFraction: 0.88), value: expandedHeights[id])
         .background(GeometryReader { card in
             Color.clear.preference(key: ReviewCardHeights.self, value: [id: card.size.height])
         })
@@ -534,12 +536,12 @@ struct WritingReviewPane: View {
             HStack(alignment: .bottom, spacing: 6) {
                 TextField("Add a note…", text: Binding(get: { comments.comments.first { $0.id == note.id }?.text ?? "" },
                                                       set: { comments.update(note.id, text: $0) }), axis: .vertical)
-                    .lineLimit(1...10).textFieldStyle(.plain).font(.body)
+                    .lineLimit(1...10).textFieldStyle(.plain).composerText()
                     .foregroundStyle(Color(Paper.ink))
                     .focused($focusedReply, equals: note.id)
-                    .onSubmit { closeNote(note.id) }
+                    .onSubmit { ComposerReturn.handle { closeNote(note.id) } }
                     .accessibilityLabel("Comment")
-                Button { closeNote(note.id) } label: { MatildeIcon.done.image(size: 20) }
+                Button { closeNote(note.id) } label: { MatildeIcon.done.image(size: 20).composerButton() }
                     .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(empty ? 0.35 : 1))
                     .help("Done").accessibilityLabel("Done")
             }
@@ -633,18 +635,26 @@ struct WritingReviewPane: View {
                         }.padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color(Paper.ink).opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
                     }
-                    ForEach(comment.messages ?? []) { message in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(message.role == "user" ? "You" : "Ask Matilde").font(.body.weight(.medium))
-                                .foregroundStyle(message.role == "user" ? Color(Paper.accent) : Color(Paper.ink))
-                            Text(message.text).font(.body).lineSpacing(3).textSelection(.enabled)
-                            if message.delivery == "failed" { Text("No reply").font(.body).foregroundStyle(.secondary) }
+                    let messages = comment.messages ?? []
+                    let roles = messages.map(\.role)
+                    ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                        if message.role == "user" {
+                            VStack(alignment: .trailing, spacing: 4) {
+                                UserMessageBubble(text: message.text)
+                                if message.delivery == "failed" { Text("No reply").font(.body).foregroundStyle(.secondary) }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                        } else {
+                            VStack(alignment: .leading, spacing: 4) {
+                                if ThreadSpeaker.showsAssistantLabel(at: index, roles: roles) { assistantLabel }
+                                Text(message.text).font(.body).lineSpacing(3).textSelection(.enabled)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     if review.replyingTo == comment.id {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Ask Matilde").font(.body.weight(.medium)).foregroundStyle(Color(Paper.ink))
+                            if roles.last != "assistant" { assistantLabel }
                             if review.streamingReply.isEmpty {
                                 ThinkingShimmer()
                             } else {
@@ -653,7 +663,6 @@ struct WritingReviewPane: View {
                         }.frame(maxWidth: .infinity, alignment: .leading)
                     }
                     if includeFooter { replyFooter(run, comment) }
-                    Color.clear.frame(height: 1).id("thread-end-" + comment.id.uuidString)
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background {
                         if includeFooter { RoundedRectangle(cornerRadius: 10).fill(Color(Paper.background)) }
@@ -665,6 +674,9 @@ struct WritingReviewPane: View {
                     }
             }
         }
+    }
+    private var assistantLabel: some View {
+        Text("Matilde").font(.body.weight(.medium)).foregroundStyle(Color(Paper.ink))
     }
     private func replyFooter(_ run: WritingReview, _ comment: ReviewComment) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -680,21 +692,21 @@ struct WritingReviewPane: View {
                     if comment.status == "open" && !run.stale {
                         HStack(alignment: .bottom, spacing: 6) {
                             TextField(comment.messages?.isEmpty != false ? "How can I help with this passage?" : "Reply…", text: Binding(get: { replyText[comment.id] ?? "" }, set: { replyText[comment.id] = $0 }), axis: .vertical)
-                                .lineLimit(1...5).textFieldStyle(.plain).font(.body)
+                                .lineLimit(1...5).textFieldStyle(.plain).composerText()
                                 .focused($focusedReply, equals: comment.id)
                                 .onAppear {
                                     if selected == comment.id && !review.historyVisible {
                                         DispatchQueue.main.async { if selected == comment.id { focusedReply = comment.id } }
                                     }
                                 }
-                                .onSubmit { sendReply(run, comment) }
+                                .onSubmit { ComposerReturn.handle { sendReply(run, comment) } }
                             if review.replyingTo == comment.id {
-                                Button { review.cancel() } label: { MatildeIcon.stopReply.image(size: 20) }
+                                Button { review.cancel() } label: { MatildeIcon.stopReply.image(size: 20).composerButton() }
                                     .buttonStyle(.plain).foregroundStyle(Color(Paper.accent))
                                     .help("Cancel").accessibilityLabel("Cancel")
                             } else {
                                 let empty = (replyText[comment.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                Button { sendReply(run, comment) } label: { MatildeIcon.send.image(size: 20) }
+                                Button { sendReply(run, comment) } label: { MatildeIcon.send.image(size: 20).composerButton() }
                                     .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(empty || review.isRunning ? 0.35 : 1))
                                     .disabled(review.isRunning || empty)
                                     .help("Send").accessibilityLabel("Send")
@@ -706,42 +718,58 @@ struct WritingReviewPane: View {
         }
     }
     private func threadView(_ run: WritingReview, _ comment: ReviewComment, maxHeight: CGFloat) -> some View {
-        let content = expandedHeights[comment.id] ?? 120
-        let footer = footerHeights[comment.id] ?? 56
-        return VStack(spacing: 0) {
+        let id = comment.id
+        let content = expandedHeights[id] ?? 120
+        let footer = footerHeights[id] ?? 56
+        let viewport = min(maxHeight, content + footer)
+        let space = "thread-" + id.uuidString
+        let bottom = "thread-bottom-" + id.uuidString
+        return ZStack(alignment: .bottom) {
             ScrollViewReader { reader in
                 ScrollView {
-                    reviewRun(single(run, comment), includeFooter: false)
-                        .background(GeometryReader { content in
-                            Color.clear.preference(key: ReviewExpandedHeights.self, value: [comment.id: content.size.height])
-                        })
-                }
-                .scrollIndicators(.hidden)
-                .onChange(of: review.replyingTo) { _, id in
-                    if id == comment.id {
-                        reader.scrollTo("thread-end-" + comment.id.uuidString, anchor: .bottom)
+                    VStack(spacing: 0) {
+                        reviewRun(single(run, comment), includeFooter: false)
+                            .background(GeometryReader { box in
+                                Color.clear.preference(key: ReviewExpandedHeights.self, value: [id: box.size.height])
+                            })
+                        // Room for the composer, which floats over the end of the thread.
+                        Color.clear.frame(height: footer).id(bottom)
                     }
+                    .background(GeometryReader { box in
+                        let frame = box.frame(in: .named(space))
+                        Color.clear.preference(key: ThreadScrollMetricsKey.self, value: [id: ThreadScrollMetrics(top: frame.minY, height: frame.height)])
+                    })
+                }
+                .coordinateSpace(name: space)
+                .scrollIndicators(.hidden)
+                .onPreferenceChange(ThreadScrollMetricsKey.self) { metrics in
+                    guard let metric = metrics[id] else { return }
+                    followers[id].observe(contentTop: metric.top, contentHeight: metric.height, viewportHeight: viewport)
+                }
+                // Follow streamed text only while the reader is at the end (see BottomFollower).
+                .onChange(of: review.replyingTo) { _, replying in
+                    if replying == id { followers[id].follow(); reader.scrollTo(bottom, anchor: .bottom) }
                 }
                 .onChange(of: review.streamingReply) { _, _ in
-                    if review.replyingTo == comment.id {
-                        reader.scrollTo("thread-end-" + comment.id.uuidString, anchor: .bottom)
-                    }
+                    if review.replyingTo == id, followers[id].following { reader.scrollTo(bottom, anchor: .bottom) }
                 }
                 .onChange(of: comment.messages?.count) { _, _ in
-                    reader.scrollTo("thread-end-" + comment.id.uuidString, anchor: .bottom)
+                    if followers[id].following { reader.scrollTo(bottom, anchor: .bottom) }
                 }
             }
-            Divider().opacity(content + footer > maxHeight ? 1 : 0)
-            replyFooter(run, comment).padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 12)
+            replyFooter(run, comment).padding(.horizontal, 12).padding(.top, 6).padding(.bottom, 12)
                 .fixedSize(horizontal: false, vertical: true)
                 .background(GeometryReader { box in
-                    Color.clear.preference(key: ReviewFooterHeights.self, value: [comment.id: box.size.height + 1])
+                    Color.clear.preference(key: ReviewFooterHeights.self, value: [id: box.size.height])
                 })
+                .background(alignment: .bottom) {
+                    ComposerFade().frame(height: footer + ComposerFade.fadeHeight)
+                }
         }
-        .frame(height: min(maxHeight, content + footer))
+        .frame(height: viewport)
         .background(Color(Paper.background))
         .background(ConversationFocusBoundary {
-            if selected == comment.id { selected = nil; focusedReply = nil }
+            if selected == id { selected = nil; focusedReply = nil }
         })
     }
     private func openConversation(_ run: WritingReview, _ comment: ReviewComment) {
@@ -767,6 +795,7 @@ struct WritingReviewPane: View {
         .accessibilityLabel("Accept rewrite")
     }
     private func sendReply(_ run: WritingReview, _ comment: ReviewComment) {
+        followers[comment.id].follow()
         review.reply(runID: run.id, commentID: comment.id, text: replyText[comment.id] ?? "", input: model.reviewInput)
     }
     private func withEditor(_ action: (WritingTextView) -> Void) {
@@ -779,7 +808,10 @@ struct WritingReviewPane: View {
 }
 
 enum CommentMargin {
-    static let cardWidth: CGFloat = 280
+    /// Preferred width of comment cards and comment popovers.
+    static let cardWidth: CGFloat = 348
+    /// Cards narrow to this before the window falls back to compact markers.
+    static let reservedCardWidth: CGFloat = 280
     /// Narrowest card worth showing before falling back to compact markers.
     static let minimumCardWidth: CGFloat = 220
     /// Space between the end of the text and the cards.
@@ -790,9 +822,16 @@ enum CommentMargin {
     static let outerMargin: CGFloat = textInset
     static let maximumColumn: CGFloat = 736
     static let minimumEditorWidth: CGFloat = 440
+    /// Space between the editor column's end and the cards, excluding the cards themselves.
+    private static var gapExtra: CGFloat { cardGap - 28 - textInset }
+    /// Card width for a window: as wide as preferred, narrowing towards `reservedCardWidth`
+    /// before the editor would drop below its minimum width.
+    static func cardWidth(for width: CGFloat) -> CGFloat {
+        min(cardWidth, max(reservedCardWidth, width - 2 * outerMargin - gapExtra - minimumEditorWidth))
+    }
     /// How much wider the text-plus-cards group is than the editor column (which ends 28 points after its text).
-    static var groupExtra: CGFloat { cardGap - 28 + cardWidth - textInset }
-    static func fits(width: CGFloat) -> Bool { width - groupExtra - 2 * outerMargin >= minimumEditorWidth }
+    static func groupExtra(width: CGFloat) -> CGFloat { gapExtra + cardWidth(for: width) }
+    static func fits(width: CGFloat) -> Bool { width - groupExtra(width: width) - 2 * outerMargin >= minimumEditorWidth }
     /// The editor column's width and leading offset. With cards, the group from the text's left
     /// edge to the cards' right edge is centered, so both outer margins match.
     static func layout(width: CGFloat, reserve: Bool) -> (column: CGFloat, leading: CGFloat) {
@@ -800,8 +839,9 @@ enum CommentMargin {
             let column = max(0, min(maximumColumn, width))
             return (column, max(0, (width - column) / 2))
         }
-        let column = max(0, min(maximumColumn, width - groupExtra - 2 * outerMargin))
-        return (column, max(0, (width - column - groupExtra) / 2 - textInset))
+        let extra = groupExtra(width: width)
+        let column = max(0, min(maximumColumn, width - extra - 2 * outerMargin))
+        return (column, max(0, (width - column - extra) / 2 - textInset))
     }
 }
 

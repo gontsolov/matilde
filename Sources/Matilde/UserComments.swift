@@ -561,18 +561,18 @@ private struct UserCommentEditor: View {
             if !quote.isEmpty { PassageQuote(text: quote, lines: 3, kind: .note).padding(.trailing, 22) }
                 HStack(alignment: .bottom, spacing: 6) {
                     TextField("Add a note…", text: $text, axis: .vertical)
-                        .lineLimit(1...10).textFieldStyle(.plain).font(.body)
+                        .lineLimit(1...10).textFieldStyle(.plain).composerText()
                         .foregroundStyle(Color(Paper.ink))
                         .focused($focused)
-                        .onSubmit { onDone() }
+                        .onSubmit { ComposerReturn.handle { onDone() } }
                         .accessibilityLabel("Comment")
-                    Button { onDone() } label: { MatildeIcon.done.image(size: 20) }
+                    Button { onDone() } label: { MatildeIcon.done.image(size: 20).composerButton() }
                         .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.35 : 1))
                         .help("Done").accessibilityLabel("Done")
                 }
                 .composerField()
         }
-        .padding(14).frame(width: 300)
+        .padding(14).frame(width: CommentMargin.cardWidth)
         .overlay(alignment: .topTrailing) {
             if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Button { onArchive() } label: {
@@ -612,9 +612,9 @@ struct PassageQuote: View {
 extension View {
     /// The quiet outlined input used by comment composers.
     func composerField() -> some View {
-        padding(.leading, 10).padding(.trailing, 5).padding(.vertical, 5)
-            .background(Color(Paper.ink).opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(Paper.ink).opacity(0.08)))
+        padding(.leading, 11).padding(.trailing, 4).padding(.vertical, 4)
+            .background(Color(Paper.ink).opacity(0.045), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(Paper.ink).opacity(0.08)))
     }
 }
 
