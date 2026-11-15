@@ -603,3 +603,17 @@ Linux sandbox without Swift: code reading only; `python3 -m unittest discover -s
 - Dragging the header band over the sidebar, canvas and comparison pane moves the window; double-click zooms; the toggle and actions stay clickable inside the taller title-bar area.
 - Typing fades the top-right actions (and the collapsed toggle); pointer movement brings them back.
 - Full screen: traffic lights hidden, controls keep the row and insets. Writing header, board, stash and comparison look right with the taller header.
+
+### 2026-11-15 — Sidebar right-click actions (UI-27)
+Context menus on note rows, folder rows and the empty sidebar list (`MatildeApp.swift`), backed by `SidebarActions.swift` (pure helpers plus `Workspace.duplicate`, `renameFolder`, `trashFolder`) and `AppModel` actions. Existing paths reused: `moveNote` for Move To, `trashDraft` for note Trash (now picking the next note in sidebar order as a last fallback instead of the alphabetically first draft), `newDocument(in:)`, the rename/goal/new-folder sheets, `compare`, `branch`. Folder Trash and rename run in one SQLite transaction with the filesystem step last and roll back on failure; nothing is deleted permanently.
+
+Linux sandbox without Swift: code reading only. CI on PR #23 (run 43761841332, macOS-15, head `8f30297`) passed: 209 Swift tests (one opt-in skip) including all 10 new `SidebarActionsTests` (folder contents/count, move targets, neighbour choice, rename paths, folder Trash with reconnection and rollback, folder rename, duplicate), app build and packaging checks. The menus themselves are unverified on a Mac.
+
+Manual Mac checklist (disposable workspace under `build/`):
+- Right-click a note: every item listed in UI-27 appears; ⇧⌘B and ⌘⌫ show only on the open note. Branch Draft on another note opens it and plays the curl of that note's page.
+- Duplicate opens `Title copy`; Rename… and Writing Goal… open the sheet for that note; Move To moves the family (with images) and expands the destination.
+- Show in Finder, Copy Markdown (unsaved text of the open note included) and Copy Path work.
+- Move to Trash on the open note opens its parent or neighbour; the file is in the macOS Trash.
+- Right-click a folder: New Document creates `Untitled` inside and expands it; New Folder… preselects it as parent; Rename… keeps notes, branches, goals and the open note; Expand/Collapse All; Move to Trash… shows “It contains N notes.”, cancel leaves everything, confirm moves the folder to the macOS Trash and opens a neighbour if the open note was inside.
+- Right-click empty space below the list: New Document (in Documents) and New Folder…; right-clicking a row still shows the row's menu, not the empty-area one.
+- Board visible or comparison open while trashing/renaming: no stale sheets or panes.

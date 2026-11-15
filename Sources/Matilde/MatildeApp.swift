@@ -100,6 +100,7 @@ struct ContentView: View {
     @State private var draggedNote: SidebarNoteDrag?
     @State private var dropFolder: String?
     @State private var sidebarKeyboard = SidebarKeyboardView()
+    @State private var folderToTrash: String?
     private var sidebarFocused: Bool { sidebarKeyboard.window?.firstResponder === sidebarKeyboard }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var chrome = WindowChromeModel()
@@ -156,6 +157,18 @@ struct ContentView: View {
         .alert("Matilde", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("OK") { model.error = nil }
         } message: { Text(model.error ?? "") }
+        .alert(folderTrashTitle, isPresented: Binding(get: { folderToTrash != nil }, set: { if !$0 { folderToTrash = nil } })) {
+            Button("Move to Trash", role: .destructive) {
+                if let folder = folderToTrash { model.trashFolder(folder) }
+                folderToTrash = nil
+            }
+            Button("Cancel", role: .cancel) { folderToTrash = nil }
+        } message: { Text(folderTrashMessage) }
+    }
+    private var folderTrashTitle: String { "Move “\(folderToTrash ?? "")” to the Trash?" }
+    private var folderTrashMessage: String {
+        let count = SidebarActions.noteCount(in: folderToTrash ?? "", among: model.drafts)
+        return count == 1 ? "It contains 1 note." : "It contains \(count) notes."
     }
 
     /// Over the sidebar it stays put; over the canvas it fades with the other window controls.
@@ -273,6 +286,7 @@ struct ContentView: View {
             }
             }
             .scrollIndicators(.hidden)
+            .contextMenu { emptySidebarMenu }
             .background(SidebarKeyboardInput(view: sidebarKeyboard) {
                 if let draft = model.active { model.trashDraft(draft) }
             })
@@ -314,6 +328,52 @@ struct ContentView: View {
             .onHover { inside in
                 if inside { hoveredFolder = folder } else if hoveredFolder == folder { hoveredFolder = nil }
             }
+            .contextMenu { folderMenu(folder) }
+    }
+    @ViewBuilder private var emptySidebarMenu: some View {
+        Button("New Document") { newNote(in: "") }
+        Button("New Folder…") { model.presentFolderSheet(.folder, folder: "") }
+    }
+    @ViewBuilder private func folderMenu(_ folder: String) -> some View {
+        let busy = model.isBranching || model.boardFlight != nil
+        Button("New Document") { newNote(in: folder) }
+        Button("New Folder…") { model.presentFolderSheet(.folder, folder: folder) }
+        Divider()
+        Button("Rename…") { model.presentFolderSheet(.renameFolder, folder: folder) }
+        Button("Show in Finder") { model.revealFolder(folder) }
+        Divider()
+        Button("Expand All Folders") { model.collapsedFolders = [] }
+            .disabled(model.collapsedFolders.isEmpty)
+        Button("Collapse All Folders") { model.collapsedFolders = Set(model.folders.filter { !$0.isEmpty }) }
+            .disabled(model.folders.allSatisfy { $0.isEmpty || model.collapsedFolders.contains($0) })
+        Divider()
+        Button("Move to Trash…", role: .destructive) { folderToTrash = folder }.disabled(busy)
+    }
+    @ViewBuilder private func noteMenu(_ target: Draft, folder: String, selected: Bool) -> some View {
+        let busy = model.isBranching || model.boardFlight != nil
+        let branch = Button("Branch Draft") { model.branch(from: target) }.disabled(busy)
+        if selected { branch.keyboardShortcut("b", modifiers: [.command, .shift]) } else { branch }
+        Button("Duplicate") { model.duplicate(target) }.disabled(busy)
+        Button("Rename…") { model.present(.rename, for: target) }.disabled(busy)
+        Button("Writing Goal…") { model.present(.goal, for: target) }.disabled(busy)
+        Divider()
+        Button("Compare Side by Side") { model.compare(target) }
+            .disabled(target.id == model.active?.id || busy)
+        Menu("Move To") {
+            ForEach(SidebarActions.moveTargets(folders: model.folders, from: folder), id: \.self) { destination in
+                Button(destination.isEmpty ? "Documents" : destination) {
+                    model.moveNote(family: target.family, from: folder, to: destination)
+                    model.collapsedFolders.remove(destination)
+                }
+            }
+        }.disabled(busy || SidebarActions.moveTargets(folders: model.folders, from: folder).isEmpty)
+        Divider()
+        Button("Show in Finder") { model.reveal(target) }
+        Button("Copy Markdown") { model.copyMarkdown(of: target) }
+        Button("Copy Path") { model.copyPath(of: target) }
+        Divider()
+        let trash = Button("Move ‘\(target.title)’ to Trash", role: .destructive) { model.trashDraft(target) }.disabled(busy)
+        if selected { trash.keyboardShortcut(.delete, modifiers: .command) } else { trash }
     }
     private func newNote(in folder: String) {
         model.collapsedFolders.remove(folder)
@@ -372,12 +432,7 @@ struct ContentView: View {
         }.buttonStyle(.plain).help(draft.path + "\n" + DraftDateFormat.details(datedDraft))
             .contextMenu {
                 let target = selected ? model.active : (try? model.workspace?.lastFamilyDraft(group.id, among: model.drafts))
-                if let target {
-                    Button("Compare Side by Side") { model.compare(target) }
-                        .disabled(target.id == model.active?.id || model.isBranching || model.boardFlight != nil)
-                    Button("Move ‘\(target.title)’ to Trash", systemImage: "trash", role: .destructive) { model.trashDraft(target) }
-                        .disabled(model.isBranching || model.boardFlight != nil)
-                }
+                if let target { noteMenu(target, folder: folder, selected: selected) }
             }
             .onHover { hoveredDraft = $0 ? draft.id : nil }
             .onDrag {
@@ -616,18 +671,19 @@ struct DocumentSheet: View {
     @State private var name = ""
     @State private var goal = ""
     @State private var folder = ""
+    @State private var renamedFolder = ""
     @State private var error: String?
     @FocusState private var focused: Bool
     var title: String {
-        switch kind { case .document: "New Document"; case .folder: "New Folder"; case .rename: "Rename Document"; case .goal: "Writing Goal" }
+        switch kind { case .document: "New Document"; case .folder: "New Folder"; case .rename: "Rename Document"; case .goal: "Writing Goal"; case .renameFolder: "Rename Folder" }
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text(title).font(.system(size: 18, weight: .semibold))
             if kind != .goal {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text(kind == .folder ? "Folder name" : "Document name").font(.system(size: 11)).foregroundStyle(.secondary)
-                    TextField(kind == .folder ? "Essays" : "Untitled", text: $name).textFieldStyle(.roundedBorder).focused($focused).onSubmit { submit() }
+                    Text(kind == .folder || kind == .renameFolder ? "Folder name" : "Document name").font(.system(size: 11)).foregroundStyle(.secondary)
+                    TextField(kind == .folder || kind == .renameFolder ? "Essays" : "Untitled", text: $name).textFieldStyle(.roundedBorder).focused($focused).onSubmit { submit() }
                 }
             }
             if kind == .document || kind == .folder {
@@ -649,7 +705,9 @@ struct DocumentSheet: View {
             }
         }.padding(32).frame(width: 460).background(Color(Paper.background))
             .onAppear {
-                folder = model.active?.folder ?? ""
+                folder = model.sheetFolder ?? model.active?.folder ?? ""
+                model.sheetFolder = nil
+                if kind == .renameFolder { renamedFolder = folder; name = (folder as NSString).lastPathComponent }
                 if kind == .rename { name = model.active?.title ?? "" }
                 if kind == .goal { goal = model.active?.goal ?? "" }
                 focused = true
@@ -659,7 +717,8 @@ struct DocumentSheet: View {
         do {
             switch kind {
             case .document: try model.create(name: name, folder: folder, goal: goal)
-            case .folder: try model.workspace?.createFolder(name: name, parent: folder); try model.refresh()
+            case .folder: try model.createFolder(name: name, parent: folder)
+            case .renameFolder: try model.renameFolder(renamedFolder, to: name)
             case .rename: try model.rename(name)
             case .goal: try model.setGoal(goal)
             }
