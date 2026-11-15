@@ -252,17 +252,25 @@ final class WritingHeaderView: NSHostingView<AnyView> {
 final class WritingTextView: NSTextView {
     var onAskSelection: ((NSRange) -> Void)?
     var selectionAssistPanel: SelectionAssistPanel?
+    var commentStore: UserCommentStore? { didSet { if commentStore !== oldValue { observeComments() } } }
+    var commentObservation: AnyObject?
+    var commentPopover: NSPopover?
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
         showSelectionAssist()
     }
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = super.menu(for: event) ?? NSMenu()
+        var items: [NSMenuItem] = []
         if onAskSelection != nil, selectedRange().length > 0 {
             let item = NSMenuItem(title: "Ask Writing assist…", action: #selector(askAboutSelection), keyEquivalent: "")
             item.target = self
+            items.append(item)
+        }
+        if let item = addCommentMenuItem { items.append(item) }
+        if !items.isEmpty {
             menu.insertItem(.separator(), at: 0)
-            menu.insertItem(item, at: 0)
+            for item in items.reversed() { menu.insertItem(item, at: 0) }
         }
         return menu
     }
@@ -647,6 +655,7 @@ final class WritingTextView: NSTextView {
     override func mouseDown(with event: NSEvent) {
         defer { showSelectionAssist() }
         super.mouseDown(with: event)
+        if event.clickCount == 1, selectedRange().length == 0, openComment(at: event) { return }
         if selectedRange().length == 0, let divider = dividerRange(at: selectedRange().location) {
             if event.clickCount == 1 { skipDivider(forward: true) }
             else { setSelectedRange(divider) }
@@ -740,6 +749,7 @@ struct MarkdownEditor: NSViewRepresentable {
 
     var differenceRanges: [NSRange] = []
     var onAskSelection: ((NSRange) -> Void)? = nil
+    var commentStore: UserCommentStore? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
@@ -779,6 +789,7 @@ struct MarkdownEditor: NSViewRepresentable {
         view.delegate = context.coordinator
         view.setAccessibilityLabel(accessibilityName)
         view.onAskSelection = onAskSelection
+        view.commentStore = commentStore
         view.onEscape = onEscape
         view.onContentHeight = onContentHeight
         onMount(view)
@@ -800,6 +811,7 @@ struct MarkdownEditor: NSViewRepresentable {
         let styleChanged = context.coordinator.parent.textSize != textSize || context.coordinator.parent.lineSpacing != lineSpacing || context.coordinator.parent.differenceRanges != differenceRanges
         context.coordinator.parent = self
         context.coordinator.view?.onAskSelection = onAskSelection
+        context.coordinator.view?.commentStore = commentStore
         context.coordinator.view?.onContentHeight = onContentHeight
         context.coordinator.view?.isContinuousSpellCheckingEnabled = spellChecking
         context.coordinator.view?.saveImage = saveImage
@@ -869,6 +881,7 @@ struct MarkdownEditor: NSViewRepresentable {
                 }
             }
             view.styleImages(); storage.endEditing()
+            view.applyCommentHighlights()
             view.layoutManager?.invalidateGlyphs(forCharacterRange: NSRange(location: 0, length: storage.length), changeInLength: 0, actualCharacterRange: nil)
             view.layoutManager?.ensureLayout(for: view.textContainer!)
             view.sizeToFit()
@@ -919,6 +932,8 @@ struct MarkdownEditor: NSViewRepresentable {
 
 /// Draw inline-code backgrounds around letters, excluding line/paragraph spacing.
 final class WritingLayoutManager: NSLayoutManager {
+    var commentRanges: [NSRange] = []
+    var activeCommentRange: NSRange?
     func inlineCodeRects(forGlyphRange visible: NSRange) -> [NSRect] {
         guard let storage = textStorage else { return [] }
         var result: [NSRect] = []
@@ -942,6 +957,7 @@ final class WritingLayoutManager: NSLayoutManager {
     }
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
+        drawCommentHighlights(forGlyphRange: glyphsToShow, at: origin)
         Paper.codeBackground.setFill()
         for rect in inlineCodeRects(forGlyphRange: glyphsToShow) {
             NSBezierPath(roundedRect: rect.offsetBy(dx: origin.x, dy: origin.y), xRadius: 2, yRadius: 2).fill()

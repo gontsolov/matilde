@@ -39,6 +39,9 @@ struct MatildeApp: App {
                 Button("Ask about Selection…") {
                     NSApp.sendAction(#selector(WritingTextView.askAboutSelection), to: nil, from: nil)
                 }.keyboardShortcut("a", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
+                Button("Add Comment") {
+                    NSApp.sendAction(#selector(WritingTextView.addUserComment(_:)), to: nil, from: nil)
+                }.keyboardShortcut("k", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
                 Button("Branch Draft") { model.branch() }.keyboardShortcut("b", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
                 Button(model.boardVisible ? "Return to Draft" : "Show Draft Board") { model.boardRequest += 1 }.keyboardShortcut("0").disabled(model.active == nil)
                 Button("Toggle Stash") { model.stash.toggle() }.keyboardShortcut("j", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardFlight != nil || model.isBranching)
@@ -395,7 +398,8 @@ struct ContentView: View {
                 return try workspace.importImage(data, beside: draft)
             }, resolveImage: { model.workspace?.image(at: $0, beside: draft) }, mediaError: { model.error = $0 },
                            textSize: writingTextSize, lineSpacing: writingLineSpacing, spellChecking: writingSpellChecking, differenceRanges: model.comparisonDifferences,
-                           onAskSelection: { model.review.beginSelection($0, input: model.reviewInput) })
+                           onAskSelection: { model.review.beginSelection($0, input: model.reviewInput) },
+                           commentStore: model.comments)
                 .frame(maxWidth: 736).frame(maxWidth: .infinity)
         .background(PageCapture { model.capturePage = $0 })
         .overlay {
