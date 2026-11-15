@@ -5,6 +5,8 @@ struct ReviewMessage: Codable, Identifiable, Equatable {
     let role: String
     let text: String
     var delivery: String? = nil
+    /// A rewrite proposed with this assistant reply, kept where it was offered in the thread.
+    var replacement: String? = nil
 }
 
 extension ReviewSuggestion {

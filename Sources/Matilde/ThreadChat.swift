@@ -14,20 +14,25 @@ struct BottomFollower: Equatable {
     private var jumping = false
 
     /// `contentTop` is the content's top edge in the viewport (zero or negative when scrolled).
-    mutating func observe(contentTop top: CGFloat, contentHeight height: CGFloat, viewportHeight: CGFloat) {
+    /// Returns whether to scroll to the end: the reader is following and the content grew past it,
+    /// for example when a suggested rewrite finishes laying out below a reply.
+    @discardableResult
+    mutating func observe(contentTop top: CGFloat, contentHeight height: CGFloat, viewportHeight: CGFloat) -> Bool {
+        let grew = contentHeight.map { height > $0 + 0.5 } ?? false
         defer { contentHeight = height; contentTop = top }
         let distance = height + top - viewportHeight
-        if height <= viewportHeight + Self.tolerance { following = true; jumping = false; return }
+        if height <= viewportHeight + Self.tolerance { following = true; jumping = false; return false }
         if jumping {
             following = true
             if distance <= Self.tolerance { jumping = false }
-            return
+            return grew && distance > Self.tolerance
         }
         if let previous = contentHeight, abs(previous - height) > 0.5 {
             if let previousTop = contentTop, top > previousTop + 0.5, distance > Self.tolerance { following = false }
-            return
+            return following && grew && distance > Self.tolerance
         }
         following = distance <= Self.tolerance
+        return false
     }
     /// Sending a message returns to the end of the thread.
     mutating func follow() { following = true; jumping = true }
