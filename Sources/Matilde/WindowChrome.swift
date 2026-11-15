@@ -1,62 +1,73 @@
 import SwiftUI
 import AppKit
 
-/// Geometry for the hidden title bar: the traffic lights float over the content, and the
-/// window controls share their row. All values are in the window's content coordinates,
+/// Geometry for the hidden title bar: one header row holds the traffic lights, the sidebar
+/// toggle and the document actions. All values are in the window's content coordinates,
 /// measured from its top-left corner; views that use them ignore the top safe area.
 enum WindowChrome {
-    /// Minimum height of the band the traffic lights sit in.
-    static let barHeight: CGFloat = 28
-    /// Fallback vertical center of the traffic lights, measured from the window's top edge.
-    static let defaultTrafficLightsCenter: CGFloat = 14
-    /// Height of a floating control; controls are centered on the traffic lights.
+    /// Height of the header row. Sidebar content, the canvas and the drag bands start below it.
+    static let headerHeight: CGFloat = 52
+    /// Vertical center of the header row; the traffic lights and every control sit on it.
+    static let rowCenter: CGFloat = headerHeight / 2
+    /// Horizontal inset of the header on both sides: from the window's leading edge to the
+    /// close button, and from the trailing edge to the last action icon.
+    static let horizontalInset: CGFloat = 18
+    /// Size of a floating control's frame; its icon is `MatildeIcon.toolbarSize` points wide.
+    static let controlWidth: CGFloat = 28
     static let controlHeight: CGFloat = 24
-    /// Fallback trailing edge of the traffic lights, measured from the window's leading edge.
-    static let defaultTrafficLightsTrailing: CGFloat = 69
-    /// Gap between the zoom button and the sidebar toggle's frame.
-    static let toggleGap: CGFloat = 10
-    /// Leading position of the sidebar toggle while the traffic lights are hidden (full screen).
-    static let fullScreenToggleLeading: CGFloat = 12
-    /// Room kept below the control row before sidebar content starts.
-    static let rowBottomGap: CGFloat = 2
-    /// Room kept free at the top of the canvas so resting text clears the floating controls.
-    static let canvasTopInset: CGFloat = barHeight
+    /// Space between a floating control's frame and its icon.
+    static let iconMargin: CGFloat = (controlWidth - MatildeIcon.toolbarSize) / 2
+    /// Padding of the top-right cluster's paper backing.
+    static let clusterPadding: CGFloat = 3
+    /// Top of a floating control, centering it on the row.
+    static let controlTop: CGFloat = rowCenter - controlHeight / 2
+    /// Width of the open sidebar, and the inset of its content (the search field).
+    static let sidebarWidth: CGFloat = 244
+    static let sidebarContentInset: CGFloat = 12
+    /// Gap between the zoom button and the collapsed sidebar toggle's frame; with the icon
+    /// margin, the zoom button is `horizontalInset` from the icon.
+    static let toggleGap: CGFloat = horizontalInset - iconMargin
+    /// Standard traffic-light button size and the distance between neighbouring buttons'
+    /// leading edges, used until the real buttons are measured.
+    static let defaultButtonSize: CGFloat = 14
+    static let defaultButtonStride: CGFloat = 20
+    /// Trailing edge of the traffic lights once placed at the header inset.
+    static let defaultTrafficLightsTrailing: CGFloat = horizontalInset + 2 * defaultButtonStride + defaultButtonSize
+    /// Gap between the header row and the first content below it on the canvas.
+    static let canvasContentGap: CGFloat = 16
+    /// Where the writing header starts, so resting text clears the header row.
+    static let canvasTopInset: CGFloat = headerHeight + canvasContentGap
     /// Height of the paper fade that softens text scrolled under the controls.
-    static let fadeHeight: CGFloat = 40
+    static let fadeHeight: CGFloat = headerHeight + 12
+    /// Trailing padding of the top-right cluster, so its last icon ends `horizontalInset`
+    /// from the window edge.
+    static let clusterTrailing: CGFloat = horizontalInset - iconMargin - clusterPadding
 
-    /// Where the traffic lights are: their vertical center and trailing edge, or no trailing
-    /// edge while they are hidden.
-    struct Row: Equatable {
-        var center: CGFloat = WindowChrome.defaultTrafficLightsCenter
-        var trafficLightsTrailing: CGFloat? = WindowChrome.defaultTrafficLightsTrailing
-
-        var toggleLeading: CGFloat { WindowChrome.toggleLeading(trafficLightsTrailing: trafficLightsTrailing) }
-        var controlTop: CGFloat { WindowChrome.controlTop(trafficLightsCenter: center) }
-        var bandHeight: CGFloat { WindowChrome.bandHeight(trafficLightsCenter: center) }
+    /// Origins (top-left content coordinates) for the close, minimize and zoom buttons: at the
+    /// header inset, vertically centred on the row, keeping the system's spacing.
+    static func trafficLightOrigins(buttonSize: CGSize, stride: CGFloat) -> [CGPoint] {
+        let step = stride > buttonSize.width ? stride : defaultButtonStride
+        let top = (rowCenter - buttonSize.height / 2).rounded()
+        return (0..<3).map { CGPoint(x: horizontalInset + CGFloat($0) * step, y: top) }
     }
 
-    /// The row for the zoom button's frame in top-left content coordinates; `nil` means the
-    /// traffic lights are hidden. Implausible frames (not laid out yet) fall back to defaults.
-    static func row(zoomFrame: CGRect?) -> Row {
-        guard let frame = zoomFrame else { return Row(trafficLightsTrailing: nil) }
-        guard frame.width > 0, frame.height > 0, frame.minX >= 0, frame.minY >= 0,
-              frame.midY <= barHeight + 20, frame.maxX <= 200 else { return Row() }
-        return Row(center: frame.midY.rounded(), trafficLightsTrailing: frame.maxX.rounded())
-    }
-
-    /// Leading position for the sidebar toggle: a fixed gap past the zoom button, or flush
-    /// with the content when the traffic lights are hidden (full screen).
-    static func toggleLeading(trafficLightsTrailing: CGFloat?) -> CGFloat {
-        guard let trailing = trafficLightsTrailing else { return fullScreenToggleLeading }
+    /// Leading position of the sidebar toggle. Open: right-aligned with the sidebar's content
+    /// (the search field's trailing edge). Collapsed: a fixed gap past the zoom button, or
+    /// at the header inset when the traffic lights are hidden (full screen).
+    static func toggleLeading(sidebarOpen: Bool, trafficLightsTrailing: CGFloat?) -> CGFloat {
+        if sidebarOpen { return sidebarWidth - sidebarContentInset - controlWidth }
+        guard let trailing = trafficLightsTrailing else { return horizontalInset - iconMargin }
         return trailing + toggleGap
     }
-    /// Top offset that centers a control on the traffic lights, staying inside the band.
-    static func controlTop(trafficLightsCenter: CGFloat) -> CGFloat {
-        min(max(2, (trafficLightsCenter - controlHeight / 2).rounded()), barHeight + 8)
-    }
-    /// Height of the top band: the control row plus a small gap, never less than `barHeight`.
-    static func bandHeight(trafficLightsCenter: CGFloat) -> CGFloat {
-        max(barHeight, controlTop(trafficLightsCenter: trafficLightsCenter) + controlHeight + rowBottomGap)
+
+    /// The traffic lights' trailing edge from the zoom button's frame in top-left content
+    /// coordinates; `nil` means they are hidden. Implausible frames (not laid out yet, or not
+    /// in the header row) fall back to the default.
+    static func trafficLightsTrailing(zoomFrame: CGRect?) -> CGFloat? {
+        guard let frame = zoomFrame else { return nil }
+        guard frame.width > 0, frame.height > 0, frame.minX >= 0, frame.minY >= 0,
+              frame.maxY <= headerHeight, frame.maxX <= 200 else { return defaultTrafficLightsTrailing }
+        return frame.maxX.rounded()
     }
 }
 
@@ -98,20 +109,21 @@ struct ChromeFade: Equatable {
     }
 }
 
-/// Window-level state for the hidden title bar: fade state, the traffic lights' position,
+/// Window-level state for the hidden title bar: fade state, the traffic lights' placement,
 /// and full-screen tracking.
 @MainActor
 final class WindowChromeModel: ObservableObject {
     @Published private(set) var hidden = false
-    /// The traffic lights' row, measured from the zoom button.
-    @Published private(set) var row = WindowChrome.Row()
-    var controlTop: CGFloat { row.controlTop }
-    var toggleLeading: CGFloat { row.toggleLeading }
-    var bandHeight: CGFloat { row.bandHeight }
+    /// The traffic lights' trailing edge, measured from the zoom button; `nil` while hidden.
+    @Published private(set) var trafficLightsTrailing: CGFloat? = WindowChrome.defaultTrafficLightsTrailing
+    func toggleLeading(sidebarOpen: Bool) -> CGFloat {
+        WindowChrome.toggleLeading(sidebarOpen: sidebarOpen, trafficLightsTrailing: trafficLightsTrailing)
+    }
     private var fade = ChromeFade() { didSet { if fade.hidden != hidden { hidden = fade.hidden } } }
     private weak var window: NSWindow?
     private var monitor: Any?
     private var observers: [NSObjectProtocol] = []
+    private var placing = false
 
     func typed(inEditor: Bool) { fade.typed(inEditor: inEditor) }
     func pointerMoved(by distance: CGFloat) { fade.pointerMoved(by: distance) }
@@ -131,19 +143,31 @@ final class WindowChromeModel: ObservableObject {
             return event
         }
         let center = NotificationCenter.default
-        let names: [Notification.Name] = [NSWindow.didResignKeyNotification, NSWindow.didEnterFullScreenNotification,
-                                          NSWindow.didExitFullScreenNotification, NSWindow.didResizeNotification]
+        // AppKit puts the buttons back at their default spot when it lays out the title bar:
+        // on resize, key/main changes, full-screen transitions and appearance changes.
+        let names: [Notification.Name] = [NSWindow.didResignKeyNotification, NSWindow.didBecomeKeyNotification,
+                                          NSWindow.didBecomeMainNotification, NSWindow.didResignMainNotification,
+                                          NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification,
+                                          NSWindow.didResizeNotification, NSWindow.didEndLiveResizeNotification,
+                                          NSWindow.didChangeScreenNotification]
         observers = names.map { name in
             center.addObserver(forName: name, object: window, queue: .main) { [weak self] note in
                 MainActor.assumeIsolated {
-                    if note.name == NSWindow.didResignKeyNotification { self?.reveal(); return }
-                    self?.measureTrafficLights()
-                    // The title bar re-lays out its buttons after full-screen transitions.
-                    DispatchQueue.main.async { [weak self] in MainActor.assumeIsolated { self?.measureTrafficLights() } }
+                    if note.name == NSWindow.didResignKeyNotification { self?.reveal() }
+                    self?.placeTrafficLights()
+                    // The title bar re-lays out its buttons after these, e.g. full-screen exit.
+                    DispatchQueue.main.async { [weak self] in MainActor.assumeIsolated { self?.placeTrafficLights() } }
                 }
             }
         }
-        measureTrafficLights()
+        // Catch any other relayout that moves the buttons back.
+        if let close = window.standardWindowButton(.closeButton) {
+            close.postsFrameChangedNotifications = true
+            observers.append(center.addObserver(forName: NSView.frameDidChangeNotification, object: close, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.placeTrafficLights() }
+            })
+        }
+        placeTrafficLights()
     }
     func detach() {
         if let monitor { NSEvent.removeMonitor(monitor) }
@@ -172,9 +196,36 @@ final class WindowChromeModel: ObservableObject {
         }
     }
 
-    /// Reads the zoom button's real frame and converts it into the content view's top-left
-    /// coordinates, the space the floating controls are laid out in.
-    func measureTrafficLights() {
+    /// Moves the traffic lights into the header row: the title-bar container grows to the
+    /// header height and the buttons sit at the header inset, centred on the row. Full screen
+    /// is left alone (the buttons live in the menu-bar overlay there). Afterwards the zoom
+    /// button's real frame is measured so the collapsed toggle follows wherever they ended up.
+    func placeTrafficLights() {
+        guard let window, !placing else { return }
+        placing = true
+        defer { placing = false }
+        let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].compactMap { window.standardWindowButton($0) }
+        if !window.styleMask.contains(.fullScreen), buttons.count == 3,
+           let titlebar = buttons[0].superview, let container = titlebar.superview, let frameView = container.superview {
+            // Title-bar container: the top `headerHeight` points of the window frame.
+            var frame = container.frame
+            frame.size.height = WindowChrome.headerHeight
+            frame.origin.y = frameView.isFlipped ? 0 : frameView.bounds.height - WindowChrome.headerHeight
+            if container.frame != frame { container.frame = frame }
+            let size = buttons[0].frame.size
+            let stride = buttons[1].frame.minX - buttons[0].frame.minX
+            for (button, origin) in zip(buttons, WindowChrome.trafficLightOrigins(buttonSize: size, stride: stride)) {
+                let y = titlebar.isFlipped ? origin.y : titlebar.bounds.height - origin.y - size.height
+                let target = CGPoint(x: origin.x, y: y)
+                if button.frame.origin != target { button.setFrameOrigin(target) }
+            }
+        }
+        measureTrafficLights()
+    }
+
+    /// Reads the zoom button's real frame in the content view's top-left coordinates, the
+    /// space the floating controls are laid out in.
+    private func measureTrafficLights() {
         guard let window, let content = window.contentView else { return }
         var zoomFrame: CGRect?
         if !window.styleMask.contains(.fullScreen), let zoom = window.standardWindowButton(.zoomButton),
@@ -183,8 +234,8 @@ final class WindowChromeModel: ObservableObject {
             if !content.isFlipped { frame.origin.y = content.bounds.height - frame.maxY }
             zoomFrame = frame
         }
-        let measured = WindowChrome.row(zoomFrame: zoomFrame)
-        if measured != row { row = measured }
+        let measured = WindowChrome.trafficLightsTrailing(zoomFrame: zoomFrame)
+        if measured != trafficLightsTrailing { trafficLightsTrailing = measured }
     }
 }
 
@@ -203,7 +254,7 @@ struct WindowChromeAttachment: NSViewRepresentable {
             super.viewDidMoveToWindow()
             chrome.attach(to: window)
             // The title bar lays out its buttons after the window appears.
-            DispatchQueue.main.async { [weak self] in self?.chrome.measureTrafficLights() }
+            DispatchQueue.main.async { [weak self] in self?.chrome.placeTrafficLights() }
         }
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
     }
@@ -247,7 +298,7 @@ struct WindowDragArea: NSViewRepresentable {
 struct CanvasTopFade: View {
     var body: some View {
         LinearGradient(stops: [.init(color: Color(Paper.background), location: 0),
-                               .init(color: Color(Paper.background), location: 0.45),
+                               .init(color: Color(Paper.background), location: 0.5),
                                .init(color: Color(Paper.background).opacity(0), location: 1)],
                        startPoint: .top, endPoint: .bottom)
             .frame(height: WindowChrome.fadeHeight)
@@ -273,7 +324,7 @@ private struct FloatingIconLabel<Label: View>: View {
     var body: some View {
         label
             .foregroundStyle(Color(Paper.muted))
-            .frame(width: 28, height: 24)
+            .frame(width: WindowChrome.controlWidth, height: WindowChrome.controlHeight)
             .background(Color(Paper.ink).opacity(pressed ? 0.12 : selected ? 0.09 : hovered && enabled ? 0.05 : 0),
                         in: RoundedRectangle(cornerRadius: 6))
             .opacity(enabled ? 1 : 0.4)
