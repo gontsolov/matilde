@@ -24,7 +24,7 @@ final class SlashMenuLayoutTests: XCTestCase {
         let frame = SlashMenuLayout.frame(caret: caret, size: size, visible: visible, placement: .below)
         XCTAssertEqual(frame.maxY, caret.minY - SlashMenuLayout.gap)
         // A short filtered menu would fit above, but the decision uses the full height.
-        XCTAssertLessThan(size.height, 172)
+        XCTAssertEqual(SlashMenuLayout.placement(caret: caret, maxHeight: 120, visible: visible), .above)
     }
 
     func testPicksRoomierSideWhenNeitherFits() {
