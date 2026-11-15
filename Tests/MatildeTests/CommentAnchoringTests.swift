@@ -9,7 +9,7 @@ final class CommentAnchoringTests: XCTestCase {
     private var suggestion: ReviewSuggestion {
         ReviewSuggestion(quote: "harbor was very quiet", prefix: "The ", suffix: ".", explanation: "Show it.", replacement: "harbor lay still")
     }
-    private func run() throws -> WritingReview {
+    private func makeReview() throws -> WritingReview {
         try WritingReview.make(draftID: "a", input: input, model: "fake", suggestions: [suggestion])
     }
     private func body(_ old: String, _ new: String) -> ReviewInput {
@@ -26,7 +26,7 @@ final class CommentAnchoringTests: XCTestCase {
     }
 
     func testAICommentGrowsWithEditInsidePassage() throws {
-        var review = try run()
+        var review = try makeReview()
         let edited = body("very quiet", "very, very quiet")
         review.track(edited)
         let comment = review.comments[0]
@@ -41,7 +41,7 @@ final class CommentAnchoringTests: XCTestCase {
     }
 
     func testAICommentShiftsWithEditBeforePassage() throws {
-        var review = try run()
+        var review = try makeReview()
         let edited = body("Morning 🌱", "Early 🐳 morning")
         review.track(edited)
         let comment = review.comments[0]
@@ -54,19 +54,19 @@ final class CommentAnchoringTests: XCTestCase {
     }
 
     func testAICommentShrinksWhenPartOfPassageIsDeleted() throws {
-        var review = try run()
+        var review = try makeReview()
         let edited = body("The harbor was", "It was")
         review.track(edited)
         XCTAssertEqual(review.comments[0].status, "open")
         XCTAssertEqual(quote(review.comments[0], in: edited), " was very quiet")
         let tail = body("very quiet. Evening", "very. Evening")
-        var other = try run()
+        var other = try makeReview()
         other.track(tail)
         XCTAssertEqual(quote(other.comments[0], in: tail), "harbor was very")
     }
 
     func testAICommentDisappearsOnlyWhenWholePassageIsDeletedAndUndoRestoresIt() throws {
-        var review = try run()
+        var review = try makeReview()
         let original = review.comments[0].range
         let deleted = body("The harbor was very quiet. ", "")
         review.track(deleted)
@@ -79,7 +79,7 @@ final class CommentAnchoringTests: XCTestCase {
 
     func testTitleAndGoalChangesKeepAICommentsAndAcceptStillWorks() throws {
         let workspace = try makeWorkspace()
-        let saved = try run()
+        let saved = try makeReview()
         try workspace.saveReview(saved)
         let model = WritingReviewModel()
         model.bind(workspace: workspace, draftID: "a", input: input)
@@ -96,7 +96,7 @@ final class CommentAnchoringTests: XCTestCase {
 
     func testReopenedReviewFollowsTextChangedWhileClosed() throws {
         let workspace = try makeWorkspace()
-        try workspace.saveReview(try run())
+        try workspace.saveReview(try makeReview())
         let external = ReviewInput(title: input.title, goal: input.goal, body: "New first line.\n\n" + input.body)
         let model = WritingReviewModel()
         model.bind(workspace: workspace, draftID: "a", input: external)
@@ -109,7 +109,7 @@ final class CommentAnchoringTests: XCTestCase {
 
     func testExplicitDeleteRemovesAICommentFromSavedHistory() throws {
         let workspace = try makeWorkspace()
-        let saved = try run()
+        let saved = try makeReview()
         try workspace.saveReview(saved)
         let model = WritingReviewModel()
         model.bind(workspace: workspace, draftID: "a", input: input)
@@ -119,7 +119,7 @@ final class CommentAnchoringTests: XCTestCase {
     }
 
     func testLegacyStaleCommentIsReanchored() throws {
-        var review = try run()
+        var review = try makeReview()
         review.comments[0].status = "stale"
         review.track(body("Evening", "Night"))
         XCTAssertEqual(review.comments[0].status, "open")
