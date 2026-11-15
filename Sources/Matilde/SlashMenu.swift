@@ -52,6 +52,83 @@ struct SlashCommand {
     }
 }
 
+enum SlashMenuPlacement: Equatable {
+    case above, below
+}
+
+/// Pure placement in AppKit screen coordinates (y grows upward).
+enum SlashMenuLayout {
+    static let gap: CGFloat = 4
+    static let margin: CGFloat = 4
+
+    /// Above the caret line unless the menu at its full height cannot fit there.
+    /// When neither side fits, the side with more room wins.
+    static func placement(caret: NSRect, maxHeight: CGFloat, visible: NSRect) -> SlashMenuPlacement {
+        let roomAbove = visible.maxY - margin - (caret.maxY + gap)
+        if roomAbove >= maxHeight { return .above }
+        let roomBelow = caret.minY - gap - (visible.minY + margin)
+        if roomBelow >= maxHeight { return .below }
+        return roomAbove >= roomBelow ? .above : .below
+    }
+
+    /// Above anchors the menu's bottom edge just over the line; below anchors its top edge under it.
+    static func frame(caret: NSRect, size: NSSize, visible: NSRect, placement: SlashMenuPlacement) -> NSRect {
+        let minX = visible.minX + margin
+        let maxX = visible.maxX - margin - size.width
+        let x = maxX < minX ? minX : min(max(caret.minX, minX), maxX)
+        let y: CGFloat
+        switch placement {
+        case .above: y = min(caret.maxY + gap, visible.maxY - margin - size.height)
+        case .below: y = max(caret.minY - gap - size.height, visible.minY + margin)
+        }
+        return NSRect(x: x, y: y, width: size.width, height: size.height)
+    }
+}
+
+/// Decides the side once when the menu opens and keeps it while the list is filtered.
+struct SlashMenuPositioner {
+    private(set) var placement: SlashMenuPlacement?
+
+    mutating func frame(caret: NSRect, size: NSSize, maxHeight: CGFloat, visible: NSRect) -> NSRect {
+        let side = placement ?? SlashMenuLayout.placement(caret: caret, maxHeight: maxHeight, visible: visible)
+        placement = side
+        return SlashMenuLayout.frame(caret: caret, size: size, visible: visible, placement: side)
+    }
+
+    mutating func reset() { placement = nil }
+}
+
+private enum SlashMenuStyle {
+    private static func adaptive(_ name: String, light: NSColor, dark: NSColor) -> NSColor {
+        NSColor(name: NSColor.Name("Matilde.slash." + name)) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+        }
+    }
+    static let surface = adaptive("surface", light: .white,
+                                  dark: NSColor(calibratedRed: 0.195, green: 0.197, blue: 0.2, alpha: 1))
+    static let border = adaptive("border", light: NSColor.black.withAlphaComponent(0.13),
+                                 dark: NSColor.white.withAlphaComponent(0.13))
+    static let selection = adaptive("selection", light: NSColor.black.withAlphaComponent(0.06),
+                                    dark: NSColor.white.withAlphaComponent(0.08))
+    static let glyph = adaptive("glyph", light: NSColor(calibratedRed: 0.24, green: 0.25, blue: 0.22, alpha: 0.56),
+                                dark: NSColor(calibratedRed: 0.87, green: 0.87, blue: 0.86, alpha: 0.52))
+    static func isDark(_ appearance: NSAppearance) -> Bool { appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua }
+
+    static let width: CGFloat = 236
+    static let inset: CGFloat = 5
+    static let rowHeight: CGFloat = 28
+    static let headerHeight: CGFloat = 22
+    static let maxContentHeight: CGFloat = 352
+    static let shadowInset: CGFloat = 24
+
+    static func contentHeight(_ commands: [SlashCommand]) -> CGFloat {
+        CGFloat(commands.count) * rowHeight + CGFloat(Set(commands.map(\.section)).count) * headerHeight
+    }
+    static func menuHeight(_ commands: [SlashCommand]) -> CGFloat {
+        min(contentHeight(commands), maxContentHeight) + inset * 2
+    }
+}
+
 private final class SlashMenuStack: NSStackView {
     override var isFlipped: Bool { true }
 }
@@ -63,12 +140,13 @@ private final class SlashMenuRow: NSButton {
 
     override func draw(_ dirtyRect: NSRect) {
         let ink = contentTintColor ?? Paper.ink
-        let iconRect = NSRect(x: 12, y: (bounds.height - 18) / 2, width: 18, height: 18)
+        let glyph = SlashMenuStyle.glyph
+        let iconRect = NSRect(x: 10, y: (bounds.height - 16) / 2, width: 16, height: 16)
         if let headingLevel {
             let mark = "H" + headingLevel
             let attributes: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
-                .foregroundColor: ink.withAlphaComponent(0.48)
+                .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+                .foregroundColor: glyph
             ]
             let size = (mark as NSString).size(withAttributes: attributes)
             (mark as NSString).draw(at: NSPoint(x: iconRect.midX - size.width / 2,
@@ -81,17 +159,17 @@ private final class SlashMenuRow: NSButton {
                               width: size.width * scale, height: size.height * scale)
             let tinted = NSImage(size: size, flipped: false) { rect in
                 symbol.draw(in: rect)
-                ink.withAlphaComponent(0.48).setFill()
+                glyph.setFill()
                 rect.fill(using: .sourceIn)
                 return true
             }
             tinted.draw(in: rect)
         }
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 14), .foregroundColor: ink
+            .font: NSFont.systemFont(ofSize: 13.5), .foregroundColor: ink
         ]
         let size = (title as NSString).size(withAttributes: attributes)
-        (title as NSString).draw(at: NSPoint(x: 40, y: (bounds.height - size.height) / 2),
+        (title as NSString).draw(at: NSPoint(x: 34, y: (bounds.height - size.height) / 2),
                                  withAttributes: attributes)
     }
 }
@@ -106,6 +184,7 @@ final class SlashMenuController: NSObject {
     private var queryRange: NSRange?
     private var dismissedRange: NSRange?
     private var selected = 0
+    private var positioner = SlashMenuPositioner()
     var isOpen: Bool { panel?.isVisible == true }
 
     func update() {
@@ -117,6 +196,7 @@ final class SlashMenuController: NSObject {
         let next = SlashCommand.matching(query.filter)
         guard !next.isEmpty else { dismiss(); return }
         if queryRange != query.range { selected = 0 }
+        if queryRange?.location != query.range.location { positioner.reset() }
         queryRange = query.range
         commands = next
         selected = min(selected, commands.count - 1)
@@ -136,7 +216,7 @@ final class SlashMenuController: NSObject {
 
     func dismiss() {
         if let panel { panel.parent?.removeChildWindow(panel); panel.orderOut(nil) }
-        panel = nil; scroll = nil; rows = []; queryRange = nil
+        panel = nil; scroll = nil; rows = []; queryRange = nil; positioner.reset()
     }
 
     private func show() {
@@ -155,25 +235,37 @@ final class SlashMenuController: NSObject {
         guard let panel else { return }
         panel.appearance = editor.effectiveAppearance
         editor.effectiveAppearance.performAsCurrentDrawingAppearance {
-            let width: CGFloat = 248
-            let inset: CGFloat = 6
-            let rowHeight: CGFloat = 34
-            let sectionCount = Set(commands.map(\.section)).count
-            let contentHeight = CGFloat(commands.count) * rowHeight + CGFloat(sectionCount) * 28
-            let height = min(contentHeight, 352) + inset * 2
-            let shadowInset: CGFloat = 10
+            let width = SlashMenuStyle.width
+            let inset = SlashMenuStyle.inset
+            let rowHeight = SlashMenuStyle.rowHeight
+            let headerHeight = SlashMenuStyle.headerHeight
+            let contentHeight = SlashMenuStyle.contentHeight(commands)
+            let height = SlashMenuStyle.menuHeight(commands)
+            let shadowInset = SlashMenuStyle.shadowInset
+            let dark = SlashMenuStyle.isDark(editor.effectiveAppearance)
             let root = NSView(frame: NSRect(x: 0, y: 0, width: width + shadowInset * 2, height: height + shadowInset * 2))
             root.wantsLayer = true
-            let container = NSView(frame: NSRect(x: shadowInset, y: shadowInset, width: width, height: height))
+            let card = NSRect(x: shadowInset, y: shadowInset, width: width, height: height)
+            let cardPath = CGPath(roundedRect: CGRect(origin: .zero, size: card.size), cornerWidth: 8, cornerHeight: 8, transform: nil)
+            // A tight contact shadow plus a larger diffuse one.
+            for (opacity, radius, offset) in [(dark ? 0.45 : 0.10, 1.5 as CGFloat, -1 as CGFloat),
+                                              (dark ? 0.50 : 0.14, 14 as CGFloat, -7 as CGFloat)] {
+                let shadow = CALayer()
+                shadow.frame = card
+                shadow.shadowPath = cardPath
+                shadow.shadowColor = NSColor.black.cgColor
+                shadow.shadowOpacity = Float(opacity)
+                shadow.shadowRadius = radius
+                shadow.shadowOffset = CGSize(width: 0, height: offset)
+                root.layer?.addSublayer(shadow)
+            }
+            let container = NSView(frame: card)
             container.wantsLayer = true
             container.layer?.cornerRadius = 8
-            container.layer?.backgroundColor = Paper.background.cgColor
-            container.layer?.borderWidth = 0.5
-            container.layer?.borderColor = Paper.ink.withAlphaComponent(0.10).cgColor
-            container.layer?.shadowColor = NSColor.black.cgColor
-            container.layer?.shadowOpacity = 0.08
-            container.layer?.shadowRadius = 5
-            container.layer?.shadowOffset = CGSize(width: 0, height: -2)
+            container.layer?.masksToBounds = true
+            container.layer?.backgroundColor = SlashMenuStyle.surface.cgColor
+            container.layer?.borderWidth = 0.75
+            container.layer?.borderColor = SlashMenuStyle.border.cgColor
             root.addSubview(container)
             let stack = SlashMenuStack()
             stack.orientation = .vertical
@@ -185,12 +277,12 @@ final class SlashMenuController: NSObject {
                 if command.section != previousSection {
                     let header = NSView()
                     let label = NSTextField(labelWithString: command.section)
-                    label.font = .systemFont(ofSize: 11, weight: .semibold)
-                    label.textColor = Paper.ink.withAlphaComponent(0.45)
-                    label.frame = NSRect(x: 12, y: 6, width: width - 36, height: 16)
+                    label.font = .systemFont(ofSize: 10.5, weight: .semibold)
+                    label.textColor = Paper.muted
+                    label.frame = NSRect(x: 10, y: 3, width: width - 32, height: 14)
                     header.addSubview(label)
                     header.widthAnchor.constraint(equalToConstant: width - inset * 2).isActive = true
-                    header.heightAnchor.constraint(equalToConstant: 28).isActive = true
+                    header.heightAnchor.constraint(equalToConstant: headerHeight).isActive = true
                     stack.addArrangedSubview(header)
                     previousSection = command.section
                 }
@@ -203,7 +295,7 @@ final class SlashMenuController: NSObject {
                 button.font = .systemFont(ofSize: 12)
                 button.setAccessibilityLabel(command.title)
                 button.wantsLayer = true
-                button.layer?.cornerRadius = 6
+                button.layer?.cornerRadius = 5
                 button.widthAnchor.constraint(equalToConstant: width - inset * 2).isActive = true
                 button.heightAnchor.constraint(equalToConstant: rowHeight).isActive = true
                 stack.addArrangedSubview(button)
@@ -217,11 +309,14 @@ final class SlashMenuController: NSObject {
             container.addSubview(scroll)
             self.scroll = scroll
             panel.contentView = root
-            let caret = editor.firstRect(forCharacterRange: editor.selectedRange(), actualRange: nil)
+            let anchor = NSRange(location: queryRange?.location ?? editor.selectedRange().location, length: 0)
+            let caret = editor.firstRect(forCharacterRange: anchor, actualRange: nil)
             let screen = window.screen?.visibleFrame ?? window.frame
-            let x = min(max(caret.minX, screen.minX + 4), screen.maxX - width - 4)
-            let y = caret.minY - height - 4 >= screen.minY ? caret.minY - height - 4 : caret.maxY + 4
-            panel.setFrame(NSRect(x: x - shadowInset, y: min(y, screen.maxY - height) - shadowInset, width: width + shadowInset * 2, height: height + shadowInset * 2), display: true, animate: false)
+            let editorArea = window.convertToScreen(editor.convert(editor.visibleRect, to: nil))
+            let visible = editorArea.intersection(screen).isEmpty ? screen : editorArea.intersection(screen)
+            let frame = positioner.frame(caret: caret, size: NSSize(width: width, height: height),
+                                         maxHeight: SlashMenuStyle.menuHeight(SlashCommand.all), visible: visible)
+            panel.setFrame(frame.insetBy(dx: -shadowInset, dy: -shadowInset), display: true, animate: false)
             container.layoutSubtreeIfNeeded()
             stack.layoutSubtreeIfNeeded()
             highlight()
@@ -234,7 +329,7 @@ final class SlashMenuController: NSObject {
         editor.effectiveAppearance.performAsCurrentDrawingAppearance {
             for (index, row) in rows.enumerated() {
                 row.contentTintColor = Paper.ink
-                row.layer?.backgroundColor = index == selected ? Paper.ink.withAlphaComponent(0.055).cgColor : NSColor.clear.cgColor
+                row.layer?.backgroundColor = index == selected ? SlashMenuStyle.selection.cgColor : NSColor.clear.cgColor
             }
             if rows.indices.contains(selected) { rows[selected].scrollToVisible(rows[selected].bounds) }
         }
