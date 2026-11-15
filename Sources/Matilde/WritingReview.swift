@@ -389,6 +389,8 @@ struct WritingReviewPane: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredComment: UUID?
     @State private var anchors: [UUID: CGFloat] = [:]
+    /// The same anchors in the editor's document coordinates, which do not change on scrolling.
+    @State private var documentAnchors: [UUID: CGFloat] = [:]
     @State private var selected: UUID?
     @State private var heights: [UUID: CGFloat] = [:]
     @State private var expandedHeights: [UUID: CGFloat] = [:]
@@ -410,10 +412,13 @@ struct WritingReviewPane: View {
                 let items = marginItems
                 let placed = positions(items, compact: compact, viewportHeight: geometry.size.height)
                 ZStack(alignment: .topLeading) {
+                    MarginScrollForwarding(enabled: !model.boardVisible && !model.isBranching && model.boardFlight == nil)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     ReviewAnchorProbe(anchors: items.map { MarginAnchor(id: $0.id, range: $0.range) }, revision: model.reviewInput,
                                       threads: items.filter(\.isReview).map(\.range),
                                       highlighted: items.first { $0.id == (selected ?? hoveredComment) && $0.isReview }?.range,
-                                      onChange: { anchors = $0 }, onTextRight: { textRight = $0 })
+                                      cardsBottom: cardsBottom(items, compact: compact),
+                                      onChange: { anchors = $0; documentAnchors = $1 }, onTextRight: { textRight = $0 })
                         .allowsHitTesting(false)
                     let shown = items.filter { placed[$0.id] != nil }.map(\.id)
                     let staggering = Date() < staggerUntil
@@ -646,15 +651,20 @@ struct WritingReviewPane: View {
         WritingReview(id: run.id, draftID: run.draftID, created: run.created, model: run.model,
                       revision: run.revision, stale: run.stale, comments: [comment])
     }
+    private func cardHeight(_ id: UUID, compact: Bool) -> CGFloat { compact ? 36 : heights[id] ?? 120 }
+    /// Where the natural card stack ends in the editor's coordinates, so the page can scroll to it.
+    /// The open card's pull into the viewport is left out: it follows scrolling.
+    private func cardsBottom(_ items: [MarginItem], compact: Bool) -> CGFloat? {
+        let ordered = items.filter { documentAnchors[$0.id] != nil }
+        let bottom = MarginScroll.cardsBottom(anchors: ordered.map { documentAnchors[$0.id]! },
+                                              heights: ordered.map { cardHeight($0.id, compact: compact) })
+        return bottom.map { $0.rounded(.up) }
+    }
     private func positions(_ items: [MarginItem], compact: Bool, viewportHeight: CGFloat) -> [UUID: CGFloat] {
         var result: [UUID: CGFloat] = [:]
-        var bottom: CGFloat = -.infinity
         let ordered = items.filter { anchors[$0.id] != nil }
-        for item in ordered {
-            let y = max(anchors[item.id]!, bottom + 12)
-            result[item.id] = y
-            bottom = y + (compact ? 36 : heights[item.id] ?? 120)
-        }
+        let tops = MarginScroll.stack(anchors: ordered.map { anchors[$0.id]! }, heights: ordered.map { cardHeight($0.id, compact: compact) })
+        for (item, y) in zip(ordered, tops) { result[item.id] = y }
         if !compact, let selected, let y = result[selected], let index = ordered.firstIndex(where: { $0.id == selected }) {
             result[selected] = max(100, min(y, viewportHeight - (heights[selected] ?? 300) - 12))
             var edge = result[selected]!
@@ -993,21 +1003,26 @@ private struct ReviewAnchorProbe: NSViewRepresentable {
     let revision: ReviewInput
     let threads: [NSRange]
     let highlighted: NSRange?
-    let onChange: ([UUID: CGFloat]) -> Void
+    let cardsBottom: CGFloat?
+    /// Anchor tops in the probe's coordinates and in the editor's document coordinates.
+    let onChange: ([UUID: CGFloat], [UUID: CGFloat]) -> Void
     let onTextRight: (CGFloat) -> Void
     func makeNSView(context: Context) -> Probe { Probe() }
     func updateNSView(_ view: Probe, context: Context) {
-        view.anchors = anchors; view.threads = threads; view.highlighted = highlighted
+        view.anchors = anchors; view.threads = threads; view.highlighted = highlighted; view.cardsBottom = cardsBottom
         view.onChange = onChange; view.onTextRight = onTextRight
         view.schedule()
     }
-    static func dismantleNSView(_ view: Probe, coordinator: ()) { view.clearHighlight() }
+    static func dismantleNSView(_ view: Probe, coordinator: ()) { view.clearHighlight(); view.releaseMarginRoom() }
     static let markedAttributes: [NSAttributedString.Key] = [.backgroundColor, .underlineStyle, .underlineColor]
     final class Probe: NSView {
         override var isFlipped: Bool { true }
         var anchors: [MarginAnchor] = []
         var threads: [NSRange] = []
         var highlighted: NSRange?
+        var cardsBottom: CGFloat?
+        private weak var roomEditor: WritingTextView?
+        func releaseMarginRoom() { roomEditor?.setMarginCardsBottom(nil); roomEditor = nil }
         private weak var markedLayout: NSLayoutManager?
         private var marked: (threads: [NSRange], highlighted: NSRange?, length: Int)?
         func clearHighlight() {
@@ -1041,11 +1056,12 @@ private struct ReviewAnchorProbe: NSViewRepresentable {
             }
             marked = wanted; markedLayout = layout
         }
-        var onChange: (([UUID: CGFloat]) -> Void)?
+        var onChange: (([UUID: CGFloat], [UUID: CGFloat]) -> Void)?
         var onTextRight: ((CGFloat) -> Void)?
         private var observers: [NSObjectProtocol] = []
         private var pending = false
         private var previous: [UUID: CGFloat] = [:]
+        private var previousDocument: [UUID: CGFloat] = [:]
         private var previousTextRight: CGFloat = 0
         override init(frame: NSRect) {
             super.init(frame: frame)
@@ -1073,14 +1089,21 @@ private struct ReviewAnchorProbe: NSViewRepresentable {
             editor.enclosingScrollView?.contentView.postsBoundsChangedNotifications = true
             layout.ensureLayout(for: container)
             mark(layout, length: (editor.string as NSString).length)
+            if roomEditor !== editor { roomEditor?.setMarginCardsBottom(nil); roomEditor = editor }
+            editor.setMarginCardsBottom(cardsBottom)
             var result: [UUID: CGFloat] = [:]
+            var document: [UUID: CGFloat] = [:]
             for comment in anchors where NSMaxRange(comment.range) <= (editor.string as NSString).length && comment.range.length > 0 {
                 let glyph = layout.glyphIndexForCharacter(at: comment.range.location)
                 let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
-                result[comment.id] = convert(NSPoint(x: line.minX + editor.textContainerOrigin.x,
-                                                     y: line.minY + editor.textContainerOrigin.y), from: editor).y
+                let origin = NSPoint(x: line.minX + editor.textContainerOrigin.x, y: line.minY + editor.textContainerOrigin.y)
+                result[comment.id] = convert(origin, from: editor).y
+                document[comment.id] = origin.y
             }
-            if result != previous { previous = result; onChange?(result) }
+            if result != previous || document != previousDocument {
+                previous = result; previousDocument = document
+                onChange?(result, document)
+            }
             let right = convert(NSPoint(x: editor.bounds.maxX - editor.textContainerInset.width, y: 0), from: editor).x
             if right != previousTextRight { previousTextRight = right; onTextRight?(right) }
         }

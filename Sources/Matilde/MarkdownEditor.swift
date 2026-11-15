@@ -394,6 +394,25 @@ final class WritingTextView: NSTextView {
                        layoutManager.extraLineFragmentRect.maxY)
         onContentHeight(ceil(used + textContainerInset.height * 2))
     }
+    /// Bottom of the lowest margin card in this view's coordinates; nil without cards.
+    private var marginCardsBottom: CGFloat?
+    /// Lets the page scroll far enough to show every margin card. The extra height is only
+    /// scroll room: the text container is unchanged, and a click there puts the caret at the end.
+    func setMarginCardsBottom(_ bottom: CGFloat?) {
+        guard bottom != marginCardsBottom else { return }
+        marginCardsBottom = bottom
+        updateMarginRoom()
+    }
+    /// Re-evaluated on scrolling, so room kept for departed cards goes once it leaves the screen.
+    func updateMarginRoom() {
+        let visibleBottom = enclosingScrollView.map { convert($0.contentView.bounds, from: $0.contentView).maxY } ?? bounds.maxY
+        // Same bottom padding as the text; contentHeight takes the larger with the text's own height.
+        let target = marginCardsBottom.map { MarginScroll.contentHeight(textHeight: 0, bottomInset: textContainerInset.height, cardsBottom: $0) } ?? 0
+        let height = MarginScroll.retainedHeight(target: target, previous: minSize.height, visibleBottom: visibleBottom)
+        guard abs(height - minSize.height) > 0.5 else { return }
+        minSize = NSSize(width: minSize.width, height: height)
+        sizeToFit()
+    }
     private(set) var headerHeight: CGFloat = 0
     private(set) var isLayingOut = false
     override func layout() {
@@ -412,6 +431,7 @@ final class WritingTextView: NSTextView {
                 headerHeight = height
                 textContainerInset = NSSize(width: 28, height: height + 20)
                 sizeToFit()
+                updateMarginRoom()
             }
         }
         super.layout()
@@ -879,6 +899,7 @@ struct MarkdownEditor: NSViewRepresentable {
         context.coordinator.view = view
         context.coordinator.scroll = scroll
         context.coordinator.observer = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: scroll.contentView, queue: .main) { [weak coordinator = context.coordinator] _ in
+            coordinator?.view?.updateMarginRoom()
             coordinator?.reportPosition()
         }
         context.coordinator.load(self, restore: true)
