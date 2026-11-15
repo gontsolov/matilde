@@ -31,7 +31,9 @@ final class MarginLayoutTests: XCTestCase {
     func testCardsAreWiderWhenThereIsRoomAndNarrowBeforeTheEditorShrinksBelowItsMinimum() {
         XCTAssertEqual(CommentMargin.cardWidth(for: 1400), CommentMargin.cardWidth)
         XCTAssertGreaterThanOrEqual(CommentMargin.cardWidth, 340)
-        XCTAssertEqual(CommentMargin.cardWidth(for: 800), CommentMargin.reservedCardWidth)
+        XCTAssertEqual(CommentMargin.cardWidth(for: 750), CommentMargin.reservedCardWidth)
+        XCTAssertEqual(CommentMargin.layout(width: 800, reserve: true).column, CommentMargin.minimumEditorWidth, accuracy: 0.5,
+                       "Between the two widths the cards take the space the editor does not need")
         for width in stride(from: CGFloat(760), through: 1000, by: 10) {
             let card = CommentMargin.cardWidth(for: width)
             XCTAssertGreaterThanOrEqual(card, CommentMargin.reservedCardWidth)
