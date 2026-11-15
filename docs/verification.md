@@ -447,3 +447,6 @@ Built in a Linux sandbox without Swift, so all checks ran on CI (macOS-15, PR #1
 ### 0.1.14 release preparation — 2026-11-15
 Owner requested "merge all and do a new release". Squash-merged PR #1 (`6674de2`, sidebar moves, folder new note, permanent search, hidden scrollbars) and PR #2 (`71395d5`, Ask Matilde guidance/toolbar/shortcut, private comments, passage-following comments) after green CI; the merged PR #2 head passed CI with 119 Swift tests (one opt-in skip) plus build, signature and packaging checks. Version set to 0.1.14 with release notes covering both. Live Mac UI checks listed under UI-13–UI-16, EDIT-22, AI-12 and AI-13 remain open.
 
+### 0.1.14 publication — 2026-11-15
+Release workflow run 43715121106 (dispatched on `main` at `189b5e0`, version 0.1.14) passed version/signing validation, tests, arm64 build, DMG packaging, Sparkle archive/feed signing and publication. GitHub Release `v0.1.14` is published as latest with `Matilde.dmg`, `appcast.xml` and `SHA256SUMS`. The latest feed reports version 0.1.14, `arm64` hardware requirements, the v0.1.14 DMG URL and an Ed25519 signature. Build remains ad-hoc signed and not Apple-notarized (DIST-02). An installed-app update from 0.1.13 was not exercised.
+
