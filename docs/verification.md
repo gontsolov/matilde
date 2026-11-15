@@ -443,3 +443,7 @@ Built in a Linux sandbox without Swift, so all checks ran on CI (macOS-15, PR #1
 - Renamed user-visible "Writing assist" to "Ask Matilde"; moved review, pause/resume and history into one toolbar control; ⇧⌘A works without a selection (current paragraph, or a review on an empty line).
 - AI and private comments now share range tracking and disappear only on full passage deletion (undo restores) or explicit deletion; title/goal changes keep them.
 - CI (macOS-15, run 43714079370): 113 Swift tests passed with one opt-in skip; app build, signature and packaging checks passed. No Mac UI session was available, so the toolbar look, menu shortcut display, error states and live edit/undo behaviour are unverified.
+
+### 0.1.14 release preparation — 2026-11-15
+Owner requested "merge all and do a new release". Squash-merged PR #1 (`6674de2`, sidebar moves, folder new note, permanent search, hidden scrollbars) and PR #2 (`71395d5`, Ask Matilde guidance/toolbar/shortcut, private comments, passage-following comments) after green CI; the merged PR #2 head passed CI with 119 Swift tests (one opt-in skip) plus build, signature and packaging checks. Version set to 0.1.14 with release notes covering both. Live Mac UI checks listed under UI-13–UI-16, EDIT-22, AI-12 and AI-13 remain open.
+
