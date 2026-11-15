@@ -298,6 +298,32 @@ final class AppModel: ObservableObject {
         let draft = try workspace.create(name: name, folder: folder, goal: goal)
         try refresh(); select(draft)
     }
+    /// Move a sidebar note (its drafts in `source`) into `folder`.
+    func moveNote(family: String, from source: String, to folder: String) {
+        guard source != folder, !isBranching, boardFlight == nil else { return }
+        attempt {
+            try flush()
+            guard let workspace else { return }
+            let note = try workspace.movableNote(family: family, folder: source)
+            guard !note.isEmpty else { return }
+            let moved = try workspace.move(note, to: folder)
+            try refresh()
+            if let active, moved[active.id] != nil, try workspace.state("untitled:\(active.id)") != "true" {
+                headerTitle = active.title
+            }
+            try comparison?.poll()
+        }
+    }
+    func newDocument(in folder: String) {
+        attempt {
+            try flush()
+            guard let workspace else { return }
+            boardVisible = false; boardFlight = nil
+            let draft = try workspace.createUntitled(folder: folder)
+            try refresh(); select(draft)
+            focusTitleID = draft.id
+        }
+    }
     func newDocument() {
         attempt {
             try flush()

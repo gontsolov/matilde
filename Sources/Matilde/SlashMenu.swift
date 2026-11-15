@@ -211,9 +211,8 @@ final class SlashMenuController: NSObject {
             }
             let scroll = NSScrollView(frame: container.bounds.insetBy(dx: inset, dy: inset))
             scroll.drawsBackground = false
-            scroll.hasVerticalScroller = true
-            scroll.scrollerStyle = .overlay
-            scroll.autohidesScrollers = true
+            scroll.hasVerticalScroller = false
+            scroll.hasHorizontalScroller = false
             scroll.documentView = stack
             container.addSubview(scroll)
             self.scroll = scroll

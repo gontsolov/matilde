@@ -25,6 +25,12 @@ info = {
     "SUAutomaticallyUpdate": False,
     "SUAllowsAutomaticUpdates": False,
     "SUSendProfileInfo": False,
+    # Private drag type for moving notes between sidebar folders.
+    "UTExportedTypeDeclarations": [{
+        "UTTypeIdentifier": "app.matilde.local.note",
+        "UTTypeDescription": "Matilde note",
+        "UTTypeConformsTo": ["public.data"],
+    }],
 }
 with Path(sys.argv[1]).open("wb") as file:
     plistlib.dump(info, file)
