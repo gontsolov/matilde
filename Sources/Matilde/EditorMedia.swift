@@ -47,6 +47,8 @@ extension Workspace {
 }
 
 struct EditorImage {
+    /// A standalone local image reference on its own line.
+    static let linePattern = "(?m)^!\\[([^\\]\\n]*)\\]\\(([^\\s)]+)\\)[ \\t]*$"
     let range: NSRange
     let image: NSImage
     let size: NSSize
@@ -57,17 +59,20 @@ extension WritingTextView {
         guard let storage = textStorage else { return }
         renderedImages = []
         let available = max(1, bounds.width - textContainerInset.width * 2 - 10)
-        for match in MarkdownStyler.matches("(?m)^!\\[([^\\]\\n]*)\\]\\(([^\\s)]+)\\)[ \\t]*$", in: string) {
+        for match in MarkdownStyler.matches(EditorImage.linePattern, in: string) {
             guard storage.attribute(.codeBlock, at: match.range.location, effectiveRange: nil) == nil else { continue }
             let reference = (string as NSString).substring(with: match.range(at: 2))
             guard let image = imageCache[reference] ?? resolveImage?(reference), image.size.width > 0, image.size.height > 0 else { continue }
             imageCache[reference] = image
             let factor = min(1, available / image.size.width, 500 / image.size.height)
             let size = NSSize(width: image.size.width * factor, height: image.size.height * factor)
-            let paragraph = NSMutableParagraphStyle()
+            // Keep the spacing the styler gave this block (Typography); only the line
+            // height changes to make room for the image.
+            let existing = storage.attribute(.paragraphStyle, at: match.range.location, effectiveRange: nil) as? NSParagraphStyle
+            let paragraph = (existing?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
             paragraph.minimumLineHeight = size.height + 12
             paragraph.maximumLineHeight = size.height + 12
-            paragraph.paragraphSpacing = 16
+            paragraph.lineSpacing = 0
             storage.addAttributes([.paragraphStyle: paragraph, .foregroundColor: NSColor.clear,
                                    .font: NSFont.systemFont(ofSize: 1)], range: match.range)
             renderedImages.append(EditorImage(range: match.range, image: image, size: size))

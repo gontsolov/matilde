@@ -71,12 +71,19 @@ enum Paper {
 enum MarkdownStyler {
     static func style(_ storage: NSMutableAttributedString, textSize: CGFloat = 19, lineSpacing: CGFloat = 9) {
         let textSize = min(26, max(16, textSize))
+        let lineSpacing = min(12, max(2, lineSpacing))
         let full = NSRange(location: 0, length: storage.length)
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = min(12, max(2, lineSpacing))
-        paragraph.paragraphSpacing = 16
-        storage.setAttributes([.font: Paper.body(textSize), .foregroundColor: Paper.ink, .paragraphStyle: paragraph], range: full)
+        // Every line gets its own paragraph style below; vertical space comes only from
+        // these styles (Typography), never from characters added to the Markdown.
+        func blockStyle(_ block: Typography.Block) -> NSMutableParagraphStyle {
+            let style = NSMutableParagraphStyle()
+            style.lineSpacing = Typography.lineSpacing(for: block, bodyLineSpacing: lineSpacing, textSize: textSize)
+            return style
+        }
+        storage.setAttributes([.font: Paper.body(textSize), .foregroundColor: Paper.ink, .paragraphStyle: blockStyle(.paragraph)], range: full)
         let source = storage.string as NSString
+        let blankHeight = Typography.blankLineHeight(textSize: textSize)
+        var lines: [(range: NSRange, block: Typography.Block?, style: NSMutableParagraphStyle)] = []
         var offset = 0
         var fence: String?
         var codeRanges: [NSRange] = []
@@ -84,38 +91,44 @@ enum MarkdownStyler {
             let length = (line as NSString).length
             let range = NSRange(location: offset, length: length)
             defer { offset += length + 1 }
-            guard length > 0 else {
-                // Keep the normal font and caret height on empty editable lines.
-                if offset < storage.length, fence == nil {
-                    let gap = NSMutableParagraphStyle()
-                    storage.addAttribute(.paragraphStyle, value: gap, range: NSRange(location: offset, length: 1))
-                }
-                continue
-            }
             let paragraphRange = NSRange(location: offset, length: min(length + 1, storage.length - offset))
             let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard fence != nil || !trimmed.isEmpty else {
+                // An empty line keeps the normal font and caret height: exactly one body line,
+                // with no spacing of its own. It counts toward the gap between its neighbours.
+                let gap = NSMutableParagraphStyle()
+                gap.minimumLineHeight = blankHeight
+                gap.maximumLineHeight = blankHeight
+                lines.append((paragraphRange, nil, gap))
+                continue
+            }
             if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
                 let marker = String(trimmed.prefix(3))
                 if fence == nil { fence = marker } else if fence == marker { fence = nil }
                 conceal(range, in: storage)
                 codeRanges.append(range)
+                lines.append((paragraphRange, .code, blockStyle(.code)))
                 continue
             }
             if fence != nil {
                 storage.addAttribute(.codeBlock, value: true, range: range)
                 storage.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: 15, weight: .regular), .backgroundColor: Paper.codeBackground], range: range)
                 codeRanges.append(range)
+                lines.append((paragraphRange, .code, blockStyle(.code)))
                 continue
             }
             if trimmed == "---" {
                 // Keep ordinary glyph metrics for caret/line placement, but draw
                 // a rule instead of the dashes. The Markdown stays untouched.
                 storage.addAttributes([.divider: true, .foregroundColor: NSColor.clear], range: range)
+                lines.append((paragraphRange, .divider, blockStyle(.divider)))
                 continue
             }
+            var block: Typography.Block = .paragraph
+            var style = blockStyle(.paragraph)
             if let marker = first("^(\\s*)([-*+] |[0-9]+[.)] )", in: line) {
-                let listStyle = paragraph.mutableCopy() as! NSMutableParagraphStyle
-                listStyle.paragraphSpacing = 6
+                block = .list
+                style = blockStyle(.list)
                 // Match the rendered marker, not an arbitrary hanging indent.
                 // Replacement glyphs and concealed task syntax change its width.
                 let font = Paper.body(textSize)
@@ -124,21 +137,25 @@ enum MarkdownStyler {
                 if first("^(\\s*)[-*+] \\[([ xX])\\] ", in: line) != nil {
                     let symbolFont = NSFont(name: "Apple Symbols", size: 23) ?? NSFont.systemFont(ofSize: 19)
                     let checked = first("^(\\s*)[-*+] \\[[xX]\\] ", in: line) != nil
-                    listStyle.headIndent = (indentation as NSString).size(withAttributes: [.font: font]).width
+                    style.headIndent = (indentation as NSString).size(withAttributes: [.font: font]).width
                         + ((checked ? "☑" : "☐") as NSString).size(withAttributes: [.font: symbolFont]).width
                         + (" " as NSString).size(withAttributes: [.font: font]).width
                 } else {
                     prefix = first("^(\\s*)[-*+] ", in: line) != nil
                         ? indentation + "• " : (line as NSString).substring(with: marker.range)
-                    listStyle.headIndent = (prefix as NSString).size(withAttributes: [.font: font]).width
+                    style.headIndent = (prefix as NSString).size(withAttributes: [.font: font]).width
                 }
-                storage.addAttribute(.paragraphStyle, value: listStyle, range: paragraphRange)
+            } else if first(EditorImage.linePattern, in: line) != nil {
+                // The image itself is laid out by styleImages, which keeps this spacing.
+                block = .image
             }
             if let match = first("^(#{1,6}) ", in: line) {
                 let level = match.range(at: 1).length
+                block = .heading(level)
+                style = blockStyle(block)
                 // Headings sit clearly below the document title (31 pt, 700) in size and weight.
-                let size: CGFloat = [27, 23, 21, 20, 19, 19][level - 1]
-                storage.addAttribute(.font, value: Paper.body(size * textSize / 19, bold: true, weight: Paper.headingWeight), range: range)
+                let size = Typography.headingSize(level: level, textSize: textSize)
+                storage.addAttribute(.font, value: Paper.body(size, bold: true, weight: Paper.headingWeight), range: range)
                 conceal(NSRange(location: offset, length: match.range.length), in: storage)
             } else if let match = first("^(\\s*)[-*+] \\[([ xX])\\] ", in: line) {
                 let start = offset + match.range(at: 1).length
@@ -152,13 +169,18 @@ enum MarkdownStyler {
             } else if let match = first("^\\s*[0-9]+[.)]", in: line) {
                 storage.addAttribute(.foregroundColor, value: Paper.muted, range: NSRange(location: offset, length: match.range.length))
             } else if let match = first("^> ?", in: line) {
+                block = .quote
+                style = blockStyle(.quote)
                 storage.addAttribute(.quoteBlock, value: true, range: paragraphRange)
-                let quoteStyle = paragraph.mutableCopy() as! NSMutableParagraphStyle
-                quoteStyle.headIndent = 24; quoteStyle.firstLineHeadIndent = 24
-                quoteStyle.paragraphSpacing = 3
-                storage.addAttribute(.paragraphStyle, value: quoteStyle, range: paragraphRange)
+                style.headIndent = 24; style.firstLineHeadIndent = 24
                 conceal(NSRange(location: offset, length: match.range.length), in: storage)
             }
+            lines.append((paragraphRange, block, style))
+        }
+        let spacings = Typography.paragraphSpacings(for: lines.map { $0.block }, textSize: textSize, blankLineHeight: blankHeight)
+        for (line, spacing) in zip(lines, spacings) where line.range.length > 0 {
+            line.style.paragraphSpacing = spacing
+            storage.addAttribute(.paragraphStyle, value: line.style, range: line.range)
         }
         // Code spans are protected from subsequent inline styling.
         matches("`([^`\\n]+)`", in: storage.string).forEach { match in
