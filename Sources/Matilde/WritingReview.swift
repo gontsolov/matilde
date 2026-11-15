@@ -15,7 +15,11 @@ struct ReviewComment: Codable, Identifiable {
     var userInitiated: Bool? = nil
     /// The passage a suggested rewrite was written for, once the writer has edited it.
     var rewriteQuote: String? = nil
+    /// Set while a suggestion or assistant reply hasn't been opened. Kept with the review in the
+    /// database, never in the Markdown; reviews saved before this existed decode as read.
+    var unread: Bool? = nil
     var range: NSRange { NSRange(location: location, length: length) }
+    var isUnread: Bool { unread == true }
 }
 
 struct WritingReview: Codable, Identifiable {
@@ -101,6 +105,8 @@ final class WritingReviewModel: ObservableObject {
     @Published private(set) var focusedCommentID: UUID?
     @Published private(set) var focusRequest = UUID()
     @Published var historyVisible = false
+    /// The thread open in the margin; replies arriving there are read right away.
+    @Published private(set) var openThreadID: UUID?
     var automaticAllowed: () -> Bool = { true }
     var reportError: (String) -> Void = { _ in }
     var automaticDelay: Duration = .seconds(30)
@@ -117,7 +123,7 @@ final class WritingReviewModel: ObservableObject {
             error = nil
             do { history = try draftID.map { try workspace?.reviewHistory(draftID: $0) ?? [] } ?? [] }
             catch { history = []; fail("Saved reviews could not be loaded.") }
-            focusedCommentID = nil
+            focusedCommentID = nil; openThreadID = nil
             for r in history.indices {
                 for c in history[r].comments.indices where history[r].comments[c].messages?.last?.delivery == "pending" {
                     var messages = history[r].comments[c].messages!
@@ -199,6 +205,7 @@ final class WritingReviewModel: ObservableObject {
                 let existing = self.history.first?.comments ?? []
                 let oldQuotes = Set(self.history.flatMap(\.comments).filter { $0.status != "stale" && input.body.contains($0.suggestion.quote) }.map { $0.suggestion.quote })
                 result.comments.removeAll { oldQuotes.contains($0.suggestion.quote) }
+                for index in result.comments.indices { result.comments[index].unread = true }
                 result.comments = existing.filter { $0.status == "open" && $0.matches(input.body) } + result.comments
                 for i in self.history.indices where !self.history[i].stale {
                     self.history[i].stale = true; self.persist(self.history[i])
@@ -287,6 +294,7 @@ final class WritingReviewModel: ObservableObject {
                 if !completed.isEmpty { completed[completed.count - 1].delivery = "sent" }
                 completed.append(ReviewMessage(role: "assistant", text: answer.answer))
                 self.history[r].comments[c].messages = completed
+                if self.openThreadID != commentID { self.history[r].comments[c].unread = true }
                 if let replacement = answer.replacement {
                     let old = self.history[r].comments[c].suggestion
                     self.history[r].comments[c].suggestion = ReviewSuggestion(quote: old.quote, prefix: old.prefix,
@@ -319,6 +327,19 @@ final class WritingReviewModel: ObservableObject {
     private func fail(_ message: String, quietly: Bool = false) {
         error = message
         if !quietly { reportError(message) }
+    }
+    /// The margin opened (or, with `nil`, closed) a thread. Opening marks it read.
+    func threadOpened(_ commentID: UUID?) {
+        openThreadID = commentID
+        if let commentID { markRead(commentID) }
+    }
+    func markRead(_ commentID: UUID) {
+        // Open threads carried into a newer review share their id with the older copy.
+        for r in history.indices {
+            guard let c = history[r].comments.firstIndex(where: { $0.id == commentID && $0.isUnread }) else { continue }
+            history[r].comments[c].unread = nil
+            persist(history[r])
+        }
     }
     func dismiss(runID: UUID, commentID: UUID) { setStatus("dismissed", runID: runID, commentID: commentID) }
     /// Explicit deletion from the side panel; the thread is removed from saved history.
@@ -375,6 +396,9 @@ struct WritingReviewPane: View {
     @FocusState private var focusedReply: UUID?
     @State private var replyText: [UUID: String] = [:]
     @State private var followers = BottomFollowers()
+    @State private var shownIDs: [UUID] = []
+    @State private var glideUntil = Date.distantPast
+    @State private var staggerUntil = Date.distantPast
     private var run: WritingReview? { review.history.first }
     var body: some View {
         if model.active != nil {
@@ -391,19 +415,39 @@ struct WritingReviewPane: View {
                                       highlighted: items.first { $0.id == (selected ?? hoveredComment) && $0.isReview }?.range,
                                       onChange: { anchors = $0 }, onTextRight: { textRight = $0 })
                         .allowsHitTesting(false)
-                    ForEach(items) { item in
-                        if let y = placed[item.id] {
-                            if compact {
-                                compactMarker(item, viewportHeight: geometry.size.height)
-                                    .offset(x: left, y: y)
-                            } else {
-                                card(item, viewportHeight: geometry.size.height)
-                                    .frame(width: cardWidth)
-                                    .offset(x: left, y: y)
+                    let shown = items.filter { placed[$0.id] != nil }.map(\.id)
+                    let staggering = Date() < staggerUntil
+                    // Neighbours glide only around cards coming and going, never on scroll or typing.
+                    let glide = !reduceMotion && !staggering && (shown != shownIDs || Date() < glideUntil)
+                    ZStack(alignment: .topLeading) {
+                        ForEach(items) { item in
+                            if let y = placed[item.id] {
+                                let delay = staggering ? Double(min(shown.firstIndex(of: item.id) ?? 0, 5)) * 0.03 : 0
+                                Group {
+                                    if compact {
+                                        compactMarker(item, viewportHeight: geometry.size.height)
+                                    } else {
+                                        card(item, viewportHeight: geometry.size.height)
+                                            .frame(width: cardWidth)
+                                    }
+                                }
+                                .transaction({ transaction in
+                                    if glide, !transaction.disablesAnimations { transaction.animation = MarginCardMotion.move }
+                                }, body: { $0.offset(x: left, y: y) })
+                                .transition(MarginCardMotion.transition(reduceMotion: reduceMotion, delay: delay))
                             }
                         }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    // A note switch swaps the whole set at once instead of animating every card out.
+                    .id(comments.draftID ?? "")
+                    .onChange(of: shown) { _, current in
+                        if !staggering { glideUntil = Date().addingTimeInterval(0.45) }
+                        shownIDs = current
+                    }
                 }
+                .onAppear { staggerUntil = Date().addingTimeInterval(0.6) }
+                .onChange(of: comments.draftID) { _, _ in staggerUntil = Date().addingTimeInterval(0.6) }
                 .onChange(of: review.focusRequest) { _, _ in
                     selected = review.focusedCommentID
                     focusedReply = review.focusedCommentID
@@ -414,6 +458,7 @@ struct WritingReviewPane: View {
                     if request.focus { DispatchQueue.main.async { if selected == request.id { focusedReply = request.id } } }
                 }
                 .onChange(of: selected) { previous, current in
+                    review.threadOpened(current.flatMap { id in run?.comments.contains { $0.id == id } == true ? id : nil })
                     if let previous, previous != current, comments.comments.contains(where: { $0.id == previous }) { comments.finishEditing(previous) }
                     if let current, comments.comments.contains(where: { $0.id == current }) { comments.activeID = current }
                 }
@@ -448,6 +493,13 @@ struct WritingReviewPane: View {
         case let .review(run, comment):
             Button { openConversation(run, comment) } label: { MatildeIcon.askMatilde.image(size: 17).padding(8) }
                 .buttonStyle(.plain).accessibilityLabel("Review: " + comment.suggestion.quote)
+                .accessibilityValue(comment.isUnread ? "Unread" : "")
+                .overlay(alignment: .topTrailing) {
+                    if comment.isUnread && selected != comment.id {
+                        UnreadDot(size: 6).padding(5).transition(.scale(scale: 0.3).combined(with: .opacity))
+                    }
+                }
+                .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(duration: 0.3, bounce: 0.2), value: comment.isUnread)
                 .background(ConversationPointer())
                 .background(Color(Paper.accent).opacity(hoveredComment == comment.id ? 0.12 : 0), in: RoundedRectangle(cornerRadius: 6))
                 .onHover { inside in hoveredComment = inside ? comment.id : nil }
@@ -479,9 +531,11 @@ struct WritingReviewPane: View {
                         VStack(alignment: .leading, spacing: 8) {
                             reviewQuote(comment.suggestion.quote, lines: 2, kind: .matilde)
                             Text(comment.messages?.last?.text ?? (comment.suggestion.explanation.isEmpty ? "Ask about this passage…" : comment.suggestion.explanation)).font(.body).lineSpacing(3).lineLimit(3)
+                                .foregroundStyle(Color(comment.isUnread ? Paper.ink : Paper.muted))
                         }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                     }.buttonStyle(.plain)
                         .background(ConversationPointer())
+                        .accessibilityValue(comment.isUnread ? "Unread" : "")
                 }
             case let .note(note):
                 if isSelected { noteEditor(note) }
@@ -509,6 +563,12 @@ struct WritingReviewPane: View {
                 .allowsHitTesting(false)
         }
         .overlay(alignment: .topTrailing) {
+            if unread(item) && !isSelected && !(hovered && archivable(item)) {
+                UnreadDot().padding(.top, 17).padding(.trailing, 16)
+                    .transition(.scale(scale: 0.3).combined(with: .opacity))
+            }
+        }
+        .overlay(alignment: .topTrailing) {
             if (hovered || isSelected) && archivable(item) {
                 Button { archive(item) } label: {
                     MatildeIcon.archive.image(size: 16).frame(width: 24, height: 24).contentShape(Rectangle())
@@ -523,6 +583,7 @@ struct WritingReviewPane: View {
         .onHover { inside in hoveredComment = inside ? id : (hoveredComment == id ? nil : hoveredComment) }
         .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.88), value: isSelected)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovered)
+        .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(duration: 0.3, bounce: 0.2), value: unread(item))
         // Streamed text grows the card without animating each new line.
         .animation(reduceMotion || review.replyingTo == id ? nil : .spring(response: 0.28, dampingFraction: 0.88), value: expandedHeights[id])
         .background(GeometryReader { card in
@@ -559,6 +620,9 @@ struct WritingReviewPane: View {
     private func closeNote(_ id: UUID) {
         if selected == id { selected = nil; focusedReply = nil }
         comments.finishEditing(id)
+    }
+    private func unread(_ item: MarginItem) -> Bool {
+        if case let .review(_, comment) = item { comment.isUnread } else { false }
     }
     private func archivable(_ item: MarginItem) -> Bool {
         switch item {
@@ -864,6 +928,41 @@ enum MarginItem: Identifiable {
         switch self { case let .review(_, comment): comment.range; case let .note(note): note.range }
     }
     var isReview: Bool { if case .review = self { true } else { false } }
+}
+
+/// A quiet accent dot on threads with something not yet read.
+struct UnreadDot: View {
+    var size: CGFloat = 7
+    var body: some View {
+        Circle().fill(Color(Paper.accent)).frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
+/// How margin cards come and go: a short, lightly bouncy spring with a small slide from the
+/// right, a slight scale and blur. Leaving is the reverse and a little quicker. Reduce Motion fades.
+struct MarginCardMotion: ViewModifier {
+    let hidden: Bool
+    let fadeOnly: Bool
+    static let entry = Animation.spring(duration: 0.3, bounce: 0.18)
+    static let exit = Animation.spring(duration: 0.22, bounce: 0)
+    static let move = Animation.spring(duration: 0.3, bounce: 0.15)
+    func body(content: Content) -> some View {
+        let moved = hidden && !fadeOnly
+        content
+            .blur(radius: moved ? 4 : 0)
+            .scaleEffect(moved ? 0.97 : 1, anchor: .topTrailing)
+            .offset(x: moved ? 7 : 0)
+            .opacity(hidden ? 0 : 1)
+    }
+    static func transition(reduceMotion: Bool, delay: Double) -> AnyTransition {
+        func motion(_ hidden: Bool) -> MarginCardMotion { MarginCardMotion(hidden: hidden, fadeOnly: reduceMotion) }
+        let insertion = AnyTransition.modifier(active: motion(true), identity: motion(false))
+            .animation((reduceMotion ? .easeOut(duration: 0.2) : entry).delay(delay))
+        let removal = AnyTransition.modifier(active: motion(true), identity: motion(false))
+            .animation(reduceMotion ? .easeOut(duration: 0.15) : exit)
+        return .asymmetric(insertion: insertion, removal: removal)
+    }
 }
 
 struct MarginAnchor: Equatable {

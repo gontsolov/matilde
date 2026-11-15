@@ -76,6 +76,8 @@ struct DraftComparisonPane: View {
     @AppStorage(SettingKeys.spellChecking) private var spellChecking = false
     var body: some View {
         VStack(spacing: 0) {
+            // Title-bar band: keeps the window draggable above the comparison controls.
+            WindowDragArea().frame(height: WindowChrome.barHeight)
             HStack {
                 Menu {
                     ForEach(model.drafts.filter { $0.id != model.active?.id }) { draft in
@@ -86,7 +88,7 @@ struct DraftComparisonPane: View {
                 Toggle("Show changes", isOn: $model.showsComparisonChanges).toggleStyle(.button)
                 Button { model.closeComparison() } label: { MatildeIcon.close.image(size: 16) }
                     .buttonStyle(.plain).accessibilityLabel("Close comparison")
-            }.padding(14)
+            }.padding(.horizontal, 14).padding(.bottom, 14)
             if let error = comparison.error {
                 Text(error).font(.callout).textSelection(.enabled).padding(.horizontal, 14)
             }
