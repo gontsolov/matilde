@@ -58,7 +58,7 @@ The visual direction is Japanese paper: restrained, tactile, and carefully detai
 - A visible branch icon beside the draft count and `⇧⌘B` create a branch. Inherit the source cursor and scroll position, then persist each draft's position independently.
 - Clicking the draft count opens a horizontal row of readable excerpts. Arrow keys highlight drafts; Return opens the highlighted draft; Escape dismisses the row. Opening or dismissing returns focus to writing. A hold-and-release shortcut remains a later experiment, not part of this implementation.
 - Show relationships between drafts on a visual canvas.
-- Snapshots live inside the workspace's hidden `.matilde` folder. Snapshot format and treatment of existing comments when branching remain open.
+- Snapshots live inside the workspace's hidden `.matilde` folder. Snapshot format remains open. The writer's own comments are copied to a new branch on the same passages and are independent from then on (EDIT-22); Ask Matilde histories start fresh on each branch.
 
 ## First usable build: agreed scope
 
