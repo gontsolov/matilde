@@ -44,7 +44,7 @@ final class AppIconTests: XCTestCase {
     }
 
     func testUnknownOrStaleValuesFallBackToTheDefault() {
-        for stale in ["", "sparkle", "Nib", "paperPlane", "matilde "] {
+        for stale in ["", "sparkle", "nib", "paper-plane", "matilde "] {
             defaults.set(stale, forKey: SettingKeys.appIcon)
             XCTAssertEqual(AppIconChoice.stored(in: defaults), .standard, "\(stale)")
         }

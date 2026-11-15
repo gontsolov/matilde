@@ -11,11 +11,11 @@ import SwiftUI
 /// default icon while Matilde isn't running.
 enum AppIconChoice: String, CaseIterable, Identifiable {
     case matilde = "matilde"
-    case nib = "nib"
-    case caret = "caret"
-    case typewriter = "typewriter"
-    case midnight = "midnight"
-    case paperPlane = "paper-plane"
+    case leather = "leather"
+    case goldFoil = "gold-foil"
+    case neon = "neon"
+    case blueprint = "blueprint"
+    case chalk = "chalk"
 
     static let standard = AppIconChoice.matilde
     var id: String { rawValue }
@@ -23,11 +23,11 @@ enum AppIconChoice: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .matilde: return "Matilde"
-        case .nib: return "Nib"
-        case .caret: return "Caret"
-        case .typewriter: return "Typewriter"
-        case .midnight: return "Midnight"
-        case .paperPlane: return "Paper Plane"
+        case .leather: return "Leather"
+        case .goldFoil: return "Gold Foil"
+        case .neon: return "Neon"
+        case .blueprint: return "Blueprint"
+        case .chalk: return "Chalk"
         }
     }
 

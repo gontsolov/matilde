@@ -3,7 +3,7 @@
 
     python3 scripts/app-icons.py                         # regenerate Resources/AppIcons/*.png
     python3 scripts/app-icons.py --sheet docs/app-icons.png
-    python3 scripts/app-icons.py --iconset nib build/Nib.iconset   # every .icns size, for iconutil
+    python3 scripts/app-icons.py --iconset leather build/Leather.iconset   # every .icns size, for iconutil
 
 The SVGs are the sources; the default icon stays assets/AppIcon.png. Choices and their order
 come from the AppIconChoice enum in Sources/Matilde/AppIcon.swift. Needs `cairosvg` and Pillow

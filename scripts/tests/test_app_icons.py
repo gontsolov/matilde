@@ -32,12 +32,20 @@ class AppIconTests(unittest.TestCase):
                 self.assertIn('viewBox="0 0 1024 1024"', svg)
                 body = re.search(r'<path id="body" d="([^"]+)"', svg).group(1)
                 numbers = [float(v) for v in re.findall(r"-?\d+(?:\.\d+)?", body)]
-                self.assertEqual((min(numbers), max(numbers)), (100, 924), "824-point body centred on the canvas")
+                self.assertEqual((min(numbers), max(numbers)), (77, 947), "the default icon's body")
                 self.assertNotIn("<image", svg, "sources stay vector")
                 self.assertNotIn("<text", svg, "letters are outlined so rendering needs no fonts")
                 title, desc = app_icons.svg_info(name)
                 self.assertTrue(title and desc)
         self.assertEqual({p.stem for p in app_icons.SVG_DIR.glob("*.svg")}, {n for _, n in self.names[1:]})
+
+    def test_alternatives_share_one_layout(self):
+        """Every alternative draws the same body and the same tilde; only materials differ."""
+        shapes = set()
+        for _, name in self.names[1:]:
+            svg = app_icons.svg_path(name).read_text()
+            shapes.add(tuple(re.search(rf'<path id="{part}" d="([^"]+)"', svg).group(1) for part in ("body", "tilde", "spine")))
+        self.assertEqual(len(shapes), 1)
 
     def test_every_choice_is_bundled_as_a_512_px_rgba_png(self):
         self.assertEqual({p.stem for p in app_icons.PNG_DIR.glob("*.png")}, {n for _, n in self.names})
