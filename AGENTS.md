@@ -2,7 +2,7 @@
 
 ## Product and collaboration
 
-Matilde (also called Tilde during naming) is a native macOS writing app. The priority is an excellent, quiet writing experience with independently editable alternate drafts. AI will support writing later; it is not the center of the product.
+Matilde (also called Tilde during naming) is a native macOS writing app. The priority is an excellent, quiet writing experience with independently editable alternate drafts. AI (Ask Matilde) supports the writing; it is not the center of the product.
 
 - Carry requested changes through implementation and appropriate verification. The owner prefers action over repeated permission requests for routine, reversible work.
 - Routine commits and pushes are authorized. **Do not publish a release, push a version tag, dispatch the Release workflow, or bump versions merely because a change is complete. Release only when the owner explicitly asks.** Normal main pushes run CI only.
@@ -26,7 +26,7 @@ Matilde (also called Tilde during naming) is a native macOS writing app. The pri
 - Japanese paper feeling: warm ivory, muted olive-gray text, restrained brown accents, tactile details, generous writing space. Keep navigation compact and quiet.
 - Bundled **Newsreader** Roman and Italic variable fonts for document titles, writing, and Markdown headings. Use system typography for controls. Font files and the SIL Open Font License are in `Sources/Matilde/Resources/Fonts/`; no runtime font download.
 - Interface icons are Tabler Icons (outline, redrawn at a 1.5 stroke; filled only for state or solid composer actions), all named in the `MatildeIcon` enum. Use `MatildeIcon.x.image(size:)`/`nsImage(size:)` rather than `Image(systemName:)`; SF Symbols remain only on native menu items. To add or change an icon, edit the enum's raw value and run `python3 scripts/tabler-icons.py` (pinned Tabler release, needs `cairosvg`), then commit the SVG and generated PDF.
-- Sidebar document rows use two lines at approximately 53 points: title above a 12-point relative edited timestamp and optional main-document goal. Document/branch rows have no icons; branches omit goals and use indentation with a subtle continuous vertical guide below the parent. Folder controls remain compact, with an 18-point icon column, subtle hover/selection, a hover `+` that creates a note in that folder, and collapsible folders. Folder expansion is currently session-only. The sidebar has no title header: a permanent search field sits at the top; the workspace dropdown was deliberately removed. Notes move between folders by dragging rows onto folders (`NoteMove.swift`); moves keep draft IDs/metadata, never overwrite files and copy referenced `.assets` images. Scrollbars are hidden everywhere; keep new scroll views indicator-free.
+- The sidebar shows one two-line row per draft family: the family title with a quiet branch icon and alternate-draft count, above the main document's goal (or “No goal set”) and a 12-point relative edited timestamp. Branches have no rows of their own; the draft switcher above the title and the board choose between them. Folder controls remain compact, with an 18-point icon column, subtle hover/selection, a hover `+` that creates a note in that folder, and collapsible folders. Folder expansion is currently session-only. The sidebar has no title header: a permanent search field sits at the top; the workspace dropdown was deliberately removed. Notes move between folders by dragging rows onto folders (`NoteMove.swift`); moves keep draft IDs/metadata, never overwrite files and copy referenced `.assets` images. Scrollbars are hidden everywhere; keep new scroll views indicator-free.
 - Markdown renders live, with syntax concealed during normal editing. The owner explicitly dislikes Bear's visible formatting symbols. Preserve the underlying Markdown losslessly.
 - New Document creates a unique `Untitled.md` immediately, with no dialog. Focus the inline title, styled as a heading. The optional goal sits underneath as paragraph text with a flag icon. Both remain editable; changing the title renames the file without overwriting existing files.
 - Title, goal, and draft controls scroll with the body in one native scroll view. Show a compact toolbar title after the header leaves view; restore this state from the saved scroll offset. The SwiftUI header is hosted inside the AppKit writing view and exposed as an accessibility child.
@@ -146,7 +146,9 @@ The build script assembles `build/Matilde.app`, bundles fonts, interface icons, 
 
 ## Further context
 
-- `docs/architecture.md`: product decisions and deferred AI design.
+- `docs/architecture.md`: product decisions and AI design history.
+- `docs/langdock-integration.md`: Ask Matilde behavior, context boundary and verification.
+- `docs/stash.md`: stash design and refinements.
 - `docs/canvas-followup.md`: implemented canvas behavior and remaining interaction work.
 - `docs/releases.md`: release commands, signing setup, optional notarization, and verification.
 - `docs/verification.md`: chronological checks, fixes, and limitations.

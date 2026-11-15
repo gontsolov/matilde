@@ -8,13 +8,23 @@ Version 0.1.9 and later support Apple silicon only. [Version 0.1.8](https://gith
 
 Open the DMG and drag Matilde into Applications. Early builds are not Apple-notarized; macOS may block first launch. See [installation and release notes](docs/releases.md). Once installed, use **Matilde → Check for Updates…** for new versions.
 
-The first local build uses SwiftUI, an AppKit Markdown editor, and SQLite. AI is deferred; the first draft canvas is implemented.
+## Features
 
-Build the app with `bash scripts/build-app.sh`, then open `build/Matilde.app`. Requires Xcode with Swift 6; the current build has been compiled on macOS 26.
+- Live-rendered Markdown with the syntax hidden while you write; files stay plain `.md`.
+- Alternate drafts: branch a document (⇧⌘B), switch drafts above the title, see a family on the draft board (⌘0), and compare two drafts side by side with both editable.
+- Stash (⇧⌘J): a shared Markdown scratchpad for each draft family, opened from the toolbar.
+- Private highlight comments (⇧⌘K) in the right margin. They follow their passages and never change your Markdown.
+- Ask Matilde (⇧⌘A): optional feedback and conversations about the selection or current paragraph through the Langdock API, with your own key in Keychain. Guidance is editable in Settings → Ask Matilde. Suggested rewrites apply only when you accept them.
+- Sidebar with always-visible search, folders and drag-and-drop between folders.
+- Tabler interface icons and bundled Newsreader type.
+
+Matilde is built with SwiftUI, an AppKit Markdown editor, SceneKit and SQLite.
+
+Build the app with `bash scripts/build-app.sh`, then open `build/Matilde.app`. Requires an Apple silicon Mac with Xcode and Swift 6; CI builds on macOS 15.
 
 On first launch, **Start writing** creates or reuses `Documents/Matilde`. **Choose another folder** selects a custom workspace. Matilde remembers your workspace and editing state afterward.
 
-Documents and branches are ordinary Markdown files. Goals, draft relationships, session state, and branching snapshots live in the workspace's hidden `.matilde` folder.
+Documents and branches are ordinary Markdown files. Goals, draft relationships, comments, stashes, session state, and branching snapshots live in the workspace's hidden `.matilde` folder.
 
 See [the product and architecture notes](docs/architecture.md) for agreed decisions, deferred features, and open questions.
 

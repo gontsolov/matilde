@@ -1,6 +1,6 @@
-# Langdock writing guidance
+# Ask Matilde: Langdock integration
 
-Updated 2026-09-14. Initial manual integration implemented at the owner's request. Backlog: AI-01 through AI-04 in ROADMAP.md.
+Updated 2026-11-15. Ask Matilde (formerly Writing assist) was implemented at the owner's request. Backlog: AI-01 through AI-04 in ROADMAP.md.
 
 ## Available experience
 
@@ -16,7 +16,7 @@ The native URLSession client uses Bearer authentication with `POST /openai/{regi
 
 The request uses JSON mode (`response_format: {"type":"json_object"}`), not strict API-enforced JSON Schema. Local decoding checks completion status, bounded fields, comment count and anchors before presenting results. JSON-mode review replies have been verified with the configured model; compatibility across other models remains unverified. Requests have timeouts, cancellation, a bounded response size and one bounded retry on rate limiting. Upstream response bodies and keys are excluded from errors.
 
-Reviews supply the active draft title, goal and body. Replies also supply the relevant comment, the new question and up to twelve prior thread messages, with the same image/path redaction. Stash, other drafts and image files are excluded; Markdown image references and recognized absolute local paths are scrubbed. This is a defined context boundary, not a general-purpose secret detector. The writing is treated as untrusted review material. Credentials remain in Keychain and, after successful access, in a process-only cache shared by requests; save/remove refreshes that cache. No credential is written to settings or disk outside Keychain. Ad-hoc rebuilt binaries can still require authorization on first access because their designated requirements change; stable Developer ID signing is a separate follow-up. reviews remain locally persisted. The Connections screen explains what is sent.
+Reviews supply the active draft title, goal and body. Replies also supply the relevant comment, the new question and up to twelve prior thread messages, with the same image/path redaction. Stash, other drafts and image files are excluded; Markdown image references and recognized absolute local paths are scrubbed. This is a defined context boundary, not a general-purpose secret detector. The writing is treated as untrusted review material. Credentials remain in Keychain and, after successful access, in a process-only cache shared by requests; save/remove refreshes that cache. No credential is written to settings or disk outside Keychain. Ad-hoc rebuilt binaries can still require authorization on first access because their designated requirements change; stable Developer ID signing is a separate follow-up. Reviews remain locally persisted. The Connections screen explains what is sent.
 
 ## Automatic reviews and replies
 

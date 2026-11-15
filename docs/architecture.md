@@ -23,7 +23,7 @@ The visual direction is Japanese paper: restrained, tactile, and carefully detai
 - Include a focus mode that hides the sidebar for uninterrupted writing.
 - Keep the interface minimal and native: standard macOS toolbar, system typography for controls, Newsreader for document titles and writing, and short functional labels without slogans. Edit the title and goal directly on the page; show a flag icon beside the goal.
 - Use bundled Newsreader from Google Fonts for writing and Markdown headings, including bold and italic. Controls retain native system typography; document titles use the same Newsreader styling as Markdown headings. Font files and the SIL Open Font License ship with the app; no runtime font download is needed.
-- Sidebar direction follows the supplied Linear reference: 30-point rows, consistent Tabler icons in an 18-point icon column, subtle selection and hover backgrounds, a permanent search field at the top (the title header and workspace menu were removed), collapsible folder groups with a hover new-note button, and drag-and-drop moves between folders. Retain the light paper palette. Folder collapse state is currently session-only.
+- Sidebar direction follows the supplied Linear reference: 30-point folder rows, two-line document-family rows, consistent Tabler icons in an 18-point icon column, subtle selection and hover backgrounds, a permanent search field at the top (the title header and workspace menu were removed), collapsible folder groups with a hover new-note button, and drag-and-drop moves between folders. Retain the light paper palette. Folder collapse state is currently session-only.
 
 ### Workspace and persistence
 
@@ -78,9 +78,9 @@ The user wants to zoom out to see multiple drafts, then zoom into one to write. 
 
 The first canvas is now implemented for the current draft family with automatic persisted positions, saved viewport, pinned previews, connectors, and editor/board transitions. See the follow-up document for controls, current limits, and pending visual verification. The earlier v1 deferral above records the initial build scope.
 
-## AI: initial manual integration
+## AI: Ask Matilde
 
-The owner authorized the first Langdock integration on 2026-09-14. Manual review, a feedback panel with optional accepted rewrites, Keychain credentials and independent per-draft SQLite history are implemented. Automatic reviews, replies and naming remain future work.
+The owner authorized the first Langdock integration on 2026-09-14. Manual review, a feedback panel with optional accepted rewrites, Keychain credentials and independent per-draft SQLite history were implemented first. Automatic reviews, pause/resume, replies, questions about selected text and editable guidance followed; the feature was renamed from Writing assist to Ask Matilde. Follow-up directions and naming remain future work. Current behavior is in [Langdock integration](langdock-integration.md).
 
 Future direction:
 
@@ -128,9 +128,9 @@ Appearance (2026-09-14): General settings offers System (default), Light, and Da
 
 Compare Side by Side opens another document or draft in a native resizable split, available from the document menu and draft/sidebar/canvas context menus. The main AppModel keeps workspace navigation; DraftComparison owns the other draft’s body buffer, cursor/scroll and autosave. Each MarkdownEditor coordinator supplies its own undo manager. Selecting the comparison draft in the main editor closes the duplicate pane after saving. Switching comparison/workspace, closing the pane and quitting flush both buffers. External changes preserve dirty comparison text in recovery before reload; missing files block save rather than being recreated.
 
-The comparison body is editable; its title and goal are displayed as context. The comparison selector can switch drafts. Comparison selection is currently session-only, with independent scrolling; separate windows and synchronized scrolling are not implemented.
+The comparison body is editable; its title and goal are displayed as context. The comparison selector can switch drafts. Comparison selection and divider proportion persist per workspace (see below), with independent scrolling; separate windows and synchronized scrolling are not implemented.
 
-## Writing assist and comparison follow-up — 2026-09-14
+## Writing assist (now Ask Matilde) and comparison follow-up — 2026-09-14
 
 The authorized follow-up adds passage tracking, persisted replies, automatic reviews after thirty seconds of meaningful-edit inactivity, and pause/resume. See `langdock-integration.md` for context boundaries and verification. Rewrites require explicit acceptance. Title/goal edits invalidate context; body edits preserve unaffected exact quotes.
 
