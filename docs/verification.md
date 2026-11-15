@@ -456,3 +456,6 @@ Release run 43715121106 and CI runs 43715288846/43714955252 carried the Node.js 
 
 ### 0.1.15 release preparation — 2026-11-15
 Owner requested a new release after merging PR #4 (`be46e7c`, margin comments), PR #5 (`ad235ca`, spell-check crash fix and spelling markers) and PR #6 (`0e2c6f4`, centered layout, card cleanup, Stash in toolbar, branch naming). PR #5 and the merged PR #6 head passed CI (macOS-15) with build, signature and packaging checks; locally 122 Swift tests passed with one opt-in skip using a Swift 5.9 shim (3 pasteboard tests excluded by the sandbox). Version set to 0.1.15 with release notes. Live Mac UI checks for EDIT-22–EDIT-24 and UI-07 remain open.
+
+### 0.1.15 publication — 2026-11-15
+Release workflow run 43725499642 (dispatched on `main` at `20a6989`, version 0.1.15) passed version/signing validation, tests, arm64 build, DMG packaging, Sparkle archive/feed signing and publication; this was also the first Release run with the Node 24 checkout/upload-artifact actions (DIST-05). GitHub Release `v0.1.15` is published as latest with `Matilde.dmg`, `appcast.xml` and `SHA256SUMS`; the latest feed reports version 0.1.15 with `arm64` hardware requirements. Build remains ad-hoc signed and not Apple-notarized (DIST-02). An installed-app update from 0.1.14 was not exercised.
