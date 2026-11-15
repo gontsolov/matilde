@@ -539,7 +539,7 @@ struct WritingReviewPane: View {
                     .lineLimit(1...10).textFieldStyle(.plain).composerText()
                     .foregroundStyle(Color(Paper.ink))
                     .focused($focusedReply, equals: note.id)
-                    .onSubmit { closeNote(note.id) }
+                    .onSubmit { ComposerReturn.handle { closeNote(note.id) } }
                     .accessibilityLabel("Comment")
                 Button { closeNote(note.id) } label: { MatildeIcon.done.image(size: 20).composerButton() }
                     .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(empty ? 0.35 : 1))
@@ -699,7 +699,7 @@ struct WritingReviewPane: View {
                                         DispatchQueue.main.async { if selected == comment.id { focusedReply = comment.id } }
                                     }
                                 }
-                                .onSubmit { sendReply(run, comment) }
+                                .onSubmit { ComposerReturn.handle { sendReply(run, comment) } }
                             if review.replyingTo == comment.id {
                                 Button { review.cancel() } label: { MatildeIcon.stopReply.image(size: 20).composerButton() }
                                     .buttonStyle(.plain).foregroundStyle(Color(Paper.accent))

@@ -123,3 +123,27 @@ extension View {
         frame(width: 24, height: 24).contentShape(Circle())
     }
 }
+
+/// What Return does in a reply or comment composer: plain ↩ (or ⌘↩) sends, ⇧↩, ⌥↩ and ⌃↩ add
+/// a line, and while an input method is composing, Return only confirms the composition.
+enum ComposerReturn: Equatable {
+    case send, newline
+
+    static func action(modifiers: NSEvent.ModifierFlags, composing: Bool) -> ComposerReturn? {
+        guard !composing else { return nil }
+        let held = modifiers.intersection([.shift, .option, .control, .command])
+        return held.isDisjoint(with: [.shift, .option, .control]) ? .send : .newline
+    }
+
+    /// Call from a composer's `onSubmit`; SwiftUI submits on every Return, whatever the modifiers.
+    @MainActor static func handle(send: () -> Void) {
+        let editor = NSApp.keyWindow?.firstResponder as? NSTextView
+        let event = NSApp.currentEvent
+        let modifiers = event?.type == .keyDown ? event?.modifierFlags ?? [] : []
+        switch action(modifiers: modifiers, composing: editor?.hasMarkedText() ?? false) {
+        case .send: send()
+        case .newline: editor?.insertNewlineIgnoringFieldEditor(nil)
+        case nil: break
+        }
+    }
+}

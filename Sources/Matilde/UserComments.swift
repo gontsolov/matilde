@@ -564,7 +564,7 @@ private struct UserCommentEditor: View {
                         .lineLimit(1...10).textFieldStyle(.plain).composerText()
                         .foregroundStyle(Color(Paper.ink))
                         .focused($focused)
-                        .onSubmit { onDone() }
+                        .onSubmit { ComposerReturn.handle { onDone() } }
                         .accessibilityLabel("Comment")
                     Button { onDone() } label: { MatildeIcon.done.image(size: 20).composerButton() }
                         .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.35 : 1))

@@ -71,4 +71,16 @@ final class ThreadChatTests: XCTestCase {
         XCTAssertTrue(ThreadSpeaker.showsAssistantLabel(at: 0, roles: ["assistant"]))
         XCTAssertFalse(ThreadSpeaker.showsAssistantLabel(at: 3, roles: ["assistant"]))
     }
+
+    func testReturnSendsAndModifiedReturnAddsALine() {
+        XCTAssertEqual(ComposerReturn.action(modifiers: [], composing: false), .send)
+        XCTAssertEqual(ComposerReturn.action(modifiers: [.command], composing: false), .send)
+        XCTAssertEqual(ComposerReturn.action(modifiers: [.capsLock, .numericPad], composing: false), .send, "Unrelated flags still send")
+        XCTAssertEqual(ComposerReturn.action(modifiers: [.shift], composing: false), .newline)
+        XCTAssertEqual(ComposerReturn.action(modifiers: [.option], composing: false), .newline)
+        XCTAssertEqual(ComposerReturn.action(modifiers: [.control], composing: false), .newline)
+        XCTAssertEqual(ComposerReturn.action(modifiers: [.shift, .command], composing: false), .newline)
+        XCTAssertNil(ComposerReturn.action(modifiers: [], composing: true), "Return confirms an input method's composition")
+        XCTAssertNil(ComposerReturn.action(modifiers: [.shift], composing: true))
+    }
 }
