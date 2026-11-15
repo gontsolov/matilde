@@ -364,12 +364,14 @@ final class WritingReviewModel: ObservableObject {
 struct WritingReviewPane: View {
     @ObservedObject var model: AppModel
     @ObservedObject var review: WritingReviewModel
+    @ObservedObject var comments: UserCommentStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredComment: UUID?
     @State private var anchors: [UUID: CGFloat] = [:]
     @State private var selected: UUID?
     @State private var heights: [UUID: CGFloat] = [:]
     @State private var expandedHeights: [UUID: CGFloat] = [:]
+    @State private var footerHeights: [UUID: CGFloat] = [:]
     @FocusState private var focusedReply: UUID?
     @State private var replyText: [UUID: String] = [:]
     private var run: WritingReview? { review.history.first }
@@ -378,66 +380,24 @@ struct WritingReviewPane: View {
             GeometryReader { geometry in
                 let available = geometry.size.width - textRight - 28
                 let compact = available < 240
-                let cardWidth: CGFloat = compact ? 40 : min(340, available)
+                let cardWidth: CGFloat = compact ? 40 : min(CommentMargin.cardWidth, available)
                 let left = min(textRight + 16, geometry.size.width - cardWidth - 12)
+                let items = marginItems
+                let placed = positions(items, compact: compact, viewportHeight: geometry.size.height)
                 ZStack(alignment: .topLeading) {
-                    ReviewAnchorProbe(comments: run?.comments ?? [], revision: model.reviewInput,
-                                      highlightedID: run?.stale == false ? selected : nil,
+                    ReviewAnchorProbe(anchors: items.map { MarginAnchor(id: $0.id, range: $0.range) }, revision: model.reviewInput,
+                                      highlighted: items.first { $0.id == selected && $0.isReview }?.range,
                                       onChange: { anchors = $0 }, onTextRight: { textRight = $0 })
                         .allowsHitTesting(false)
-                    if let run, !run.stale {
-                        ForEach(run.comments.filter { $0.status == "open" }) { comment in
-                            if let y = positions(compact: compact, viewportHeight: geometry.size.height)[comment.id] {
-                                if compact {
-                                    Button {
-                                        openConversation(run, comment)
-                                    } label: { Image(systemName: "text.bubble.fill").padding(8) }
-                                        .buttonStyle(.plain).accessibilityLabel("Review: " + comment.suggestion.quote)
-                                        .background(ConversationPointer())
-                                        .background(Color(Paper.accent).opacity(hoveredComment == comment.id ? 0.12 : 0), in: RoundedRectangle(cornerRadius: 6))
-                                        .onHover { inside in hoveredComment = inside ? comment.id : nil }
-                                        .popover(isPresented: Binding(get: { selected == comment.id }, set: { if !$0 { selected = nil } })) {
-                                            threadView(run, comment, height: min(500, max(220, geometry.size.height - 80)))
-                                                .padding(12).frame(width: 340)
-                                        }
-                                        .offset(x: left, y: y)
-                                } else {
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        if selected == comment.id {
-                                            threadView(run, comment, height: min((expandedHeights[comment.id] ?? 150) + 120, min(420, max(180, geometry.size.height - 160))))
-                                        } else {
-                                            Button {
-                                                openConversation(run, comment)
-                                            } label: {
-                                                VStack(alignment: .leading, spacing: 8) {
-                                                    reviewQuote(comment.suggestion.quote, lines: 2)
-                                                    Text(comment.messages?.last?.text ?? (comment.suggestion.explanation.isEmpty ? "Ask about this passage…" : comment.suggestion.explanation)).font(.body).lineSpacing(3).lineLimit(3)
-                                                }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                                            }.buttonStyle(.plain)
-                                                .background(ConversationPointer())
-                                        }
-                                    }
-                                    .frame(width: cardWidth)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    .background(Color(Paper.background), in: RoundedRectangle(cornerRadius: 12))
-                                    .overlay {
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color(Paper.accent).opacity(selected == comment.id ? 0.025 : hoveredComment == comment.id ? 0.045 : 0))
-                                            .allowsHitTesting(false)
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .strokeBorder(selected == comment.id ? Color(Paper.accent).opacity(0.6) : Color(Paper.ink).opacity(hoveredComment == comment.id ? 0.28 : 0.16), lineWidth: selected == comment.id ? 1.5 : 1)
-                                            .allowsHitTesting(false)
-                                    }
-                                    .shadow(color: .black.opacity(selected == comment.id ? 0.10 : hoveredComment == comment.id ? 0.08 : 0.04), radius: selected == comment.id ? 10 : 7, y: 3)
-                                    .onHover { inside in hoveredComment = inside ? comment.id : (hoveredComment == comment.id ? nil : hoveredComment) }
-                                    .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.88), value: selected == comment.id)
-                                    .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hoveredComment == comment.id)
-                                    .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.88), value: expandedHeights[comment.id])
-                                    .background(GeometryReader { card in
-                                        Color.clear.preference(key: ReviewCardHeights.self, value: [comment.id: card.size.height])
-                                    })
+                    ForEach(items) { item in
+                        if let y = placed[item.id] {
+                            if compact {
+                                compactMarker(item, viewportHeight: geometry.size.height)
                                     .offset(x: left, y: y)
-                                }
+                            } else {
+                                card(item, viewportHeight: geometry.size.height)
+                                    .frame(width: cardWidth)
+                                    .offset(x: left, y: y)
                             }
                         }
                     }
@@ -446,6 +406,15 @@ struct WritingReviewPane: View {
                     selected = review.focusedCommentID
                     focusedReply = review.focusedCommentID
                 }
+                .onChange(of: comments.marginRequest) { _, request in
+                    guard let request else { return }
+                    selected = request.id
+                    if request.focus { DispatchQueue.main.async { if selected == request.id { focusedReply = request.id } } }
+                }
+                .onChange(of: selected) { previous, current in
+                    if let previous, previous != current, comments.comments.contains(where: { $0.id == previous }) { comments.finishEditing(previous) }
+                    if let current, comments.comments.contains(where: { $0.id == current }) { comments.activeID = current }
+                }
                 .onChange(of: review.history.first?.comments.flatMap { $0.messages ?? [] }.count) { _, _ in
                     for comment in run?.comments ?? [] {
                         if let sent = comment.messages?.last(where: { $0.role == "user" }), sent.text == replyText[comment.id]?.trimmingCharacters(in: .whitespacesAndNewlines) { replyText[comment.id] = "" }
@@ -453,6 +422,7 @@ struct WritingReviewPane: View {
                 }
                 .onPreferenceChange(ReviewCardHeights.self) { heights = $0 }
                 .onPreferenceChange(ReviewExpandedHeights.self) { expandedHeights = $0 }
+                .onPreferenceChange(ReviewFooterHeights.self) { footerHeights = $0 }
                 .clipped()
             }
             .opacity(model.boardVisible || model.isBranching || model.boardFlight != nil ? 0 : 1)
@@ -469,45 +439,156 @@ struct WritingReviewPane: View {
         }
     }
     @State private var textRight: CGFloat = 736
+    /// Ask Matilde threads and private comments, in passage order, shown together in the margin.
+    private var marginItems: [MarginItem] {
+        var items: [MarginItem] = []
+        if let run, !run.stale { items += run.comments.filter { $0.status == "open" }.map { .review(run, $0) } }
+        items += comments.comments.filter { $0.attached && (!$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.id == selected) }.map { .note($0) }
+        return items.sorted { $0.range.location < $1.range.location }
+    }
+    @ViewBuilder private func compactMarker(_ item: MarginItem, viewportHeight: CGFloat) -> some View {
+        switch item {
+        case let .review(run, comment):
+            Button { openConversation(run, comment) } label: { Image(systemName: "text.bubble.fill").padding(8) }
+                .buttonStyle(.plain).accessibilityLabel("Review: " + comment.suggestion.quote)
+                .background(ConversationPointer())
+                .background(Color(Paper.accent).opacity(hoveredComment == comment.id ? 0.12 : 0), in: RoundedRectangle(cornerRadius: 6))
+                .onHover { inside in hoveredComment = inside ? comment.id : nil }
+                .popover(isPresented: Binding(get: { selected == comment.id }, set: { if !$0 { selected = nil } })) {
+                    threadView(run, comment, maxHeight: min(460, max(200, viewportHeight - 80)))
+                        .frame(width: CommentMargin.cardWidth)
+                        .background(PopoverPaperBackground())
+                }
+        case let .note(note):
+            // Narrow windows keep the editor's own popover, anchored to the highlighted passage.
+            Button { withEditor { $0.showCommentPopover(note.id, focus: true) } } label: { Image(systemName: "note.text").padding(8) }
+                .buttonStyle(.plain).foregroundStyle(Color(Paper.muted)).accessibilityLabel("Comment: " + note.text)
+                .background(ConversationPointer())
+                .background(Color(Paper.accent).opacity(hoveredComment == note.id ? 0.12 : 0), in: RoundedRectangle(cornerRadius: 6))
+                .onHover { inside in hoveredComment = inside ? note.id : nil }
+        }
+    }
+    private func card(_ item: MarginItem, viewportHeight: CGFloat) -> some View {
+        let id = item.id
+        let isSelected = selected == id
+        let hovered = hoveredComment == id
+        return VStack(alignment: .leading, spacing: 0) {
+            switch item {
+            case let .review(run, comment):
+                if isSelected {
+                    threadView(run, comment, maxHeight: min(420, max(180, viewportHeight - 160)))
+                } else {
+                    Button { openConversation(run, comment) } label: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            reviewQuote(comment.suggestion.quote, lines: 2)
+                            Text(comment.messages?.last?.text ?? (comment.suggestion.explanation.isEmpty ? "Ask about this passage…" : comment.suggestion.explanation)).font(.body).lineSpacing(3).lineLimit(3)
+                        }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    }.buttonStyle(.plain)
+                        .background(ConversationPointer())
+                }
+            case let .note(note):
+                if isSelected { noteEditor(note) }
+                else {
+                    Button { openNote(note) } label: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            reviewQuote(note.quote, lines: 2)
+                            Text(note.text).font(.body).lineSpacing(3).lineLimit(4)
+                                .foregroundStyle(Color(Paper.ink))
+                        }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    }.buttonStyle(.plain)
+                        .background(ConversationPointer())
+                        .accessibilityLabel("Comment: " + note.text)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(Color(Paper.background), in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(Paper.accent).opacity(isSelected ? 0.025 : hovered ? 0.045 : 0))
+                .allowsHitTesting(false)
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(isSelected ? Color(Paper.accent).opacity(0.6) : Color(Paper.ink).opacity(hovered ? 0.28 : 0.16), lineWidth: isSelected ? 1.5 : 1)
+                .allowsHitTesting(false)
+        }
+        .shadow(color: .black.opacity(isSelected ? 0.10 : hovered ? 0.08 : 0.04), radius: isSelected ? 10 : 7, y: 3)
+        .onHover { inside in hoveredComment = inside ? id : (hoveredComment == id ? nil : hoveredComment) }
+        .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.88), value: isSelected)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovered)
+        .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.88), value: expandedHeights[id])
+        .background(GeometryReader { card in
+            Color.clear.preference(key: ReviewCardHeights.self, value: [id: card.size.height])
+        })
+    }
+    private func noteEditor(_ note: UserComment) -> some View {
+        let empty = note.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return VStack(alignment: .leading, spacing: 12) {
+            reviewQuote(note.quote, lines: 3)
+            HStack(alignment: .bottom, spacing: 6) {
+                HStack(alignment: .bottom, spacing: 6) {
+                    TextField("Add a note…", text: Binding(get: { comments.comments.first { $0.id == note.id }?.text ?? "" },
+                                                          set: { comments.update(note.id, text: $0) }), axis: .vertical)
+                        .lineLimit(1...10).textFieldStyle(.plain).font(.body)
+                        .foregroundStyle(Color(Paper.ink))
+                        .focused($focusedReply, equals: note.id)
+                        .onSubmit { closeNote(note.id) }
+                        .accessibilityLabel("Comment")
+                    Button { closeNote(note.id) } label: { Image(systemName: "checkmark.circle.fill").font(.system(size: 17)) }
+                        .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(empty ? 0.35 : 1))
+                        .help("Done").accessibilityLabel("Done")
+                }
+                .composerField()
+                Button { deleteNote(note.id) } label: { Image(systemName: "trash").font(.system(size: 13)) }
+                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                    .frame(width: 22, height: 28)
+                    .help("Delete comment").accessibilityLabel("Delete comment")
+            }
+        }
+        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+        .background(ConversationFocusBoundary { if selected == note.id { closeNote(note.id) } })
+    }
+    private func openNote(_ note: UserComment) {
+        selected = note.id
+        hoveredComment = nil
+        DispatchQueue.main.async { if selected == note.id { focusedReply = note.id } }
+    }
+    private func closeNote(_ id: UUID) {
+        if selected == id { selected = nil; focusedReply = nil }
+        comments.finishEditing(id)
+    }
+    private func deleteNote(_ id: UUID) {
+        if selected == id { selected = nil; focusedReply = nil }
+        comments.remove(id)
+    }
     private func single(_ run: WritingReview, _ comment: ReviewComment) -> WritingReview {
         WritingReview(id: run.id, draftID: run.draftID, created: run.created, model: run.model,
                       revision: run.revision, stale: run.stale, comments: [comment])
     }
-    private func positions(compact: Bool, viewportHeight: CGFloat) -> [UUID: CGFloat] {
+    private func positions(_ items: [MarginItem], compact: Bool, viewportHeight: CGFloat) -> [UUID: CGFloat] {
         var result: [UUID: CGFloat] = [:]
         var bottom: CGFloat = -.infinity
-        for comment in (run?.comments ?? []).filter({ $0.status == "open" }).sorted(by: { $0.location < $1.location }) {
-            guard let anchor = anchors[comment.id] else { continue }
-            let y = max(anchor, bottom + 12)
-            result[comment.id] = y
-            bottom = y + (compact ? 36 : heights[comment.id] ?? 120)
+        let ordered = items.filter { anchors[$0.id] != nil }
+        for item in ordered {
+            let y = max(anchors[item.id]!, bottom + 12)
+            result[item.id] = y
+            bottom = y + (compact ? 36 : heights[item.id] ?? 120)
         }
-        if !compact, let selected, let y = result[selected] {
-            let ordered = (run?.comments ?? []).filter { result[$0.id] != nil }.sorted { $0.location < $1.location }
-            if let index = ordered.firstIndex(where: { $0.id == selected }) {
-                result[selected] = max(100, min(y, viewportHeight - (heights[selected] ?? 300) - 12))
-                var edge = result[selected]!
-                for comment in ordered.prefix(index).reversed() {
-                    result[comment.id] = min(result[comment.id]!, edge - (heights[comment.id] ?? 120) - 12)
-                    edge = result[comment.id]!
-                }
-                edge = result[selected]! + (heights[selected] ?? 300)
-                for comment in ordered.dropFirst(index + 1) {
-                    result[comment.id] = max(result[comment.id]!, edge + 12)
-                    edge = result[comment.id]! + (heights[comment.id] ?? 120)
-                }
+        if !compact, let selected, let y = result[selected], let index = ordered.firstIndex(where: { $0.id == selected }) {
+            result[selected] = max(100, min(y, viewportHeight - (heights[selected] ?? 300) - 12))
+            var edge = result[selected]!
+            for item in ordered.prefix(index).reversed() {
+                result[item.id] = min(result[item.id]!, edge - (heights[item.id] ?? 120) - 12)
+                edge = result[item.id]!
+            }
+            edge = result[selected]! + (heights[selected] ?? 300)
+            for item in ordered.dropFirst(index + 1) {
+                result[item.id] = max(result[item.id]!, edge + 12)
+                edge = result[item.id]! + (heights[item.id] ?? 120)
             }
         }
         return result
     }
-    private func reviewQuote(_ text: String, lines: Int) -> some View {
-        Text(text).font(.body).foregroundStyle(.secondary).lineSpacing(3).lineLimit(lines)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.leading, 10).padding(.vertical, 3)
-            .overlay(alignment: .leading) {
-                Rectangle().fill(Color(Paper.muted).opacity(0.55)).frame(width: 2)
-            }
-    }
+    private func reviewQuote(_ text: String, lines: Int) -> some View { PassageQuote(text: text, lines: lines) }
     @ViewBuilder private func reviewRun(_ run: WritingReview, includeFooter: Bool = true) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             if run.stale { Text("Draft changed · review again for current suggestions").font(.body).foregroundStyle(.secondary) }
@@ -575,7 +656,8 @@ struct WritingReviewPane: View {
                         }
                     }
                     if comment.status == "open" && !run.stale {
-                        HStack(alignment: .bottom, spacing: 8) {
+                        HStack(alignment: .bottom, spacing: 6) {
+                        HStack(alignment: .bottom, spacing: 6) {
                             TextField(comment.messages?.isEmpty != false ? "How can I help with this passage?" : "Reply…", text: Binding(get: { replyText[comment.id] ?? "" }, set: { replyText[comment.id] = $0 }), axis: .vertical)
                                 .lineLimit(1...5).textFieldStyle(.plain).font(.body)
                                 .focused($focusedReply, equals: comment.id)
@@ -586,32 +668,33 @@ struct WritingReviewPane: View {
                                 }
                                 .onSubmit { sendReply(run, comment) }
                             if review.replyingTo == comment.id {
-                                Button("Cancel") { review.cancel() }
+                                Button { review.cancel() } label: { Image(systemName: "stop.circle.fill").font(.system(size: 17)) }
                                     .buttonStyle(.plain).foregroundStyle(Color(Paper.accent))
+                                    .help("Cancel").accessibilityLabel("Cancel")
                             } else {
-                                Button("Send") { sendReply(run, comment) }
-                                    .buttonStyle(.plain).foregroundStyle(Color(Paper.accent))
-                                    .disabled(review.isRunning || (replyText[comment.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            }
-                        }.padding(10).background(Color(Paper.ink).opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
-                    }
-                    if comment.status == "open" {
-                        HStack {
-                            if comment.suggestion.replacement != nil {
-                                Button("Accept rewrite") { withEditor { review.accept(runID: run.id, commentID: comment.id, input: model.reviewInput, editor: $0) } }.disabled(run.stale || !comment.rewriteApplies || model.isBranching || model.boardFlight != nil)
-                            }
-                            Spacer()
-                            if !run.stale {
-                                Button { delete(run, comment) } label: { Image(systemName: "trash") }
-                                    .buttonStyle(.plain).foregroundStyle(.secondary)
-                                    .help("Delete comment").accessibilityLabel("Delete comment")
+                                let empty = (replyText[comment.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                Button { sendReply(run, comment) } label: { Image(systemName: "arrow.up.circle.fill").font(.system(size: 17)) }
+                                    .buttonStyle(.plain).foregroundStyle(Color(Paper.accent).opacity(empty || review.isRunning ? 0.35 : 1))
+                                    .disabled(review.isRunning || empty)
+                                    .help("Send").accessibilityLabel("Send")
                             }
                         }
-                    } else { Text(comment.status.capitalized).font(.body).foregroundStyle(.secondary) }
+                        .composerField()
+                            Button { delete(run, comment) } label: { Image(systemName: "trash").font(.system(size: 13)) }
+                                .buttonStyle(.plain).foregroundStyle(.secondary)
+                                .frame(width: 22, height: 28)
+                                .help("Delete comment").accessibilityLabel("Delete comment")
+                        }
+                    }
+                    if comment.status == "open", comment.suggestion.replacement != nil {
+                        Button("Accept rewrite") { withEditor { review.accept(runID: run.id, commentID: comment.id, input: model.reviewInput, editor: $0) } }.disabled(run.stale || !comment.rewriteApplies || model.isBranching || model.boardFlight != nil)
+                    } else if comment.status != "open" { Text(comment.status.capitalized).font(.body).foregroundStyle(.secondary) }
         }
     }
-    private func threadView(_ run: WritingReview, _ comment: ReviewComment, height: CGFloat) -> some View {
-        VStack(spacing: 0) {
+    private func threadView(_ run: WritingReview, _ comment: ReviewComment, maxHeight: CGFloat) -> some View {
+        let content = expandedHeights[comment.id] ?? 120
+        let footer = footerHeights[comment.id] ?? 56
+        return VStack(spacing: 0) {
             ScrollViewReader { reader in
                 ScrollView {
                     reviewRun(single(run, comment), includeFooter: false)
@@ -634,12 +717,15 @@ struct WritingReviewPane: View {
                     reader.scrollTo("thread-end-" + comment.id.uuidString, anchor: .bottom)
                 }
             }
-            Divider()
-            replyFooter(run, comment).padding(12)
-                .background(Color(Paper.background))
+            Divider().opacity(content + footer > maxHeight ? 1 : 0)
+            replyFooter(run, comment).padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 12)
                 .fixedSize(horizontal: false, vertical: true)
+                .background(GeometryReader { box in
+                    Color.clear.preference(key: ReviewFooterHeights.self, value: [comment.id: box.size.height + 1])
+                })
         }
-        .frame(height: height)
+        .frame(height: min(maxHeight, content + footer))
+        .background(Color(Paper.background))
         .background(ConversationFocusBoundary {
             if selected == comment.id { selected = nil; focusedReply = nil }
         })
@@ -667,7 +753,36 @@ struct WritingReviewPane: View {
     }
 }
 
+enum CommentMargin {
+    static let cardWidth: CGFloat = 300
+    /// Room kept to the right of the writing column (including its 28-point inset) for margin cards.
+    static let gutter: CGFloat = 300
+    static let minimumEditorWidth: CGFloat = 440
+}
+
+private enum MarginItem: Identifiable {
+    case review(WritingReview, ReviewComment)
+    case note(UserComment)
+    var id: UUID {
+        switch self { case let .review(_, comment): comment.id; case let .note(note): note.id }
+    }
+    var range: NSRange {
+        switch self { case let .review(_, comment): comment.range; case let .note(note): note.range }
+    }
+    var isReview: Bool { if case .review = self { true } else { false } }
+}
+
+struct MarginAnchor: Equatable {
+    let id: UUID
+    let range: NSRange
+}
+
 private struct ReviewExpandedHeights: PreferenceKey {
+    static var defaultValue: [UUID: CGFloat] = [:]
+    static func reduce(value: inout [UUID: CGFloat], nextValue: () -> [UUID: CGFloat]) { value.merge(nextValue(), uniquingKeysWith: { _, new in new }) }
+}
+
+private struct ReviewFooterHeights: PreferenceKey {
     static var defaultValue: [UUID: CGFloat] = [:]
     static func reduce(value: inout [UUID: CGFloat], nextValue: () -> [UUID: CGFloat]) { value.merge(nextValue(), uniquingKeysWith: { _, new in new }) }
 }
@@ -679,21 +794,21 @@ private struct ReviewCardHeights: PreferenceKey {
 
 /// Convert actual TextKit line positions into the floating margin's coordinates.
 private struct ReviewAnchorProbe: NSViewRepresentable {
-    let comments: [ReviewComment]
+    let anchors: [MarginAnchor]
     let revision: ReviewInput
-    let highlightedID: UUID?
+    let highlighted: NSRange?
     let onChange: ([UUID: CGFloat]) -> Void
     let onTextRight: (CGFloat) -> Void
     func makeNSView(context: Context) -> Probe { Probe() }
     func updateNSView(_ view: Probe, context: Context) {
-        view.comments = comments; view.highlightedID = highlightedID; view.onChange = onChange; view.onTextRight = onTextRight
+        view.anchors = anchors; view.highlighted = highlighted; view.onChange = onChange; view.onTextRight = onTextRight
         view.schedule()
     }
     static func dismantleNSView(_ view: Probe, coordinator: ()) { view.clearHighlight() }
     final class Probe: NSView {
         override var isFlipped: Bool { true }
-        var comments: [ReviewComment] = []
-        var highlightedID: UUID?
+        var anchors: [MarginAnchor] = []
+        var highlighted: NSRange?
         private weak var highlightedLayout: NSLayoutManager?
         private var highlightedRange: NSRange?
         func clearHighlight() {
@@ -734,7 +849,7 @@ private struct ReviewAnchorProbe: NSViewRepresentable {
                   let layout = editor.layoutManager, let container = editor.textContainer else { return }
             editor.enclosingScrollView?.contentView.postsBoundsChangedNotifications = true
             layout.ensureLayout(for: container)
-            let requested = comments.first(where: { $0.id == highlightedID })?.range
+            let requested = highlighted
             if requested != highlightedRange || highlightedLayout !== layout {
                 clearHighlight()
                 if let requested, NSMaxRange(requested) <= (editor.string as NSString).length {
@@ -743,8 +858,8 @@ private struct ReviewAnchorProbe: NSViewRepresentable {
                 }
             }
             var result: [UUID: CGFloat] = [:]
-            for comment in comments where NSMaxRange(comment.range) <= (editor.string as NSString).length && comment.length > 0 {
-                let glyph = layout.glyphIndexForCharacter(at: comment.location)
+            for comment in anchors where NSMaxRange(comment.range) <= (editor.string as NSString).length && comment.range.length > 0 {
+                let glyph = layout.glyphIndexForCharacter(at: comment.range.location)
                 let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
                 result[comment.id] = convert(NSPoint(x: line.minX + editor.textContainerOrigin.x,
                                                      y: line.minY + editor.textContainerOrigin.y), from: editor).y
