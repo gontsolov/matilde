@@ -166,10 +166,14 @@ extension Workspace {
     private func ensureUserComments() throws {
         try db.execute("CREATE TABLE IF NOT EXISTS user_comments (id TEXT PRIMARY KEY, draft_id TEXT NOT NULL, body TEXT NOT NULL, location INTEGER NOT NULL, length INTEGER NOT NULL, quote TEXT NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT NULL, created REAL NOT NULL, modified REAL NOT NULL)")
         try db.execute("CREATE INDEX IF NOT EXISTS user_comments_draft ON user_comments (draft_id)")
+        // Archived comments are kept but no longer shown (added after the first comment release).
+        if !(try db.execute("PRAGMA table_info(user_comments)")).contains(where: { $0["name"] == "archived" }) {
+            try db.execute("ALTER TABLE user_comments ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
+        }
     }
     func userComments(draftID: String) throws -> [UserComment] {
         try ensureUserComments()
-        return try db.execute("SELECT * FROM user_comments WHERE draft_id = ? ORDER BY location, created", [draftID]).compactMap { row in
+        return try db.execute("SELECT * FROM user_comments WHERE draft_id = ? AND archived = 0 ORDER BY location, created", [draftID]).compactMap { row in
             guard let id = row["id"].flatMap(UUID.init(uuidString:)), let location = row["location"].flatMap({ Int($0) }),
                   let length = row["length"].flatMap({ Int($0) }), location >= 0, length >= 0 else { return nil }
             return UserComment(id: id, draftID: draftID, text: row["body"] ?? "", location: location, length: length,
@@ -194,6 +198,10 @@ extension Workspace {
             _ = try? db.execute("ROLLBACK")
             throw error
         }
+    }
+    func archiveUserComment(_ id: UUID) throws {
+        try ensureUserComments()
+        try db.execute("UPDATE user_comments SET archived = 1 WHERE id = ?", [id.uuidString])
     }
     func deleteUserComment(_ id: UUID) throws {
         try ensureUserComments()
@@ -279,6 +287,15 @@ final class UserCommentStore: ObservableObject {
     }
 
     func remove(_ id: UUID) { remove(id, keepInMemory: false) }
+    /// Hides a comment from the draft while keeping it in the workspace database.
+    func archive(_ id: UUID) {
+        guard let comment = comments.first(where: { $0.id == id }) else { return }
+        guard !comment.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { remove(id); return }
+        do { try workspace?.saveUserComments([comment]); try workspace?.archiveUserComment(id) }
+        catch { reportError("This comment could not be archived. Your writing is unaffected."); return }
+        comments.removeAll { $0.id == id }
+        if activeID == id { activeID = nil }
+    }
     private func remove(_ id: UUID, keepInMemory: Bool) {
         do { try workspace?.deleteUserComment(id) }
         catch { reportError("This comment could not be deleted. Your writing is unaffected.") }
@@ -310,6 +327,12 @@ extension WritingLayoutManager {
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             ? NSColor(calibratedRed: 0.78, green: 0.60, blue: 0.30, alpha: 0.24)
             : NSColor(calibratedRed: 0.97, green: 0.80, blue: 0.40, alpha: 0.34)
+    }
+    /// The comment card's quote rule: the highlighter's yellow, solid enough to read as a line.
+    static let commentRule = NSColor(name: NSColor.Name("Matilde.commentRule")) { appearance in
+        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            ? NSColor(calibratedRed: 0.86, green: 0.67, blue: 0.33, alpha: 0.85)
+            : NSColor(calibratedRed: 0.91, green: 0.69, blue: 0.24, alpha: 0.9)
     }
     static let activeCommentHighlight = NSColor(name: NSColor.Name("Matilde.activeCommentHighlight")) { appearance in
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
@@ -479,7 +502,7 @@ final class UserCommentPopover: NSPopover, NSPopoverDelegate {
         contentViewController = NSHostingController(rootView: UserCommentEditor(
             quote: comment.quote, text: comment.text, focus: focus,
             onChange: { [weak store] in store?.update(id, text: $0) },
-            onDelete: { [weak self, weak store] in store?.remove(id); self?.close() },
+            onArchive: { [weak self, weak store] in store?.archive(id); self?.close() },
             onDone: { [weak self] in self?.close() }))
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -500,14 +523,13 @@ private struct UserCommentEditor: View {
     @State var text: String
     let focus: Bool
     let onChange: @MainActor (String) -> Void
-    let onDelete: @MainActor () -> Void
+    let onArchive: @MainActor () -> Void
     let onDone: @MainActor () -> Void
     @FocusState private var focused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if !quote.isEmpty { PassageQuote(text: quote, lines: 3) }
-            HStack(alignment: .bottom, spacing: 6) {
+            if !quote.isEmpty { PassageQuote(text: quote, lines: 3, kind: .note).padding(.trailing, 22) }
                 HStack(alignment: .bottom, spacing: 6) {
                     TextField("Add a note…", text: $text, axis: .vertical)
                         .lineLimit(1...10).textFieldStyle(.plain).font(.body)
@@ -520,13 +542,17 @@ private struct UserCommentEditor: View {
                         .help("Done").accessibilityLabel("Done")
                 }
                 .composerField()
-                Button { onDelete() } label: { Image(systemName: "trash").font(.system(size: 13)) }
-                    .buttonStyle(.plain).foregroundStyle(.secondary)
-                    .frame(width: 22, height: 28)
-                    .help("Delete comment").accessibilityLabel("Delete comment")
-            }
         }
         .padding(14).frame(width: 300)
+        .overlay(alignment: .topTrailing) {
+            if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button { onArchive() } label: {
+                    Image(systemName: "archivebox").font(.system(size: 12)).frame(width: 24, height: 24).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
+                .help("Archive").accessibilityLabel("Archive").padding(.top, 8).padding(.trailing, 8)
+            }
+        }
         .background(Color(Paper.background))
         .background(PopoverPaperBackground())
         .onChange(of: text) { _, value in onChange(value) }
@@ -538,14 +564,18 @@ private struct UserCommentEditor: View {
 
 /// The quoted passage at the top of a comment, set off by a thin rule.
 struct PassageQuote: View {
+    /// The rule's color tells a private comment (highlighter yellow) from an Ask Matilde thread (accent).
+    enum Kind { case note, matilde }
     let text: String
     let lines: Int
+    var kind: Kind = .note
     var body: some View {
         Text(text).font(.body).foregroundStyle(.secondary).lineSpacing(3).lineLimit(lines)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.leading, 10).padding(.vertical, 3)
             .overlay(alignment: .leading) {
-                Rectangle().fill(Color(Paper.muted).opacity(0.55)).frame(width: 2)
+                Capsule().fill(kind == .note ? Color(WritingLayoutManager.commentRule) : Color(Paper.accent).opacity(0.55))
+                    .frame(width: 2.5)
             }
     }
 }

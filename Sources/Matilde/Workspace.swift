@@ -223,12 +223,19 @@ final class Workspace {
         guard !fm.fileExists(atPath: target.path) else { throw WorkspaceError.message("That folder already exists.") }
         try fm.createDirectory(at: target, withIntermediateDirectories: false)
     }
+    /// Branching an alternative counts up from the original title instead of stacking suffixes.
+    static func branchBase(_ title: String) -> String {
+        guard let match = title.range(of: #"( [—–-] Alternative \d+)+$"#, options: .regularExpression),
+              match.lowerBound > title.startIndex else { return title }
+        return String(title[..<match.lowerBound])
+    }
     func branch(_ source: Draft, text: String) throws -> Draft {
         try save(source, text: text)
+        let base = Self.branchBase(source.title)
         var number = 1
         var path: String
         repeat {
-            path = try filePath(name: source.title + " — Alternative \(number)", folder: source.folder)
+            path = try filePath(name: base + " — Alternative \(number)", folder: source.folder)
             number += 1
         } while fm.fileExists(atPath: try url(for: path).path)
         let child = UUID().uuidString
