@@ -617,3 +617,6 @@ Manual Mac checklist (disposable workspace under `build/`):
 - Right-click a folder: New Document creates `Untitled` inside and expands it; New Folder… preselects it as parent; Rename… keeps notes, branches, goals and the open note; Expand/Collapse All; Move to Trash… shows “It contains N notes.”, cancel leaves everything, confirm moves the folder to the macOS Trash and opens a neighbour if the open note was inside.
 - Right-click empty space below the list: New Document (in Documents) and New Folder…; right-clicking a row still shows the row's menu, not the empty-area one.
 - Board visible or comparison open while trashing/renaming: no stale sheets or panes.
+
+### 0.1.19 release preparation — 2026-11-15
+Owner explicitly requested a new release ("yes merge both and do new release"). Latest tag was `v0.1.18`, so this is 0.1.19. #22 (UI-28, header breathing room; CI run 43762078596 green on head `ceb076f`) merged as `a87a849`; #23 (UI-27, sidebar right-click actions; main merged in, CI run 43762831874 green on head `c9783b4`) merged as `2fd324a`. No other pull requests were open. `git log v0.1.18..origin/main` contains the 0.1.18 publication record, #22 and #23. CI on main head `2fd324a` (run 43763175564, macOS-15) passed. Version set to 0.1.19 with release notes. The live Mac UI checks for UI-27 and UI-28 remain open.
