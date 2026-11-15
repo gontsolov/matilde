@@ -16,7 +16,7 @@ struct MatildeApp: App {
                 .onAppear { delegate.model = model; NSApp.activate(ignoringOtherApps: true) }
         }
         .defaultSize(width: 1180, height: 820)
-        .windowStyle(.titleBar)
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updater.checkForUpdates() }
@@ -99,7 +99,7 @@ struct ContentView: View {
     @State private var sidebarKeyboard = SidebarKeyboardView()
     private var sidebarFocused: Bool { sidebarKeyboard.window?.firstResponder === sidebarKeyboard }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var headerCollapsed = false
+    @StateObject private var chrome = WindowChromeModel()
     @State private var draftsVisible = false
     @State private var boardAmount: CGFloat = 0
     @State private var pinchTarget: CGFloat = 0
@@ -118,6 +118,13 @@ struct ContentView: View {
                     else { emptyWorkspace }
                 }
             }.frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .top) {
+                VStack(spacing: 0) {
+                    if model.active != nil && !model.boardVisible { CanvasTopFade() }
+                }.frame(maxWidth: .infinity)
+            }
+            .overlay(alignment: .top) { WindowDragArea().frame(height: WindowChrome.barHeight) }
+            .overlay(alignment: .topTrailing) { windowControls }
             if let comparison = model.comparison {
                 DraftComparisonPane(comparison: comparison, model: model).frame(minWidth: 360, maxWidth: .infinity)
             }
@@ -129,61 +136,85 @@ struct ContentView: View {
         .background(Color(Paper.background))
         .foregroundStyle(Color(Paper.ink))
         .tint(Color(Paper.accent))
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                if model.workspace != nil {
-                    Button { model.toggleSidebar() } label: { MatildeIcon.sidebar.image(size: MatildeIcon.toolbarSize) }
-                        .help("Toggle sidebar").accessibilityLabel("Toggle sidebar")
-                }
-            }
-            ToolbarItem(placement: .principal) {
-                if headerCollapsed && !model.boardVisible {
-                    Text(model.headerTitle.isEmpty ? "Untitled" : model.headerTitle)
-                        .font(.system(size: 12, weight: .medium)).lineLimit(1)
-                        .truncationMode(.tail)
-                        .padding(.horizontal, 16).frame(maxWidth: 480)
-                }
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                if model.workspace != nil {
-                    Button { model.newDocument() } label: { MatildeIcon.newDocument.image(size: MatildeIcon.toolbarSize) }
-                        .help("New document").accessibilityLabel("New document")
-                }
-                if model.active != nil {
-                    Button { model.boardRequest += 1 } label: { (model.boardVisible ? MatildeIcon.document : .board).image(size: MatildeIcon.toolbarSize) }
-                        .help(model.boardVisible ? "Return to draft · ⌘0" : "Show draft board · ⌘0")
-                        .accessibilityLabel(model.boardVisible ? "Return to draft" : "Show draft board")
-                    AskMatildeToolbar(model: model, review: model.review)
-                    StashToolbarButton(stash: model.stash).disabled(model.boardFlight != nil || model.isBranching)
-                    Menu {
-                        Button("Branch Draft") { model.branch() }
-                        Button("Rename…") { model.sheet = .rename }
-                        Button("Writing Goal…") { model.sheet = .goal }
-                        Divider()
-                        Menu("Compare Side by Side") {
-                            ForEach(model.drafts.filter { $0.id != model.active?.id }) { draft in
-                                Button(draft.title) { model.compare(draft) }
-                            }
-                        }.disabled(model.drafts.count < 2 || model.isBranching || model.boardFlight != nil)
-                        Button("Copy Markdown", systemImage: "doc.on.doc") { model.copyMarkdown() }
-                        Button("Show in Finder") { model.reveal() }
-                        Divider()
-                        Button("Move to Trash", role: .destructive) {
-                            if let draft = model.active { model.trashDraft(draft) }
-                        }.disabled(model.isBranching || model.boardFlight != nil)
-                    } label: { MatildeIcon.more.image(size: MatildeIcon.toolbarSize) }
-                    .help("Document actions").accessibilityLabel("Document actions")
-                }
-            }
-        }
+        .ignoresSafeArea(.container, edges: .top)
+        .overlay(alignment: .topLeading) { sidebarToggle }
+        .background(WindowChromeAttachment(chrome: chrome))
+        .onChange(of: model.boardVisible) { _, _ in chrome.reveal() }
+        .onChange(of: model.sidebar) { _, _ in chrome.reveal() }
         .sheet(item: $model.sheet) { kind in DocumentSheet(model: model, kind: kind).scrollIndicators(.hidden) }
         .alert("Matilde", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("OK") { model.error = nil }
         } message: { Text(model.error ?? "") }
     }
 
+    /// Over the sidebar it stays put; over the canvas it fades with the other window controls.
+    @ViewBuilder private var sidebarToggle: some View {
+        if model.workspace != nil {
+            Button { model.toggleSidebar() } label: { MatildeIcon.sidebar.image(size: MatildeIcon.toolbarSize) }
+                .buttonStyle(FloatingIconButtonStyle())
+                .help("Toggle sidebar · ⌘\\").accessibilityLabel("Toggle sidebar")
+                .padding(.top, chrome.controlTop)
+                .onHover { chrome.hover($0) }
+                .opacity(!model.sidebar && chrome.hidden ? 0 : 1)
+                .animation(chromeAnimation, value: chrome.hidden)
+                .padding(.leading, WindowChrome.toggleLeading(trafficLightsTrailing: chrome.trafficLightsTrailing))
+        }
+    }
+    private var chromeAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: chrome.hidden ? 0.45 : 0.2)
+    }
+    /// Document actions, floating quietly in the canvas's top-right corner.
+    private var windowControls: some View {
+        HStack(spacing: 2) {
+            if model.workspace != nil {
+                Button { model.newDocument() } label: { MatildeIcon.newDocument.image(size: MatildeIcon.toolbarSize) }
+                    .buttonStyle(FloatingIconButtonStyle())
+                    .help("New document · ⌘N").accessibilityLabel("New document")
+            }
+            if model.active != nil {
+                Button { model.boardRequest += 1 } label: { (model.boardVisible ? MatildeIcon.document : .board).image(size: MatildeIcon.toolbarSize) }
+                    .buttonStyle(FloatingIconButtonStyle())
+                    .help(model.boardVisible ? "Return to draft · ⌘0" : "Show draft board · ⌘0")
+                    .accessibilityLabel(model.boardVisible ? "Return to draft" : "Show draft board")
+                AskMatildeControl(model: model, review: model.review)
+                StashButton(stash: model.stash).disabled(model.boardFlight != nil || model.isBranching)
+                Menu {
+                    Button("Branch Draft") { model.branch() }
+                    Button("Rename…") { model.sheet = .rename }
+                    Button("Writing Goal…") { model.sheet = .goal }
+                    Divider()
+                    Menu("Compare Side by Side") {
+                        ForEach(model.drafts.filter { $0.id != model.active?.id }) { draft in
+                            Button(draft.title) { model.compare(draft) }
+                        }
+                    }.disabled(model.drafts.count < 2 || model.isBranching || model.boardFlight != nil)
+                    Button("Copy Markdown", systemImage: "doc.on.doc") { model.copyMarkdown() }
+                    Button("Show in Finder") { model.reveal() }
+                    Divider()
+                    Button("Move to Trash", role: .destructive) {
+                        if let draft = model.active { model.trashDraft(draft) }
+                    }.disabled(model.isBranching || model.boardFlight != nil)
+                } label: { MatildeIcon.more.image(size: MatildeIcon.toolbarSize) }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .foregroundStyle(Color(Paper.muted))
+                .frame(width: 28, height: 24).contentShape(Rectangle())
+                .help("Document actions").accessibilityLabel("Document actions")
+            }
+        }
+        .padding(.horizontal, 3).padding(.vertical, 2)
+        // Same paper as the canvas: invisible at rest, keeps icons legible over scrolled text.
+        .background(Color(Paper.background).opacity(model.boardVisible ? 0.9 : 0.8), in: RoundedRectangle(cornerRadius: 8))
+        .contentShape(Rectangle())
+        .onHover { chrome.hover($0) }
+        .opacity(chrome.hidden ? 0 : 1)
+        .animation(chromeAnimation, value: chrome.hidden)
+        .padding(.top, max(0, chrome.controlTop - 2)).padding(.trailing, 8)
+    }
+
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Title-bar band: the traffic lights and the sidebar toggle float here.
+            WindowDragArea().frame(height: WindowChrome.barHeight)
             HStack(spacing: 6) {
                 MatildeIcon.search.image(size: 14)
                 TextField("Search", text: $model.search).textFieldStyle(.plain)
@@ -195,7 +226,7 @@ struct ContentView: View {
             }.font(.system(size: 12)).foregroundStyle(Color(Paper.muted))
                 .padding(.horizontal, 9).frame(height: 28)
                 .background(Color(Paper.ink).opacity(0.045), in: RoundedRectangle(cornerRadius: 5))
-                .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 8)
+                .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 8)
             HStack(spacing: 6) {
                 Text("Documents").font(.system(size: 11, weight: .medium))
                 Spacer()
@@ -363,7 +394,8 @@ struct ContentView: View {
                 WritingReviewPane(model: model, review: model.review, comments: model.comments)
             }
             .overlay(alignment: .bottomTrailing) {
-                StashPocket(stash: model.stash, size: geometry.size)
+                StashPocket(stash: model.stash, size: CGSize(width: geometry.size.width,
+                                                             height: geometry.size.height - WindowChrome.barHeight))
                     .opacity(model.boardFlight == nil && !model.isBranching ? 1 : 0)
                     .allowsHitTesting(model.boardFlight == nil && !model.isBranching)
             }
@@ -442,7 +474,7 @@ struct ContentView: View {
         .onChange(of: model.active?.id) { _, _ in draftsVisible = false }
     }
     private func writingEditor(_ draft: Draft) -> some View {
-            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: model.initialPosition(for: draft).cursor, initialScroll: model.initialPosition(for: draft).scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), onHeaderVisibility: { headerCollapsed = $0 }, saveImage: { data in
+            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: model.initialPosition(for: draft).cursor, initialScroll: model.initialPosition(for: draft).scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), saveImage: { data in
                 guard let workspace = model.workspace else { throw WorkspaceError.message("Open a workspace first.") }
                 return try workspace.importImage(data, beside: draft)
             }, resolveImage: { model.workspace?.image(at: $0, beside: draft) }, mediaError: { model.error = $0 },
@@ -479,7 +511,7 @@ struct ContentView: View {
                 }.id(draft.id)
             }
             // Match the body's left edge: text inset (28) plus line-fragment padding (5).
-            .padding(.horizontal, 33).padding(.top, 29).padding(.bottom, 10).frame(maxWidth: CommentMargin.maximumColumn)
+            .padding(.horizontal, 33).padding(.top, 29 + WindowChrome.canvasTopInset).padding(.bottom, 10).frame(maxWidth: CommentMargin.maximumColumn)
             if draftsVisible {
                 DraftTray(model: model) {
                     withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) { draftsVisible = false }
@@ -625,23 +657,25 @@ struct DocumentSheet: View {
     }
 }
 
-/// Stash lives in the toolbar so the writing margin stays free for comment cards.
-private struct StashToolbarButton: View {
+/// Stash sits with the window controls so the writing margin stays free for comment cards.
+private struct StashButton: View {
     @ObservedObject var stash: StashModel
     var body: some View {
-        Toggle(isOn: Binding(get: { stash.isOpen }, set: { _ in stash.toggle() })) { MatildeIcon.stash.image(size: MatildeIcon.toolbarSize) }
-            .toggleStyle(.button).help("Stash · ⇧⌘J").accessibilityLabel("Stash")
+        Button { stash.toggle() } label: { MatildeIcon.stash.image(size: MatildeIcon.toolbarSize) }
+            .buttonStyle(FloatingIconButtonStyle(selected: stash.isOpen))
+            .help("Stash · ⇧⌘J").accessibilityLabel("Stash")
+            .accessibilityAddTraits(stash.isOpen ? .isSelected : [])
     }
 }
 
-/// Ask Matilde's window controls: click to review the draft (or cancel), open the menu for more.
-private struct AskMatildeToolbar: View {
+/// Ask Matilde's window control: click to review the draft (or cancel), open the menu for more.
+private struct AskMatildeControl: View {
     @ObservedObject var model: AppModel
     @ObservedObject var review: WritingReviewModel
     private var reviewing: Bool { review.isRunning && review.replyingTo == nil }
     private var unavailable: Bool { model.boardVisible || model.isBranching || model.boardFlight != nil }
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             if reviewing { ProgressView().controlSize(.small).accessibilityLabel("Reviewing") }
             menu
         }
@@ -658,7 +692,10 @@ private struct AskMatildeToolbar: View {
         } label: {
             (review.error != nil ? MatildeIcon.askMatildeError : reviewing ? .stop : .askMatilde).image(size: MatildeIcon.toolbarSize)
         } primaryAction: { toggleReview() }
+        .menuStyle(.borderlessButton)
         .fixedSize()
+        .foregroundStyle(Color(Paper.muted))
+        .frame(height: 24).padding(.horizontal, 4).contentShape(Rectangle())
         .help(review.error ?? (reviewing ? "Cancel review" : "Ask Matilde"))
         .accessibilityLabel("Ask Matilde")
     }
