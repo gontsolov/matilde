@@ -178,6 +178,8 @@ struct AppSettingsView: View {
                 }
             }.formStyle(.grouped)
                 .tabItem { Label { Text("Connections") } icon: { MatildeIcon.key.image(size: MatildeIcon.tabSize) } }
+            SyncSettingsView()
+                .tabItem { Label { Text("Sync") } icon: { MatildeIcon.sync.image(size: MatildeIcon.tabSize) } }
         }
         .padding(12).frame(width: 540, height: 380)
         .tint(Color(Paper.accent)).modifier(AppAppearanceModifier())

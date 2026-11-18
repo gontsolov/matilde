@@ -268,6 +268,13 @@ final class UserCommentStore: ObservableObject {
         comments = anchored
     }
 
+    /// Sync changed the database: re-read this draft's comments unless one is being edited.
+    func reload() {
+        guard activeID == nil, let workspace, let draftID else { return }
+        self.workspace = nil
+        bind(workspace: workspace, draftID: draftID, body: body)
+    }
+
     func changed(workspace: Workspace?, draftID: String?, body: String) {
         guard self.workspace === workspace, self.draftID == draftID, body != self.body else { return }
         let previous = self.body

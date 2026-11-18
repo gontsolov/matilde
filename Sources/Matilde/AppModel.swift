@@ -75,6 +75,8 @@ final class AppModel: ObservableObject {
             guard let self else { return false }
             return NSApp.isActive && !self.boardVisible && !self.isBranching && self.boardFlight == nil && self.sheet == nil
         }
+        SyncCenter.shared.prepare = { [weak self] in self?.attempt { try self?.save() } }
+        SyncCenter.shared.remoteChanges = { [weak self] in self?.syncApplied() }
         restore()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.poll() }
@@ -133,6 +135,7 @@ final class AppModel: ObservableObject {
             comparison = try? DraftComparison(workspace: newWorkspace, draft: draft)
         }
         status = "Saved"
+        SyncCenter.shared.attach(url)
         UserDefaults.standard.set(url.path, forKey: "workspacePath")
         if let bookmark = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) {
             UserDefaults.standard.set(bookmark, forKey: "workspaceBookmark")
@@ -300,6 +303,7 @@ final class AppModel: ObservableObject {
         do {
             try workspace.save(active, text: text)
             savedText = text; status = "Saved"
+            SyncCenter.shared.localChange()
         } catch { status = "Couldn’t save"; throw error }
     }
     func flush() throws {
@@ -323,6 +327,14 @@ final class AppModel: ObservableObject {
             error = "The file changed outside Matilde and was reloaded. Your unsaved text was preserved at \(copy.path)."
         }
         text = disk; savedText = disk; status = "Reloaded from disk"
+    }
+    /// Sync wrote to the workspace: pick up new and changed drafts, the stash and the active
+    /// draft's comments and review now rather than at the next poll.
+    private func syncApplied() {
+        guard workspace != nil, sheet == nil else { return }
+        poll()
+        comments.reload()
+        review.reload()
     }
     private func poll() {
         guard let workspace, error == nil, sheet == nil else { return }
