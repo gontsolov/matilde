@@ -62,7 +62,7 @@ final class ReplyPromptTests: XCTestCase {
             let messages = conversation.messages(system: system)
             XCTAssertTrue(render(messages).hasPrefix(render(previous)), "turn \(turn) rewrote earlier messages")
             XCTAssertEqual(Array(messages.prefix(previous.count)), previous)
-            XCTAssertEqual(messages.count, previous.count + (turn == 1 ? 4 : 2))
+            XCTAssertEqual(messages.count, previous.count + (turn == 1 ? 4 : 1))
             if turn == 3 {
                 let update = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(messages.last!.content.utf8)) as? [String: Any])
                 let edit = try XCTUnwrap((update["draft_update"] as? [String: Any])?["body_edit"] as? [String: String])
