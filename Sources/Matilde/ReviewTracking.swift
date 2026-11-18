@@ -7,6 +7,9 @@ struct ReviewMessage: Codable, Identifiable, Equatable {
     var delivery: String? = nil
     /// A rewrite proposed with this assistant reply, kept where it was offered in the thread.
     var replacement: String? = nil
+    /// For user messages: the exact chat content sent (question, focus, draft edits), replayed
+    /// unchanged on later turns so the request prefix stays identical. Nil in older threads.
+    var prompt: String? = nil
 }
 
 extension ReviewSuggestion {
