@@ -82,7 +82,6 @@ A record is pending while `hlc ≠ server_hlc`. `pendingSyncRecords(limit:)` tra
 
 ## Not in this step
 
-- Applying pulled records (the workspace mirror: coordinated writes into `.md` files, echo suppression), field merges after `stale` and conflict branches after `conflict`: SYNC-07, with the Foundation-only sync core and fake-transport tests.
+- Applying pulled records (the workspace mirror, echo suppression), field merges after `stale`, conflict branches after `conflict`, blobs and records over 3 MiB: done in SYNC-07, see [sync-client.md](sync-client.md). The sync engine runs `trackSyncChanges()` before every push.
 - Identity across external moves and matching drafts between two Macs that each scanned the same files (each Mac gives an unknown file its own UUID today): SYNC-03.
-- Bodies or snapshots over the server's 3 MiB record limit (blob storage), image blobs: SYNC-07.
 - A `settings` record for Ask Matilde guidance/model/region.
