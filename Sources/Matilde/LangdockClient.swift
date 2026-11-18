@@ -59,11 +59,17 @@ struct ReviewReply: Codable {
 protocol LangdockServing {
     func streamReply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply
     func reply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String) async throws -> ReviewReply
+    /// Chat reply laid out for prompt caching (see `ReplyContext`).
+    func streamReply(_ conversation: ReplyConversation, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply
     func models(configuration: LangdockConfiguration, key: String) async throws -> [String]
     func review(_ input: ReviewInput, configuration: LangdockConfiguration, key: String) async throws -> [ReviewSuggestion]
 }
 
 extension LangdockServing {
+    func streamReply(_ conversation: ReplyConversation, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
+        try await streamReply(conversation.input, suggestion: conversation.suggestion, messages: conversation.history,
+                              question: conversation.question, configuration: configuration, key: key, onText: onText)
+    }
     func streamReply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
         let answer = try await reply(input, suggestion: suggestion, messages: messages, question: question, configuration: configuration, key: key)
         await onText(answer.answer)
@@ -178,8 +184,8 @@ final class LangdockClient: NSObject, LangdockServing {
             let max_completion_tokens = 4000
             let stream = false
         }
-        let context = String(decoding: try JSONEncoder().encode(input.transmitted), as: UTF8.self)
-        let body = try JSONEncoder().encode(Request(model: configuration.model, messages: [
+        let context = ReplyPrompt.encode(input.transmitted)
+        let body = try Self.encoder.encode(Request(model: configuration.model, messages: [
             Message(role: "system", content: WritingAssistPrompt.review(guidance: configuration.guidance)), Message(role: "user", content: context)
         ]))
         return try Self.decode(try await request("chat/completions", body: body, configuration: configuration, key: key))
@@ -187,34 +193,39 @@ final class LangdockClient: NSObject, LangdockServing {
 
     func reply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String,
                configuration: LangdockConfiguration, key: String) async throws -> ReviewReply {
-        try await performReply(input, suggestion: suggestion, messages: messages, question: question, configuration: configuration, key: key)
+        try await performReply(ReplyPrompt.prepare(input: input, suggestion: suggestion, context: nil, prior: messages, question: question),
+                               configuration: configuration, key: key)
     }
     func streamReply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
-        try await performReply(input, suggestion: suggestion, messages: messages, question: question, configuration: configuration, key: key, onText: onText)
+        try await performReply(ReplyPrompt.prepare(input: input, suggestion: suggestion, context: nil, prior: messages, question: question),
+                               configuration: configuration, key: key, onText: onText)
     }
-    private func performReply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String,
-               configuration: LangdockConfiguration, key: String, onText: (@MainActor (String) -> Void)? = nil) async throws -> ReviewReply {
+    func streamReply(_ conversation: ReplyConversation, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
+        try await performReply(conversation, configuration: configuration, key: key, onText: onText)
+    }
+    /// Sorted keys keep request bytes deterministic.
+    static var encoder: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return encoder
+    }
+    private func performReply(_ conversation: ReplyConversation, configuration: LangdockConfiguration, key: String,
+                              onText: (@MainActor (String) -> Void)? = nil) async throws -> ReviewReply {
+        let input = conversation.input
         guard !configuration.model.isEmpty, input.body.utf8.count <= 100_000,
-              input.title.utf8.count + input.goal.utf8.count <= 10_000, question.utf8.count <= 8000 else {
+              input.title.utf8.count + input.goal.utf8.count <= 10_000, conversation.question.utf8.count <= 8000 else {
             throw ReviewError.message("Choose a model and keep the draft and reply within the review limits.")
         }
-        struct Context: Encodable {
-            let draft: ReviewInput
-            let comment: ReviewSuggestion
-            let messages: [ReviewMessage]
-            let question: String
+        struct Request: Encodable {
+            let model: String
+            let messages: [ReplyConversation.Message]
+            let response_format = ["type": "json_object"]
+            let max_completion_tokens = 4000
+            let stream: Bool
         }
-        func scrub(_ text: String) -> String { ReviewInput(title: "", goal: "", body: text).transmitted.body }
-        let clean = ReviewSuggestion(quote: scrub(suggestion.quote), prefix: scrub(suggestion.prefix), suffix: scrub(suggestion.suffix),
-                                     explanation: scrub(suggestion.explanation), replacement: suggestion.replacement.map(scrub))
-        let context = Context(draft: input.transmitted, comment: clean,
-            messages: messages.suffix(12).map { ReviewMessage(role: $0.role, text: scrub($0.text)) }, question: scrub(question))
-        let scrubbed = String(decoding: try JSONEncoder().encode(context), as: UTF8.self)
-        let body: [String: Any] = ["model": configuration.model,
-            "messages": [["role": "system", "content": WritingAssistPrompt.reply(guidance: configuration.guidance)],
-                         ["role": "user", "content": scrubbed]],
-            "response_format": ["type": "json_object"], "max_completion_tokens": 4000, "stream": onText != nil]
-        return try Self.decodeReply(try await request("chat/completions", body: JSONSerialization.data(withJSONObject: body), configuration: configuration, key: key, onText: onText))
+        let body = try Self.encoder.encode(Request(model: configuration.model,
+            messages: conversation.messages(system: WritingAssistPrompt.reply(guidance: configuration.guidance)), stream: onText != nil))
+        return try Self.decodeReply(try await request("chat/completions", body: body, configuration: configuration, key: key, onText: onText))
     }
     static func decodeReply(_ data: Data) throws -> ReviewReply {
         struct Response: Decodable {
