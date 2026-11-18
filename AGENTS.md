@@ -54,6 +54,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | `Sources/Matilde/AppUpdater.swift` | Sparkle controller and native Check for Updates action |
 | `Tests/MatildeTests/` | Workspace, Markdown, curl geometry, and native editor regression tests |
 | `Config/release.json` | Local version, stable bundle identifier, repository, update URL and public signing key |
+| `server/` | Cloud sync server (TypeScript Cloudflare Worker, Durable Objects, D1, R2); its own README, PROTOCOL.md and vitest suite (`cd server && npm ci && npm test`, runs on Linux) |
 | `scripts/` and `.github/workflows/` | App assembly, tests, signing, packaging, release validation and publication |
 
 ## Files, persistence, and data safety
