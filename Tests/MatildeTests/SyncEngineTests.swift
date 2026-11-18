@@ -369,8 +369,8 @@ final class SyncEngineTests: XCTestCase {
     func testOversizeBodyTravelsAsBlobReference() async throws {
         let (server, a, b) = try pair()
         var generator = SystemRandomNumberGenerator()
-        // Random text doesn't compress, so it stays over the record limit.
-        let big = String((0..<3_500_000).map { _ in Character(UnicodeScalar(UInt8.random(in: 97...122, using: &generator))) })
+        // Base64 of random bytes compresses to about 6 bits a character: ~3.75 MB, over the record limit.
+        let big = Data((0..<3_750_000).map { _ in UInt8.random(in: 0...255, using: &generator) }).base64EncodedString()
         let id = a.store.draft(path: "Big.md", text: big)
         try await a.engine.sync()
         let row = await server.rows[SyncID.derived("body", id)]
