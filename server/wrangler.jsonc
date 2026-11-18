@@ -1,0 +1,92 @@
+// Matilde sync server. See README.md for setup and PROTOCOL.md for the API.
+//
+// DOMAIN: the owner has not picked a domain yet. Every hostname and the mail
+// sender below use the placeholder "matilde.example". Replace it everywhere with
+//   npm run set-domain -- <your-domain>
+// (or search and replace "matilde.example"). Nothing else needs to change.
+//
+// Secrets are never in this file. See README.md, "Secrets", for `wrangler secret put`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "matilde-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": false,
+  "observability": { "enabled": true },
+
+  // Top level = local development and tests (`wrangler dev`, vitest).
+  "vars": {
+    "ENVIRONMENT": "development",
+    "MAIL_PROVIDER": "console",
+    "MAIL_FROM": "Matilde <sign-in@matilde.example>",
+    // Local workerd does not implement jurisdictions; staging and production set "eu".
+    "DO_JURISDICTION": "",
+    "MIN_CLIENT_BUILD": "0",
+    "GLOBAL_DAILY_CODE_CAP": "2000"
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "matilde-directory-dev", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [
+    { "binding": "BLOBS", "bucket_name": "matilde-blobs-dev" }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UserSync"] }],
+  // Daily cleanup of expired codes, rate counters and sessions.
+  "triggers": { "crons": ["17 3 * * *"] },
+
+  "env": {
+    "staging": {
+      "name": "matilde-sync-staging",
+      "routes": [{ "pattern": "sync-staging.matilde.example", "custom_domain": true }],
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "MAIL_PROVIDER": "cloudflare",
+        "MAIL_FROM": "Matilde <sign-in@matilde.example>",
+        "DO_JURISDICTION": "eu",
+        "MIN_CLIENT_BUILD": "0",
+        "GLOBAL_DAILY_CODE_CAP": "200"
+      },
+      "d1_databases": [
+        // Created with: wrangler d1 create matilde-directory-staging --jurisdiction eu
+        { "binding": "DB", "database_name": "matilde-directory-staging", "database_id": "REPLACE_WITH_STAGING_D1_ID", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [
+        // Created with: wrangler r2 bucket create matilde-blobs-staging --jurisdiction eu
+        { "binding": "BLOBS", "bucket_name": "matilde-blobs-staging", "jurisdiction": "eu" }
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
+      },
+      "send_email": [{ "name": "EMAIL" }],
+      "triggers": { "crons": ["17 3 * * *"] }
+    },
+    "production": {
+      "name": "matilde-sync",
+      "routes": [{ "pattern": "sync.matilde.example", "custom_domain": true }],
+      "vars": {
+        "ENVIRONMENT": "production",
+        "MAIL_PROVIDER": "cloudflare",
+        "MAIL_FROM": "Matilde <sign-in@matilde.example>",
+        "DO_JURISDICTION": "eu",
+        "MIN_CLIENT_BUILD": "0",
+        "GLOBAL_DAILY_CODE_CAP": "2000"
+      },
+      "d1_databases": [
+        // Created with: wrangler d1 create matilde-directory --jurisdiction eu
+        { "binding": "DB", "database_name": "matilde-directory", "database_id": "REPLACE_WITH_PRODUCTION_D1_ID", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [
+        // Created with: wrangler r2 bucket create matilde-blobs --jurisdiction eu
+        { "binding": "BLOBS", "bucket_name": "matilde-blobs", "jurisdiction": "eu" }
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
+      },
+      "send_email": [{ "name": "EMAIL" }],
+      "triggers": { "crons": ["17 3 * * *"] }
+    }
+  }
+}
