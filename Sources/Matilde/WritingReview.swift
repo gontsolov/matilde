@@ -23,6 +23,8 @@ struct ReviewComment: Codable, Identifiable {
     var rewriteMessageID: UUID? = nil
     /// The review's own rewrite, kept once a reply replaces it, so it stays first in the thread.
     var initialReplacement: String? = nil
+    /// Frozen chat prefix for this thread (see `ReplyContext`); nil until its first delivered reply.
+    var replyContext: ReplyContext? = nil
     var range: NSRange { NSRange(location: location, length: length) }
     var isUnread: Bool { unread == true }
 }
@@ -271,7 +273,8 @@ final class WritingReviewModel: ObservableObject {
             thread.removeLast()
         }
         let prior = thread.filter { $0.delivery != "failed" }
-        thread.append(ReviewMessage(role: "user", text: question, delivery: "pending"))
+        let conversation = comment.replyConversation(input: input, prior: prior, question: question)
+        thread.append(ReviewMessage(role: "user", text: question, delivery: "pending", prompt: conversation.turn))
         history[r].comments[c].messages = thread
         history[r].comments[c].replyError = nil
         persist(history[r])
@@ -288,8 +291,7 @@ final class WritingReviewModel: ObservableObject {
         let token = generation
         task = Task { [weak self, client] in
             do {
-                let answer = try await client.streamReply(input, suggestion: comment.suggestion,
-                    messages: prior, question: question, configuration: configuration, key: credential) { [weak self] text in
+                let answer = try await client.streamReply(conversation, configuration: configuration, key: credential) { [weak self] text in
                         guard let self, self.generation == token, self.replyingTo == commentID else { return }
                         self.streamingReply = text
                     }
@@ -303,6 +305,9 @@ final class WritingReviewModel: ObservableObject {
                 reply.replacement = answer.replacement
                 completed.append(reply)
                 self.history[r].comments[c].messages = completed
+                var context = conversation.context
+                context.known = input.transmitted
+                self.history[r].comments[c].replyContext = context
                 if self.openThreadID != commentID { self.history[r].comments[c].unread = true }
                 if let replacement = answer.replacement {
                     let old = self.history[r].comments[c].suggestion
