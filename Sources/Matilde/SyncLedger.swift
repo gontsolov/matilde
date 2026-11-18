@@ -226,20 +226,20 @@ extension Workspace {
         }
     }
 
-    private func record(_ entry: SyncLedgerEntry, fields: [String: JSONValue]) -> SyncRecord {
+    func record(_ entry: SyncLedgerEntry, fields: [String: JSONValue]) -> SyncRecord {
         var clocks: [String: HLC] = [:]
         for key in fields.keys { clocks[key] = entry.fields[key].flatMap { HLC($0.t) } ?? entry.hlc }
         return SyncRecord(id: entry.id, type: entry.type, hlc: entry.hlc, baseHlc: entry.serverHLC, deleted: entry.deleted,
                           fields: entry.deleted ? [:] : fields, fieldHLCs: entry.deleted ? [:] : clocks)
     }
 
-    private func encodeLedgerFields(_ fields: [String: SyncLedgerEntry.Field]) throws -> String {
+    func encodeLedgerFields(_ fields: [String: SyncLedgerEntry.Field]) throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         return String(decoding: try encoder.encode(fields), as: UTF8.self)
     }
 
-    private func syncClock() throws -> HybridClock {
+    func syncClock() throws -> HybridClock {
         var clock = HybridClock(device: syncDeviceID)
         if let stored = try db.execute("SELECT value FROM sync_meta WHERE key='clock'").first?["value"].flatMap(HLC.init) {
             clock.observe(stored)
@@ -251,18 +251,18 @@ extension Workspace {
         return clock
     }
 
-    private func saveSyncClock(_ clock: HybridClock) throws {
+    func saveSyncClock(_ clock: HybridClock) throws {
         guard let last = clock.last else { return }
         try db.execute("INSERT INTO sync_meta VALUES ('clock', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [last.description])
     }
 
     // MARK: Sources
 
-    private func tableExists(_ name: String) throws -> Bool {
+    func tableExists(_ name: String) throws -> Bool {
         try !db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [name]).isEmpty
     }
 
-    private static func milliseconds(_ seconds: String?) -> Double? {
+    static func milliseconds(_ seconds: String?) -> Double? {
         seconds.flatMap(Double.init).map { ($0 * 1000).rounded() }
     }
 
@@ -272,7 +272,7 @@ extension Workspace {
     }
 
     /// Size and modification time of a regular file, or nil if it isn't one.
-    private func fileFingerprint(_ url: URL) -> String? {
+    func fileFingerprint(_ url: URL) -> String? {
         guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]),
               values.isRegularFile == true, let size = values.fileSize else { return nil }
         return "\(size):\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)"

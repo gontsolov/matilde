@@ -163,7 +163,7 @@ enum CommentAnchor {
 }
 
 extension Workspace {
-    private func ensureUserComments() throws {
+    func ensureUserComments() throws {
         try db.execute("CREATE TABLE IF NOT EXISTS user_comments (id TEXT PRIMARY KEY, draft_id TEXT NOT NULL, body TEXT NOT NULL, location INTEGER NOT NULL, length INTEGER NOT NULL, quote TEXT NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT NULL, created REAL NOT NULL, modified REAL NOT NULL)")
         try db.execute("CREATE INDEX IF NOT EXISTS user_comments_draft ON user_comments (draft_id)")
         // Archived comments are kept but no longer shown (added after the first comment release).
