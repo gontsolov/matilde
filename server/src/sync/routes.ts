@@ -4,6 +4,13 @@ import { requireAuth } from "../auth/middleware";
 import { LIMITS } from "../limits";
 import { HttpError, UUID_RE } from "../util";
 import { userSync } from "./stub";
+import type { AccountGone } from "./types";
+
+/** Unwraps a Durable Object result; a deleted account answers 410. */
+function present<T extends object>(result: T): Exclude<T, AccountGone> {
+  if ("gone" in result) throw new HttpError(410, "account_deleted");
+  return result as Exclude<T, AccountGone>;
+}
 import { parsePush } from "./validate";
 
 export const syncRoutes = new Hono<AppEnv>();
@@ -23,7 +30,7 @@ syncRoutes.post("/push", async (c) => {
     throw new HttpError(400, "invalid_request", "body must be JSON");
   }
   const changes = parsePush(body, deviceId);
-  return c.json(await userSync(c.env, userId).push(userId, deviceId, changes));
+  return c.json(present(await userSync(c.env, userId).push(userId, deviceId, changes)));
 });
 
 syncRoutes.get("/pull", async (c) => {
@@ -32,7 +39,7 @@ syncRoutes.get("/pull", async (c) => {
   const limit = Number(c.req.query("limit") ?? LIMITS.pullDefaultLimit);
   if (!Number.isSafeInteger(since) || since < 0) throw new HttpError(400, "invalid_request", "since must be a non-negative integer");
   if (!Number.isSafeInteger(limit) || limit < 1) throw new HttpError(400, "invalid_request", "limit must be a positive integer");
-  return c.json(await userSync(c.env, userId).pull(userId, since, Math.min(limit, LIMITS.pullMaxLimit)));
+  return c.json(present(await userSync(c.env, userId).pull(userId, since, Math.min(limit, LIMITS.pullMaxLimit))));
 });
 
 syncRoutes.get("/ws", async (c) => {
@@ -68,14 +75,14 @@ blobRoutes.put("/:blobId", async (c) => {
   if (!lengthHeader || !Number.isSafeInteger(size) || size < 1) throw new HttpError(411, "length_required");
   if (size > LIMITS.blobMaxBytes) throw new HttpError(413, "blob_too_large");
   const stub = userSync(c.env, userId);
-  const info = await stub.blobInfo(userId, blobId);
+  const info = present(await stub.blobInfo(userId, blobId));
   if (info.exists) return c.json({ blobId, size: info.size, existed: true });
   if (size > info.quotaLeft) throw new HttpError(413, "quota_exceeded");
   const body = c.req.raw.body;
   if (!body) throw new HttpError(400, "invalid_request", "empty body");
   const stored = await c.env.BLOBS.put(blobKey(userId, blobId), body.pipeThrough(new FixedLengthStream(size)));
   if (!stored || stored.size !== size) throw new HttpError(400, "invalid_request", "body length mismatch");
-  const commit = await stub.commitBlob(userId, blobId, size);
+  const commit = present(await stub.commitBlob(userId, blobId, size));
   if (!commit.ok) {
     await c.env.BLOBS.delete(blobKey(userId, blobId));
     throw new HttpError(413, "quota_exceeded");

@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../env";
 import { CAS_TYPES, LIMITS } from "../limits";
 import { bytesToBase64, hlcMillis } from "../util";
-import type { CommitBlobResult, PullResult, PushChange, PushResult, RejectReason, WireRow } from "./types";
+import type { AccountGone, CommitBlobResult, PullResult, PushChange, PushResult, RejectReason, WireRow } from "./types";
 
 const SCHEMA_VERSION = 1;
 
@@ -21,11 +21,7 @@ interface RecordRow {
   [key: string]: SqlStorageValue;
 }
 
-export class AccountDeletedError extends Error {
-  constructor() {
-    super("account_deleted");
-  }
-}
+const GONE: AccountGone = { gone: true };
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
@@ -102,12 +98,16 @@ export class UserSync extends DurableObject<Env> {
     return String(this.getMeta("epoch"));
   }
 
-  /** Binds the object to its user on first use and refuses any other user id (defence in depth). */
-  private enter(userId: string): void {
-    if (this.getMeta("deleted")) throw new AccountDeletedError();
+  /**
+   * Binds the object to its user on first use and refuses any other user id (defence in depth).
+   * Returns false when the account was deleted.
+   */
+  private enter(userId: string): boolean {
+    if (this.getMeta("deleted")) return false;
     const owner = this.getMeta("user_id");
     if (owner === null) this.setMeta("user_id", userId);
     else if (owner !== userId) throw new Error("user mismatch");
+    return true;
   }
 
   private prefix(userId: string): string {
@@ -116,8 +116,8 @@ export class UserSync extends DurableObject<Env> {
 
   // MARK: push
 
-  async push(userId: string, deviceId: string, changes: PushChange[], nowMs = Date.now()): Promise<PushResult> {
-    this.enter(userId);
+  async push(userId: string, deviceId: string, changes: PushChange[], nowMs = Date.now()): Promise<PushResult | AccountGone> {
+    if (!this.enter(userId)) return GONE;
 
     // Phase 1: large ciphertext goes to R2 under a unique key before the transaction,
     // so the transaction itself stays synchronous.
@@ -237,8 +237,8 @@ export class UserSync extends DurableObject<Env> {
 
   // MARK: pull
 
-  async pull(userId: string, since: number, limit: number): Promise<PullResult> {
-    this.enter(userId);
+  async pull(userId: string, since: number, limit: number): Promise<PullResult | AccountGone> {
+    if (!this.enter(userId)) return GONE;
     const maxSeq = this.num("seq");
     if (since > maxSeq) {
       return { rows: [], hasMore: false, maxSeq, nextSince: 0, epoch: this.epoch, resync: true };
@@ -291,15 +291,15 @@ export class UserSync extends DurableObject<Env> {
 
   // MARK: blobs
 
-  async blobInfo(userId: string, blobId: string): Promise<{ exists: boolean; size: number; quotaLeft: number }> {
-    this.enter(userId);
+  async blobInfo(userId: string, blobId: string): Promise<{ exists: boolean; size: number; quotaLeft: number } | AccountGone> {
+    if (!this.enter(userId)) return GONE;
     const row = this.sql.exec<{ size: number }>("SELECT size FROM blobs WHERE id = ?", blobId).toArray()[0];
     return { exists: !!row, size: row?.size ?? 0, quotaLeft: LIMITS.blobQuotaBytes - this.num("blob_bytes") };
   }
 
   /** Registers an uploaded blob. The caller deletes the R2 object when this fails. */
-  async commitBlob(userId: string, blobId: string, size: number, nowMs = Date.now()): Promise<CommitBlobResult> {
-    this.enter(userId);
+  async commitBlob(userId: string, blobId: string, size: number, nowMs = Date.now()): Promise<CommitBlobResult | AccountGone> {
+    if (!this.enter(userId)) return GONE;
     if (this.sql.exec("SELECT 1 FROM blobs WHERE id = ?", blobId).toArray().length) return { ok: true, existed: true };
     const total = this.num("blob_bytes") + size;
     if (total > LIMITS.blobQuotaBytes) return { ok: false, reason: "quota" };
@@ -377,12 +377,7 @@ export class UserSync extends DurableObject<Env> {
     const userId = request.headers.get("x-matilde-user") ?? "";
     const deviceId = request.headers.get("x-matilde-device") ?? "";
     const sessionId = request.headers.get("x-matilde-session") ?? "";
-    try {
-      this.enter(userId);
-    } catch (error) {
-      if (error instanceof AccountDeletedError) return new Response("account deleted", { status: 410 });
-      throw error;
-    }
+    if (!this.enter(userId)) return new Response("account deleted", { status: 410 });
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("expected websocket", { status: 426 });
     }

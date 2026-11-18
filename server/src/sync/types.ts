@@ -50,3 +50,8 @@ export interface PullResult {
 }
 
 export type CommitBlobResult = { ok: true; existed: boolean } | { ok: false; reason: "quota" };
+
+/** Returned instead of a result when the account was deleted (its access token may still be unexpired). */
+export interface AccountGone {
+  gone: true;
+}

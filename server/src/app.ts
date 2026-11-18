@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { accountRoutes, authRoutes, deviceRoutes, keyRoutes } from "./auth/routes";
 import type { AccessClaims } from "./auth/tokens";
 import type { Env } from "./env";
 import { blobRoutes, syncRoutes } from "./sync/routes";
@@ -39,15 +40,16 @@ export function createApp(): Hono<AppEnv> {
   });
 
   app.get("/v1/health", (c) => c.json({ ok: true, api: API_VERSION }));
+  app.route("/v1/auth", authRoutes);
+  app.route("/v1/devices", deviceRoutes);
+  app.route("/v1/account", accountRoutes);
+  app.route("/v1/keys", keyRoutes);
   app.route("/v1/sync", syncRoutes);
   app.route("/v1/blobs", blobRoutes);
 
   app.notFound(() => errorResponse(new HttpError(404, "not_found")));
   app.onError((error) => {
     if (error instanceof HttpError) return errorResponse(error);
-    if (error instanceof Error && error.message === "account_deleted") {
-      return errorResponse(new HttpError(410, "account_deleted"));
-    }
     console.error(JSON.stringify({ error: "internal", name: error instanceof Error ? error.name : "unknown", message: error instanceof Error ? error.message : String(error) }));
     return errorResponse(new HttpError(500, "internal_error"));
   });
