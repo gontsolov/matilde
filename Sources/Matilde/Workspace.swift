@@ -75,9 +75,12 @@ final class Database {
 final class Workspace {
     let root: URL
     let db: Database
+    /// Where the live database lives (Application Support, SYNC-01) and how it got there.
+    let store: WorkspaceStore
+    var workspaceID: String { store.workspaceID }
     private let fm = FileManager.default
 
-    init(root: URL) throws {
+    init(root: URL, storeBase: URL = WorkspaceStore.defaultBase) throws {
         self.root = root.standardizedFileURL.resolvingSymlinksInPath()
         var isDirectory: ObjCBool = false
         guard fm.fileExists(atPath: self.root.path, isDirectory: &isDirectory), isDirectory.boolValue else {
@@ -88,7 +91,8 @@ final class Workspace {
             throw WorkspaceError.message("The .matilde folder cannot be a symbolic link.")
         }
         try fm.createDirectory(at: metadata.appendingPathComponent("snapshots"), withIntermediateDirectories: true)
-        db = try Database(url: metadata.appendingPathComponent("workspace.sqlite"))
+        store = try WorkspaceStore.prepare(root: self.root, metadata: metadata, base: storeBase)
+        db = try Database(url: store.databaseURL)
     }
 
     func url(for path: String) throws -> URL {

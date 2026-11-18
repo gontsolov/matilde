@@ -623,3 +623,16 @@ Owner explicitly requested a new release ("yes merge both and do new release"). 
 
 ### 0.1.19 publication — 2026-11-15
 Release workflow run 43763556088 (dispatched on `main` at `d379cce`, version 0.1.19) passed version/signing validation, tests, arm64 build, DMG packaging, Sparkle archive/feed signing, the artifact upload and publication. GitHub Release `v0.1.19` (tag on `d379cce`) is published as latest with `Matilde.dmg` (6.7 MB), `appcast.xml` and `SHA256SUMS`; the latest feed reports version 0.1.19 with `arm64` hardware requirements, the v0.1.19 DMG URL and an Ed25519 signature. Build remains ad-hoc signed and not Apple-notarized (DIST-02). An installed-app update from 0.1.18 and the Mac UI checks for UI-27 and UI-28 were not exercised.
+
+### 2026-11-18 — Live database moved to Application Support (SYNC-01)
+`WorkspaceStore.swift` resolves the database at `~/Library/Application Support/Matilde/workspaces/<workspaceID>/workspace.sqlite` (the app is not sandboxed; `FileManager`'s Application Support URL would follow a container if it were) and migrates `.matilde/workspace.sqlite` once when a workspace opens: SQLite backup API into `workspace.sqlite.incoming-<uuid>`, `journal_mode = DELETE`, reopen read-only, `PRAGMA integrity_check`, per-table row counts equal to the source, no sidecar files left, rename into place, then rename the old file to `workspace.sqlite.migrated` (timestamped name if that exists). `.matilde/workspace.json` holds the ID; `store.json` in the store records the last root path to tell a moved workspace (path gone: keep the store) from a copy (original still has the same ID: new ID, store seeded from the original). Markdown, snapshots and stashes stay in the workspace.
+
+Linux sandbox without Swift: code reading only; the backup/WAL sequence was rehearsed with Python's `sqlite3` (same SQLite backup API). CI on the PR is the build/test check.
+
+Manual Mac checklist (use a copy of a real workspace or a disposable one under `build/`, not the owner's only copy):
+- Before updating, note a draft with private comments, an Ask Matilde thread (read and unread) and a goal. Quit 0.1.19 normally.
+- Launch the new build with that workspace: everything opens as before; the comments, threads, unread dots, goals, branches and the last open draft are all there.
+- In Finder (⇧⌘. to show hidden files): `.matilde/workspace.sqlite` is gone, `.matilde/workspace.sqlite.migrated` and `.matilde/workspace.json` exist; `~/Library/Application Support/Matilde/workspaces/<id from workspace.json>/workspace.sqlite` exists.
+- Add a comment, quit, relaunch: it survives, and no new `.matilde/workspace.sqlite` appears.
+- Optional: choose a brand-new empty folder as workspace: no `workspace.sqlite` is created inside it.
+- Optional: duplicate a workspace folder in Finder and open the copy: same comments at first; a comment added in the copy does not appear in the original.
