@@ -4,9 +4,11 @@
 // https://sync-staging.matilde.page (custom domains: `wrangler deploy` creates the
 // DNS records and certificates). Sign-in mail comes from sign-in@matilde.page.
 //
-// MAIL: staging and production send through Resend (RESEND_API_KEY secret). To use
-// Cloudflare Email Service instead, set MAIL_PROVIDER to "cloudflare" and uncomment
-// the `send_email` binding in that environment.
+// MAIL: staging and production send through Cloudflare Email Service (Email Sending,
+// public beta, Workers Paid) via the `send_email` binding EMAIL. No API key. The binding
+// has no destination restriction, so once matilde.page is onboarded for Email Sending it
+// can mail any address; `allowed_sender_addresses` pins the sender to sign-in@. Fallback:
+// set MAIL_PROVIDER to "resend" and add the RESEND_API_KEY secret (README, "Mail").
 //
 // Secrets are never in this file. See README.md, "Secrets", for `wrangler secret put`.
 {
@@ -46,7 +48,7 @@
       "routes": [{ "pattern": "sync-staging.matilde.page", "custom_domain": true }],
       "vars": {
         "ENVIRONMENT": "staging",
-        "MAIL_PROVIDER": "resend",
+        "MAIL_PROVIDER": "cloudflare",
         "MAIL_FROM": "Matilde <sign-in@matilde.page>",
         "DO_JURISDICTION": "eu",
         "MIN_CLIENT_BUILD": "0",
@@ -63,7 +65,9 @@
       "durable_objects": {
         "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
       },
-      // Only for MAIL_PROVIDER "cloudflare": "send_email": [{ "name": "EMAIL" }],
+      // Cloudflare Email Service. No `allowed_destination_addresses`/`destination_address`:
+      // sign-in codes go to arbitrary users. Needs matilde.page onboarded for Email Sending.
+      "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["sign-in@matilde.page"] }],
       "triggers": { "crons": ["17 3 * * *"] }
     },
     "production": {
@@ -71,7 +75,7 @@
       "routes": [{ "pattern": "sync.matilde.page", "custom_domain": true }],
       "vars": {
         "ENVIRONMENT": "production",
-        "MAIL_PROVIDER": "resend",
+        "MAIL_PROVIDER": "cloudflare",
         "MAIL_FROM": "Matilde <sign-in@matilde.page>",
         "DO_JURISDICTION": "eu",
         "MIN_CLIENT_BUILD": "0",
@@ -88,7 +92,9 @@
       "durable_objects": {
         "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
       },
-      // Only for MAIL_PROVIDER "cloudflare": "send_email": [{ "name": "EMAIL" }],
+      // Cloudflare Email Service. No `allowed_destination_addresses`/`destination_address`:
+      // sign-in codes go to arbitrary users. Needs matilde.page onboarded for Email Sending.
+      "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["sign-in@matilde.page"] }],
       "triggers": { "crons": ["17 3 * * *"] }
     }
   }

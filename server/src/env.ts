@@ -27,7 +27,7 @@ export interface Env {
   TOKEN_VERIFY_KEYS?: string;
   /** Random secret (>= 32 bytes, base64) keying the email/code/IP hashes. */
   CODE_PEPPER: string;
-  /** Only when MAIL_PROVIDER = "resend". */
+  /** Only when MAIL_PROVIDER = "resend" (fallback; not set in the default config). */
   RESEND_API_KEY?: string;
 }
 

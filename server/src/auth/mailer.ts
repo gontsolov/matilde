@@ -11,7 +11,10 @@ export interface Mailer {
   send(message: MailMessage): Promise<void>;
 }
 
-/** Cloudflare Email Service via the `send_email` binding (no API key; beta at the time of writing). */
+/**
+ * Cloudflare Email Service (Email Sending) via the `send_email` binding. No API key. Public beta
+ * at the time of writing; needs Workers Paid and the sender domain onboarded for Email Sending.
+ */
 export class CloudflareMailer implements Mailer {
   constructor(
     private readonly binding: SendEmail,
@@ -19,11 +22,17 @@ export class CloudflareMailer implements Mailer {
   ) {}
 
   async send(message: MailMessage): Promise<void> {
-    await this.binding.send({ from: parseAddress(this.from), to: message.to, subject: message.subject, text: message.text });
+    try {
+      await this.binding.send({ from: parseAddress(this.from), to: message.to, subject: message.subject, text: message.text });
+    } catch (error) {
+      // Only the error code (e.g. E_SENDER_DOMAIN_NOT_AVAILABLE) reaches the logs: the message may name the recipient.
+      const code = (error as { code?: unknown } | null)?.code;
+      throw new Error(`cloudflare email failed: ${typeof code === "string" ? code : error instanceof TypeError ? "invalid_message" : "unknown"}`);
+    }
   }
 }
 
-/** Resend HTTP API (needs the RESEND_API_KEY secret and a verified sender domain). */
+/** Resend HTTP API: documented fallback, not in the default config (needs the RESEND_API_KEY secret and a verified sender domain). */
 export class ResendMailer implements Mailer {
   constructor(
     private readonly apiKey: string,

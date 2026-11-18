@@ -57,14 +57,21 @@ The tests run inside the Workers runtime with real D1, R2 and Durable Object imp
 
 **Domain:** `matilde.page`. Production is `https://sync.matilde.page`, staging `https://sync-staging.matilde.page` (Workers custom domains: `wrangler deploy` creates their DNS records and certificates), and sign-in mail comes from `Matilde <sign-in@matilde.page>`. The domain was set with `npm run set-domain -- matilde.page`, which replaced the `matilde.example` placeholder in `wrangler.jsonc`.
 
-**Mail:** staging and production use `MAIL_PROVIDER: "resend"`. To switch to Cloudflare Email Service, set `MAIL_PROVIDER` to `"cloudflare"` in that environment and uncomment its `send_email` binding.
+**Mail:** staging and production use **Cloudflare Email Service** (Email Sending): `MAIL_PROVIDER: "cloudflare"` and a `send_email` binding `EMAIL` per environment, with no API key. The binding sets no `destination_address` or `allowed_destination_addresses` (either would limit who can get a code); `allowed_sender_addresses` pins it to `sign-in@matilde.page`. Per Cloudflare's docs (checked 2026-11-18):
+
+- Email Sending is in **public beta** (since 2026-04-16); there is no waitlist, but it needs the **Workers Paid** plan.
+- An unrestricted binding can mail **any recipient once the sender domain is onboarded** for Email Sending. Before that it can only reach verified destination addresses of the account, so onboarding `matilde.page` is required before sign-in works for real users.
+- Workers Paid includes 3,000 mails a month, then $0.35 per 1,000. New accounts start with a conservative daily sending quota that grows with reputation; sends over it fail (for example `E_RATE_LIMIT_EXCEEDED`; the API answers `502 mail_failed`), possibly well below `GLOBAL_DAILY_CODE_CAP` at first. The limit-increase form is linked from Cloudflare's Email Service "Limits" page.
+- Failures are logged as `mail_failed` with only the Cloudflare error code, e.g. `cloudflare email failed: E_SENDER_DOMAIN_NOT_AVAILABLE` (domain not onboarded) or `E_SENDER_NOT_VERIFIED` (sender not allowed).
+
+**Fallback, Resend:** the Resend adapter stays in the code but not in the config. To switch an environment: set its `MAIL_PROVIDER` to `"resend"`, `wrangler secret put RESEND_API_KEY --env <env>`, verify `matilde.page` in Resend (EU region) with the DNS records it shows, and redeploy. The `send_email` binding can stay.
 
 Vars (in `wrangler.jsonc`, not secret):
 
 | Var | Meaning |
 | --- | --- |
 | `ENVIRONMENT` | `development`, `staging` or `production` |
-| `MAIL_PROVIDER` | `cloudflare` (Email Service binding `EMAIL`), `resend`, or `console` (local only) |
+| `MAIL_PROVIDER` | `cloudflare` (Email Service binding `EMAIL`; staging and production), `resend` (fallback), or `console` (local only) |
 | `MAIL_FROM` | Sender: `Matilde <sign-in@matilde.page>` |
 | `DO_JURISDICTION` | `eu` when deployed |
 | `MIN_CLIENT_BUILD` | Lowest `X-Matilde-Build` accepted (`0` = off); older apps get `426` |
@@ -78,7 +85,7 @@ Never committed. Set each one per environment (`--env staging` and `--env produc
 | --- | --- | --- |
 | `TOKEN_SIGNING_KEY` | yes | `npm run --silent gen-signing-key \| npx wrangler secret put TOKEN_SIGNING_KEY --env production` (Ed25519 private JWK with a `kid`; signs access tokens) |
 | `CODE_PEPPER` | yes | `openssl rand -base64 32 \| npx wrangler secret put CODE_PEPPER --env production` (keys the hashes of emails, codes and IP prefixes) |
-| `RESEND_API_KEY` | only if `MAIL_PROVIDER` is `resend` | from the Resend dashboard (sending access, restricted to the domain) |
+| `RESEND_API_KEY` | only for the Resend fallback (`MAIL_PROVIDER: "resend"`); not needed by default | from the Resend dashboard (sending access, restricted to the domain) |
 | `TOKEN_VERIFY_KEYS` | only during a key rotation | JSON array of old public JWKs, see below |
 
 Use different values for staging and production. Changing `CODE_PEPPER` only invalidates codes in flight and resets rate-limit counters.
@@ -102,10 +109,7 @@ If the old private key wasn't kept, just replace `TOKEN_SIGNING_KEY`: every devi
 1. **Cloudflare account on Workers Paid** ($5/month, Workers & Pages → Plans). The limits and included usage in the plan assume it.
 2. **Spending and usage alerts:** in the dashboard's Notifications, add usage-based billing alerts for Workers, Durable Objects, D1 and R2 (and a billing budget alert if offered for the account). Once deployed, add a Workers Observability alert on the error rate and on `global_code_cap_reached` log events (the daily cap on sign-in mail was hit).
 3. **Domain on Cloudflare DNS:** `matilde.page` must be an active zone in the same Cloudflare account (Cloudflare Registrar, or the existing registrar's nameservers pointed to Cloudflare). `sync` and `sync-staging` must have no existing DNS records; `wrangler deploy` creates them. The config already uses the domain.
-4. **Email sending:**
-   - *Resend (configured):* create an account, add `matilde.page` in the EU region (eu-west-1), add the DNS records it shows (DKIM `resend._domainkey`, SPF and bounce MX on `send`), verify, then create an API key with sending access restricted to the domain and set it as the `RESEND_API_KEY` secret.
-   - *Cloudflare Email Service (beta, alternative):* enable Email Service sending for the domain in the dashboard and let it add its DNS records (the account may need beta access). Then set `MAIL_PROVIDER: "cloudflare"` and uncomment the `send_email` binding in `wrangler.jsonc`.
-   - Either way the domain needs **SPF**, **DKIM** (the provider's records) and **DMARC** (start with `_dmarc TXT "v=DMARC1; p=none; rua=mailto:<you>"`, tighten to `quarantine` once mail flows).
+4. **Email sending (Cloudflare Email Service):** Dashboard → **Compute → Email Service → Email Sending → Onboard Domain** → pick `matilde.page` → **Done**. Cloudflare adds and locks its records on the `cf-bounce` subdomain: three MX (`route1/2/3.mx.cloudflare.net`, bounces), SPF `TXT cf-bounce "v=spf1 include:_spf.mx.cloudflare.net ~all"` and DKIM `TXT cf-bounce._domainkey`. It also adds `TXT _dmarc "v=DMARC1; p=reject;"` **only if the domain has no DMARC record yet**. Email Sending → Settings → DNS records should then list all of them (Locked or Unlocked both mean configured). Nothing is configured on the Worker side beyond the committed binding.
 5. **Create the resources in the EU** (logged in with `npx wrangler login`):
    ```sh
    npx wrangler d1 create matilde-directory-staging --jurisdiction eu
@@ -114,7 +118,7 @@ If the old private key wasn't kept, just replace `TOKEN_SIGNING_KEY`: every devi
    npx wrangler r2 bucket create matilde-blobs --jurisdiction eu
    ```
    Put the two printed D1 `database_id`s into `wrangler.jsonc` (replacing `REPLACE_WITH_STAGING_D1_ID` / `REPLACE_WITH_PRODUCTION_D1_ID`) and commit. The R2 jurisdiction can't be changed later. Durable Objects need no setup; the Worker pins them to `eu`.
-6. **Secrets:** `TOKEN_SIGNING_KEY` and `CODE_PEPPER` for both environments (table above), plus `RESEND_API_KEY` if used.
+6. **Secrets:** `TOKEN_SIGNING_KEY` and `CODE_PEPPER` for both environments (table above). Mail needs no secret.
 7. **Migrate and deploy staging, then production:**
    ```sh
    npm run migrate:staging && npm run deploy:staging

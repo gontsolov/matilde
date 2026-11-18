@@ -31,6 +31,13 @@ describe("mailer selection", () => {
     );
   });
 
+  it("reports a Cloudflare send failure by its error code only", async () => {
+    const send = vi.fn().mockRejectedValue(Object.assign(new Error("recipient a@example.com rejected"), { code: "E_SENDER_DOMAIN_NOT_AVAILABLE" }));
+    const failure = new CloudflareMailer({ send } as unknown as SendEmail, "Matilde <sign-in@matilde.page>").send(signInMail("a@example.com", "123456"));
+    await expect(failure).rejects.toThrow("cloudflare email failed: E_SENDER_DOMAIN_NOT_AVAILABLE");
+    await expect(failure).rejects.not.toThrow("a@example.com");
+  });
+
   it("sends through Resend", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
     await new ResendMailer("re_test", "Matilde <sign-in@matilde.page>").send(signInMail("a@example.com", "123456"));
