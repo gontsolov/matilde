@@ -5,6 +5,9 @@
   "description": "Matilde cloud sync server (Cloudflare Worker, Durable Objects, D1, R2). Stores ciphertext only.",
   "license": "UNLICENSED",
   "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "test": "vitest run",
