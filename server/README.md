@@ -110,14 +110,14 @@ If the old private key wasn't kept, just replace `TOKEN_SIGNING_KEY`: every devi
 2. **Spending and usage alerts:** in the dashboard's Notifications, add usage-based billing alerts for Workers, Durable Objects, D1 and R2 (and a billing budget alert if offered for the account). Once deployed, add a Workers Observability alert on the error rate and on `global_code_cap_reached` log events (the daily cap on sign-in mail was hit).
 3. **Domain on Cloudflare DNS:** `matilde.page` must be an active zone in the same Cloudflare account (Cloudflare Registrar, or the existing registrar's nameservers pointed to Cloudflare). `sync` and `sync-staging` must have no existing DNS records; `wrangler deploy` creates them. The config already uses the domain.
 4. **Email sending (Cloudflare Email Service):** Dashboard → **Compute → Email Service → Email Sending → Onboard Domain** → pick `matilde.page` → **Done**. Cloudflare adds and locks its records on the `cf-bounce` subdomain: three MX (`route1/2/3.mx.cloudflare.net`, bounces), SPF `TXT cf-bounce "v=spf1 include:_spf.mx.cloudflare.net ~all"` and DKIM `TXT cf-bounce._domainkey`. It also adds `TXT _dmarc "v=DMARC1; p=reject;"` **only if the domain has no DMARC record yet**. Email Sending → Settings → DNS records should then list all of them (Locked or Unlocked both mean configured). Nothing is configured on the Worker side beyond the committed binding.
-5. **Create the resources in the EU** (logged in with `npx wrangler login`):
+5. **Create the resources in the EU** (logged in with `npx wrangler login`). R2 must be enabled for the account first (Dashboard → **R2 Object Storage** → **Purchase**/**Get started**); otherwise `r2 bucket create` fails with error 10042. If `d1 create` offers to add the binding to the config, answer no (`git checkout -- wrangler.jsonc` undoes a yes).
    ```sh
    npx wrangler d1 create matilde-directory-staging --jurisdiction eu
    npx wrangler d1 create matilde-directory --jurisdiction eu
    npx wrangler r2 bucket create matilde-blobs-staging --jurisdiction eu
    npx wrangler r2 bucket create matilde-blobs --jurisdiction eu
    ```
-   Put the two printed D1 `database_id`s into `wrangler.jsonc` (replacing `REPLACE_WITH_STAGING_D1_ID` / `REPLACE_WITH_PRODUCTION_D1_ID`) and commit. The R2 jurisdiction can't be changed later. Durable Objects need no setup; the Worker pins them to `eu`.
+   The two D1 `database_id`s are already in `wrangler.jsonc` (both databases created in `eu` on 2026-11-18); a recreated database needs its new id there. The R2 jurisdiction can't be changed later. Durable Objects need no setup; the Worker pins them to `eu`.
 6. **Secrets:** `TOKEN_SIGNING_KEY` and `CODE_PEPPER` for both environments (table above). Mail needs no secret.
 7. **Migrate and deploy staging, then production:**
    ```sh

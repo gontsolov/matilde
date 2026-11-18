@@ -56,7 +56,7 @@
       },
       "d1_databases": [
         // Created with: wrangler d1 create matilde-directory-staging --jurisdiction eu
-        { "binding": "DB", "database_name": "matilde-directory-staging", "database_id": "REPLACE_WITH_STAGING_D1_ID", "migrations_dir": "migrations" }
+        { "binding": "DB", "database_name": "matilde-directory-staging", "database_id": "f5c5f043-7aaa-4b11-8fb4-64f576577613", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [
         // Created with: wrangler r2 bucket create matilde-blobs-staging --jurisdiction eu
@@ -83,7 +83,7 @@
       },
       "d1_databases": [
         // Created with: wrangler d1 create matilde-directory --jurisdiction eu
-        { "binding": "DB", "database_name": "matilde-directory", "database_id": "REPLACE_WITH_PRODUCTION_D1_ID", "migrations_dir": "migrations" }
+        { "binding": "DB", "database_name": "matilde-directory", "database_id": "9cd3c32d-813d-4fd1-9fef-d5fda797a381", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [
         // Created with: wrangler r2 bucket create matilde-blobs --jurisdiction eu
