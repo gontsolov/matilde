@@ -1,0 +1,103 @@
+// Matilde sync server. See README.md for setup and PROTOCOL.md for the API.
+//
+// DOMAIN: matilde.page. Production serves https://sync.matilde.page, staging
+// https://sync-staging.matilde.page (custom domains: `wrangler deploy` creates the
+// DNS records and certificates). Sign-in mail comes from sign-in@matilde.page.
+//
+// MAIL: staging and production send through Cloudflare Email Service (Email Sending,
+// public beta, Workers Paid) via the `send_email` binding EMAIL. No API key. The binding
+// has no destination restriction, so once matilde.page is onboarded for Email Sending it
+// can mail any address; `allowed_sender_addresses` pins the sender to sign-in@. Onboarding
+// Email Routing is not enough: without Email Sending (records on cf-bounce.matilde.page)
+// sends to unverified addresses fail with E_RECIPIENT_NOT_ALLOWED. Fallback:
+// set MAIL_PROVIDER to "resend" and add the RESEND_API_KEY secret (README, "Mail").
+//
+// Secrets are never in this file. See README.md, "Secrets", for `wrangler secret put`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "matilde-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": false,
+  "observability": { "enabled": true },
+
+  // Top level = local development and tests (`wrangler dev`, vitest).
+  "vars": {
+    "ENVIRONMENT": "development",
+    "MAIL_PROVIDER": "console",
+    "MAIL_FROM": "Matilde <sign-in@matilde.page>",
+    // Local workerd does not implement jurisdictions; staging and production set "eu".
+    "DO_JURISDICTION": "",
+    "MIN_CLIENT_BUILD": "0",
+    "GLOBAL_DAILY_CODE_CAP": "2000"
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "matilde-directory-dev", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [
+    { "binding": "BLOBS", "bucket_name": "matilde-blobs-dev" }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UserSync"] }],
+  // Daily cleanup of expired codes, rate counters and sessions.
+  "triggers": { "crons": ["17 3 * * *"] },
+
+  "env": {
+    "staging": {
+      "name": "matilde-sync-staging",
+      "routes": [{ "pattern": "sync-staging.matilde.page", "custom_domain": true }],
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "MAIL_PROVIDER": "cloudflare",
+        "MAIL_FROM": "Matilde <sign-in@matilde.page>",
+        "DO_JURISDICTION": "eu",
+        "MIN_CLIENT_BUILD": "0",
+        "GLOBAL_DAILY_CODE_CAP": "200"
+      },
+      "d1_databases": [
+        // Created with: wrangler d1 create matilde-directory-staging --jurisdiction eu
+        { "binding": "DB", "database_name": "matilde-directory-staging", "database_id": "f5c5f043-7aaa-4b11-8fb4-64f576577613", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [
+        // Created with: wrangler r2 bucket create matilde-blobs-staging --jurisdiction eu
+        { "binding": "BLOBS", "bucket_name": "matilde-blobs-staging", "jurisdiction": "eu" }
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
+      },
+      // Cloudflare Email Service. No `allowed_destination_addresses`/`destination_address`:
+      // sign-in codes go to arbitrary users. Needs matilde.page onboarded for Email Sending.
+      "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["sign-in@matilde.page"] }],
+      "triggers": { "crons": ["17 3 * * *"] }
+    },
+    "production": {
+      "name": "matilde-sync",
+      "routes": [{ "pattern": "sync.matilde.page", "custom_domain": true }],
+      "vars": {
+        "ENVIRONMENT": "production",
+        "MAIL_PROVIDER": "cloudflare",
+        "MAIL_FROM": "Matilde <sign-in@matilde.page>",
+        "DO_JURISDICTION": "eu",
+        "MIN_CLIENT_BUILD": "0",
+        "GLOBAL_DAILY_CODE_CAP": "2000"
+      },
+      "d1_databases": [
+        // Created with: wrangler d1 create matilde-directory --jurisdiction eu
+        { "binding": "DB", "database_name": "matilde-directory", "database_id": "9cd3c32d-813d-4fd1-9fef-d5fda797a381", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [
+        // Created with: wrangler r2 bucket create matilde-blobs --jurisdiction eu
+        { "binding": "BLOBS", "bucket_name": "matilde-blobs", "jurisdiction": "eu" }
+      ],
+      "durable_objects": {
+        "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
+      },
+      // Cloudflare Email Service. No `allowed_destination_addresses`/`destination_address`:
+      // sign-in codes go to arbitrary users. Needs matilde.page onboarded for Email Sending.
+      "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["sign-in@matilde.page"] }],
+      "triggers": { "crons": ["17 3 * * *"] }
+    }
+  }
+}
