@@ -7,6 +7,16 @@ export interface Limit {
   max: number;
 }
 
+export class RateLimitError extends HttpError {
+  constructor(
+    retryAfter: number,
+    /** Keys of the limits that were exceeded. */
+    readonly exceeded: string[],
+  ) {
+    super(429, "rate_limited", "too many requests, try again later", { "Retry-After": String(retryAfter) });
+  }
+}
+
 /**
  * Fixed-window counters in D1. Each call counts one hit against every limit
  * and throws 429 if any is exceeded.
@@ -28,16 +38,16 @@ export async function enforceLimits(db: D1Database, limits: Limit[], nowMs = Dat
   });
   const results = await db.batch<{ count: number; window_start: number }>(statements);
   let retryAfter = 0;
+  const exceeded: string[] = [];
   results.forEach((result, index) => {
     const row = result.results[0];
     const limit = limits[index]!;
     if (row && row.count > limit.max) {
+      exceeded.push(limit.key);
       retryAfter = Math.max(retryAfter, Math.ceil((row.window_start + limit.windowSeconds * 1000 - nowMs) / 1000));
     }
   });
-  if (retryAfter > 0) {
-    throw new HttpError(429, "rate_limited", "too many requests, try again later", { "Retry-After": String(retryAfter) });
-  }
+  if (exceeded.length) throw new RateLimitError(Math.max(1, retryAfter), exceeded);
 }
 
 /** /24 for IPv4, /48 for IPv6: a whole home or office network counts as one. */

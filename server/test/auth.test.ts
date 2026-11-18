@@ -1,7 +1,9 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { memoryOutbox } from "../src/auth/mailer";
+import { startEmailSignIn } from "../src/auth/email";
 import { ipPrefix } from "../src/auth/ratelimit";
+import type { Env } from "../src/env";
 import { REFRESH_RETRY_GRACE_MS, refreshSession } from "../src/auth/sessions";
 import { verifyAccessToken } from "../src/auth/tokens";
 import { cleanupDirectory } from "../src/maintenance";
@@ -134,6 +136,12 @@ describe("email code sign-in", () => {
     // Same /24, different host.
     const sameNetwork = ip.replace(/\.\d+$/, ".99");
     expect((await post("/v1/auth/email/start", { email: email() }, sameNetwork)).status).toBe(429);
+  });
+
+  it("stops sending codes at the global daily cap", async () => {
+    const capped = { ...env, GLOBAL_DAILY_CODE_CAP: "0" } as Env;
+    await expect(startEmailSignIn(capped, email(), freshIp())).rejects.toMatchObject({ status: 429 });
+    expect(memoryOutbox()).toHaveLength(0);
   });
 
   it("validates input", async () => {

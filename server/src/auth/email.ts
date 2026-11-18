@@ -2,7 +2,7 @@ import type { Env } from "../env";
 import { HttpError, hmacHex, randomBytes, timingSafeEqual } from "../util";
 import { findOrCreateAccount } from "./accounts";
 import { createMailer, signInMail } from "./mailer";
-import { enforceLimits, ipPrefix } from "./ratelimit";
+import { enforceLimits, ipPrefix, RateLimitError } from "./ratelimit";
 import { createSession, type NewSession, type TokenPair } from "./sessions";
 
 export const CODE_TTL_MS = 10 * 60 * 1000;
@@ -55,8 +55,10 @@ export async function startEmailSignIn(env: Env, rawEmail: unknown, ip: string, 
       nowMs,
     );
   } catch (error) {
-    if (error instanceof HttpError && error.code === "rate_limited") {
-      console.warn(JSON.stringify({ event: "sign_in_code_rate_limited" }));
+    if (error instanceof RateLimitError) {
+      // The global cap protects the mail budget; alert on this event (see README).
+      const event = error.exceeded.includes("code:global:day") ? "global_code_cap_reached" : "sign_in_code_rate_limited";
+      console.warn(JSON.stringify({ event }));
     }
     throw error;
   }
