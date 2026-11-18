@@ -206,7 +206,7 @@ actor SyncSession {
     /// Called once when the server ends the session (revoked, reused refresh token, account deleted).
     private var onSignedOut: (@Sendable () -> Void)?
 
-    init(http: SyncHTTP, store: SyncTokenStore, now: @escaping @Sendable () -> Date = Date.init) {
+    init(http: SyncHTTP, store: SyncTokenStore, now: @escaping @Sendable () -> Date = { Date() }) {
         self.http = http
         self.store = store
         self.now = now
