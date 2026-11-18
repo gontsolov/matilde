@@ -7,7 +7,9 @@
 // MAIL: staging and production send through Cloudflare Email Service (Email Sending,
 // public beta, Workers Paid) via the `send_email` binding EMAIL. No API key. The binding
 // has no destination restriction, so once matilde.page is onboarded for Email Sending it
-// can mail any address; `allowed_sender_addresses` pins the sender to sign-in@. Fallback:
+// can mail any address; `allowed_sender_addresses` pins the sender to sign-in@. Onboarding
+// Email Routing is not enough: without Email Sending (records on cf-bounce.matilde.page)
+// sends to unverified addresses fail with E_RECIPIENT_NOT_ALLOWED. Fallback:
 // set MAIL_PROVIDER to "resend" and add the RESEND_API_KEY secret (README, "Mail").
 //
 // Secrets are never in this file. See README.md, "Secrets", for `wrangler secret put`.

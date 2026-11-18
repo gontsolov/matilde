@@ -63,6 +63,16 @@ The tests run inside the Workers runtime with real D1, R2 and Durable Object imp
 - An unrestricted binding can mail **any recipient once the sender domain is onboarded** for Email Sending. Before that it can only reach verified destination addresses of the account, so onboarding `matilde.page` is required before sign-in works for real users.
 - Workers Paid includes 3,000 mails a month, then $0.35 per 1,000. New accounts start with a conservative daily sending quota that grows with reputation; sends over it fail (for example `E_RATE_LIMIT_EXCEEDED`; the API answers `502 mail_failed`), possibly well below `GLOBAL_DAILY_CODE_CAP` at first. The limit-increase form is linked from Cloudflare's Email Service "Limits" page.
 - Failures are logged as `mail_failed` with only the Cloudflare error code, e.g. `cloudflare email failed: E_SENDER_DOMAIN_NOT_AVAILABLE` (domain not onboarded) or `E_SENDER_NOT_VERIFIED` (sender not allowed).
+- `E_RECIPIENT_NOT_ALLOWED` means either a destination restriction on the binding (the tests make sure staging and production have none) or that `matilde.page` is **not onboarded for Email Sending**: then the binding still works, but only to the account's verified destination addresses. **Email Routing is a separate product** and onboarding it does not enable sending. Routing puts MX/SPF on the root domain and DKIM on `cf2024-1._domainkey`; Sending adds records on `cf-bounce` (`dig MX cf-bounce.matilde.page` must return `route1/2/3.mx.cloudflare.net`) and `cf-bounce._domainkey`. If those are missing, onboard the domain under **Email Sending** (checklist step 4). Until then, a sign-in can be tested by adding the address as a verified destination (Email Routing → Destination addresses). No redeploy is needed either way.
+
+| Logged code | Meaning | Fix |
+| --- | --- | --- |
+| `E_RECIPIENT_NOT_ALLOWED` | Domain not onboarded for Email Sending (only verified destinations allowed), or a destination restriction on the binding | Onboard under Email Sending; check `cf-bounce` DNS |
+| `E_SENDER_DOMAIN_NOT_AVAILABLE` / `E_SENDER_DOMAIN_NOT_CONFIGURED` | Sender domain not onboarded or not active for sending | Onboard under Email Sending |
+| `E_EMAIL_SENDING_NOT_READY` | Onboarding still finishing | Retry in a few minutes |
+| `E_SENDER_NOT_VERIFIED` | `MAIL_FROM` not in `allowed_sender_addresses` | Fix `wrangler.jsonc`, redeploy |
+| `E_RECIPIENT_PLAN_RESTRICTED` | Plan only allows verified destinations | Workers Paid |
+| `E_RATE_LIMIT_EXCEEDED` / `E_DAILY_LIMIT_EXCEEDED` | New-account quota | Wait, or the Limits page's increase form |
 
 **Fallback, Resend:** the Resend adapter stays in the code but not in the config. To switch an environment: set its `MAIL_PROVIDER` to `"resend"`, `wrangler secret put RESEND_API_KEY --env <env>`, verify `matilde.page` in Resend (EU region) with the DNS records it shows, and redeploy. The `send_email` binding can stay.
 
