@@ -641,3 +641,15 @@ Manual Mac checklist (use a copy of a real workspace or a disposable one under `
 Core module `Sources/Matilde/SyncCrypto/` (no UI, no networking), spec in [sync-encryption.md](sync-encryption.md). Linux sandbox: the module and its tests were compiled and run against swift-crypto (Swift 6.0.3, same API as CryptoKit): 47 tests passed; the Swift output matches the independent Python vectors (`scripts/sync-vectors.py`) byte for byte. CI on PR #27 (run 44408025841, macOS-15, head `b84a15b`) passed: 258 Swift tests (one opt-in skip), including all 47 new ones and the real Keychain round trip under a throwaway service, plus app build, signature and packaging.
 
 Nothing to check visually yet. Once SYNC-07 adds the UI: the recovery key is shown once, printing works, the last-group confirmation accepts lowercase and rejects a wrong group, and Keychain Access shows "Matilde — sync encryption key" as this-device-only.
+
+### 2026-11-18 — Portable sync record model (SYNC-02)
+Builds on SYNC-01 (PR #24). `SyncRecord.swift`, `SyncPayloads.swift` and `SyncLedger.swift` add the record model of `docs/sync-model.md`: HLCs, deterministic ids, canonical fields, change tracking with per-field clocks, tombstones and the outbox in two new tables (`sync_records`, `sync_meta`). The app's tables and the Markdown files are only read. Tracking runs when a workspace opens (this is also the migration of existing data) and when Matilde quits; failures are logged with counts and the error type only and never block opening or quitting.
+
+Linux sandbox: the Foundation-only sync files, `Workspace`, `WorkspaceStore` and the storage parts of the comment, review and stash files were compiled with a Linux Swift 6.0.3 toolchain (CryptoKit replaced by a test-only SHA shim, checked against Python's `uuid5`), and the 19 new tests (`SyncRecordTests`, `SyncLedgerTests`) passed there. CI on PR #28 (run 44408401984, macOS-15, head `497732b`) passed: 241 Swift tests (one opt-in skip) including the 19 new ones, app build, signature and packaging.
+
+Manual Mac checklist (disposable workspace under `build/` or a copy, not the only copy of real writing):
+- Open an existing workspace with drafts, branches, comments, an Ask Matilde thread and a stash: everything looks and behaves as before; opening is not noticeably slower.
+- The Markdown files are unchanged (`git status`/Finder dates on a copy, or compare checksums before and after).
+- `sqlite3 ~/Library/Application\ Support/Matilde/workspaces/<id>/workspace.sqlite "SELECT type, count(*), sum(deleted) FROM sync_records GROUP BY type"` lists records for each kind of data; running Matilde again and quitting without edits leaves the HLCs unchanged (`SELECT max(hlc) FROM sync_records`).
+- Delete a private comment, quit: its row has `deleted = 1`. Trash a draft, quit: its draft and body rows are tombstones and a `type = 10` row appears.
+- Console.app (filter "Matilde sync"): only counts, never titles, paths or text.
