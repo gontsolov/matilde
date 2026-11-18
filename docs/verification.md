@@ -636,3 +636,8 @@ Manual Mac checklist (use a copy of a real workspace or a disposable one under `
 - Add a comment, quit, relaunch: it survives, and no new `.matilde/workspace.sqlite` appears.
 - Optional: choose a brand-new empty folder as workspace: no `workspace.sqlite` is created inside it.
 - Optional: duplicate a workspace folder in Finder and open the copy: same comments at first; a comment added in the copy does not appear in the original.
+
+### 2026-11-18 — End-to-end encryption keys and recovery (SYNC-06)
+Core module `Sources/Matilde/SyncCrypto/` (no UI, no networking), spec in [sync-encryption.md](sync-encryption.md). Linux sandbox: the module and its tests were compiled and run against swift-crypto (Swift 6.0.3, same API as CryptoKit): 47 tests passed; the Swift output matches the independent Python vectors (`scripts/sync-vectors.py`) byte for byte. CI on PR #27 (run 44408025841, macOS-15, head `b84a15b`) passed: 258 Swift tests (one opt-in skip), including all 47 new ones and the real Keychain round trip under a throwaway service, plus app build, signature and packaging.
+
+Nothing to check visually yet. Once SYNC-07 adds the UI: the recovery key is shown once, printing works, the last-group confirmation accepts lowercase and rejects a wrong group, and Keychain Access shows "Matilde — sync encryption key" as this-device-only.
