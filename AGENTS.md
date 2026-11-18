@@ -52,6 +52,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | `Sources/Matilde/AppIcon.swift` | App icon choices, stored preference, runtime Dock icon and the Settings picker; SVG sources in `assets/app-icons`, PNGs from `scripts/app-icons.py` |
 | `Sources/Matilde/MatildeIcon.swift` | Tabler icon names, template image loading and sizes; PDFs in `Resources/Icons`, source SVGs in `assets/tabler-icons` |
 | `Sources/Matilde/AppUpdater.swift` | Sparkle controller and native Check for Updates action |
+| `Sources/Matilde/SyncCrypto/` | End-to-end encryption for cloud sync (SYNC-06): account key ring, record/blob/field envelopes, recovery key, key slots, Keychain store; spec in `docs/sync-encryption.md` |
 | `Tests/MatildeTests/` | Workspace, Markdown, curl geometry, and native editor regression tests |
 | `Config/release.json` | Local version, stable bundle identifier, repository, update URL and public signing key |
 | `scripts/` and `.github/workflows/` | App assembly, tests, signing, packaging, release validation and publication |

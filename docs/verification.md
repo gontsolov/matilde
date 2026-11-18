@@ -623,3 +623,8 @@ Owner explicitly requested a new release ("yes merge both and do new release"). 
 
 ### 0.1.19 publication — 2026-11-15
 Release workflow run 43763556088 (dispatched on `main` at `d379cce`, version 0.1.19) passed version/signing validation, tests, arm64 build, DMG packaging, Sparkle archive/feed signing, the artifact upload and publication. GitHub Release `v0.1.19` (tag on `d379cce`) is published as latest with `Matilde.dmg` (6.7 MB), `appcast.xml` and `SHA256SUMS`; the latest feed reports version 0.1.19 with `arm64` hardware requirements, the v0.1.19 DMG URL and an Ed25519 signature. Build remains ad-hoc signed and not Apple-notarized (DIST-02). An installed-app update from 0.1.18 and the Mac UI checks for UI-27 and UI-28 were not exercised.
+
+### 2026-11-18 — End-to-end encryption keys and recovery (SYNC-06)
+Core module `Sources/Matilde/SyncCrypto/` (no UI, no networking), spec in [sync-encryption.md](sync-encryption.md). Linux sandbox: the module and its tests were compiled and run against swift-crypto (Swift 6.0.3, same API as CryptoKit): 47 tests passed; the Swift output matches the independent Python vectors (`scripts/sync-vectors.py`) byte for byte. The Keychain test only runs on macOS (it skips when no Keychain is available). macOS CI on the PR is the real check.
+
+Nothing to check visually yet. Once SYNC-07 adds the UI: the recovery key is shown once, printing works, the last-group confirmation accepts lowercase and rejects a wrong group, and Keychain Access shows "Matilde — sync encryption key" as this-device-only.

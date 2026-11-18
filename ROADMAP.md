@@ -2,7 +2,7 @@
 
 Our living backlog for features, ideas, fixes, and open questions. Save new ideas here; update entries as we build. Product direction: a quiet native writing experience, tactile drafts on a canvas, and AI as a supporting feature.
 
-Last updated: 2026-11-15.
+Last updated: 2026-11-18.
 
 ## How we use this
 
@@ -97,6 +97,14 @@ Review and reply support is implemented; remaining ideas require their own imple
 | AI-15 | In progress | **Unread margin threads.** Owner request. Ask Matilde threads with something not yet opened show a small accent dot at the card's top right (on the icon in the narrow-window markers) and their preview in full ink; read cards show the preview muted. New suggestions from a review, and assistant replies that arrive while their thread is closed, are unread; opening the thread marks it read and the dot scales out. Threads started from a selection begin read; failed replies change nothing. The state is an optional `unread` field in each thread's saved review (database only, never the Markdown); reviews saved before it load as read, and read threads save exactly as before. Private comments are always the writer's own, so they have no unread state. There is no next/previous comment navigation yet, so none was added. Tests: `UnreadThreadTests` (new suggestions unread and persisted, opening marks read across relaunch, carried threads keep their state, own threads start read, replies unread only while closed, failures, draft switch, legacy payload migration, Markdown untouched). CI (macOS-15) passed on PR #16: 153 Swift tests (one opt-in skip), build, signature and packaging. Mac UI checks pending ([verification](docs/verification.md)). Released in 0.1.17. |
 | AI-16 | In progress | **Suggestions in the thread's timeline.** Owner bug report: a rewrite offered in a reply was pinned above the conversation, so in a long thread it appeared off-screen and looked like nothing happened. Each rewrite now sits right after the reply it came with; the review's own rewrite stays first. Only the latest can be accepted (still disabled once its passage is edited); earlier ones stay in place, muted, without Accept. A following thread keeps the end in view while the rewrite lays out; a reader who scrolled up stays put. Collapsed cards preview Matilde's latest reply. Stored in the `writing_reviews` JSON (`ReviewMessage.replacement`, `ReviewComment.rewriteMessageID`, `initialReplacement`); older Ask Matilde threads attach their rewrite to the latest reply, older review threads keep it first. 7 new `ThreadTimelineTests`; CI passed (187 Swift tests, one skip, plus the build); live Mac checks are open, see [verification](docs/verification.md). Released in 0.1.17. |
 | AI-05 | Planned | **Ask Matilde verification follow-ups.** Check dark-mode comment contrast, physical narrow-window resizing and automatic-review quality/cost during extended use. Deterministic tests cover the inactivity timer, pause, deduplication and cancellation; a live reply passed, but a timed live automatic request has not been separately observed. |
+
+## Cloud sync
+
+End-to-end encrypted sync on our own Cloudflare backend (owner decision 2026-11-18); plan in the shared project notes (cloud sync plan).
+
+| ID | Status | Item and completion criteria |
+| --- | --- | --- |
+| SYNC-06 | In progress | **End-to-end encryption keys and recovery (core).** `Sources/Matilde/SyncCrypto/`, spec in [sync encryption](docs/sync-encryption.md). CryptoKit only. Account key (256-bit, per epoch `keyId`) in the device Keychain (`ThisDeviceOnly`); records sealed with AES-256-GCM under a per-encryption HKDF subkey, versioned envelope, associated data binding account, record id, type, HLC, tombstone flag and key epoch; Padmé padding; blobs in 64 KiB authenticated chunks with a random per-file key; device names as encrypted fields. Recovery key shown once as `MTLD-` + 13 groups of Crockford Base32 with typo-check bits, wraps the account key in a `recovery` slot; regenerate; full rotation with a `previous-keys` slot and `rekey`; key check value. Builds `PUT /v1/keys` bodies for the server's existing key-slot API (no server change). Shared test vectors from an independent Python implementation (`scripts/sync-vectors.py`, `docs/sync-vectors/v1.json`). Tests: `SyncCryptoTests`, `SyncKeyRecoveryTests`, `SyncVectorTests`. Not done: recovery-kit UI (show once, print, confirm last group), optional passphrase slot (Argon2id C target), iCloud Keychain item (after DIST-02), "Reset encryption", wiring into the sync transport (SYNC-07). |
 
 ## Distribution and other ideas
 
