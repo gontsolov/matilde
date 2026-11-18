@@ -108,6 +108,8 @@ final class AppModel: ObservableObject {
         let newWorkspace = try Workspace(root: url)
         _ = try newWorkspace.welcomeDocument()
         let contents = try newWorkspace.scan()
+        // SYNC-02: give existing data sync records (the migration) and record changes made while closed.
+        newWorkspace.trackSyncChangesLogged()
         let last = try newWorkspace.state("active")
         let selected = contents.drafts.first { $0.id == last } ?? contents.drafts.first
         let content = try selected.map { try newWorkspace.read($0) } ?? ""

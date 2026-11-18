@@ -636,3 +636,15 @@ Manual Mac checklist (use a copy of a real workspace or a disposable one under `
 - Add a comment, quit, relaunch: it survives, and no new `.matilde/workspace.sqlite` appears.
 - Optional: choose a brand-new empty folder as workspace: no `workspace.sqlite` is created inside it.
 - Optional: duplicate a workspace folder in Finder and open the copy: same comments at first; a comment added in the copy does not appear in the original.
+
+### 2026-11-18 — Portable sync record model (SYNC-02)
+Builds on SYNC-01 (PR #24). `SyncRecord.swift`, `SyncPayloads.swift` and `SyncLedger.swift` add the record model of `docs/sync-model.md`: HLCs, deterministic ids, canonical fields, change tracking with per-field clocks, tombstones and the outbox in two new tables (`sync_records`, `sync_meta`). The app's tables and the Markdown files are only read. Tracking runs when a workspace opens (this is also the migration of existing data) and when Matilde quits; failures are logged with counts and the error type only and never block opening or quitting.
+
+Linux sandbox: the Foundation-only sync files, `Workspace`, `WorkspaceStore` and the storage parts of the comment, review and stash files were compiled with a Linux Swift 6.0.3 toolchain (CryptoKit replaced by a test-only SHA shim, checked against Python's `uuid5`), and the 19 new tests (`SyncRecordTests`, `SyncLedgerTests`) passed there. The macOS build and full suite run on CI.
+
+Manual Mac checklist (disposable workspace under `build/` or a copy, not the only copy of real writing):
+- Open an existing workspace with drafts, branches, comments, an Ask Matilde thread and a stash: everything looks and behaves as before; opening is not noticeably slower.
+- The Markdown files are unchanged (`git status`/Finder dates on a copy, or compare checksums before and after).
+- `sqlite3 ~/Library/Application\ Support/Matilde/workspaces/<id>/workspace.sqlite "SELECT type, count(*), sum(deleted) FROM sync_records GROUP BY type"` lists records for each kind of data; running Matilde again and quitting without edits leaves the HLCs unchanged (`SELECT max(hlc) FROM sync_records`).
+- Delete a private comment, quit: its row has `deleted = 1`. Trash a draft, quit: its draft and body rows are tombstones and a `type = 10` row appears.
+- Console.app (filter "Matilde sync"): only counts, never titles, paths or text.

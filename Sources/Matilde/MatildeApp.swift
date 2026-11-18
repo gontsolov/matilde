@@ -77,7 +77,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppIconChoice.stored().apply()
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        do { try model?.flush(); return .terminateNow }
+        do {
+            try model?.flush()
+            // SYNC-02: record this session's changes for sync; never blocks quitting.
+            model?.workspace?.trackSyncChangesLogged()
+            return .terminateNow
+        }
         catch {
             let alert = NSAlert()
             alert.messageText = "Your writing could not be saved"

@@ -78,6 +78,8 @@ final class Workspace {
     /// Where the live database lives (Application Support, SYNC-01) and how it got there.
     let store: WorkspaceStore
     var workspaceID: String { store.workspaceID }
+    /// This install's device id: the device part of every sync HLC (SYNC-02).
+    var syncDeviceID: String = SyncDevice.current()
     private let fm = FileManager.default
 
     init(root: URL, storeBase: URL = WorkspaceStore.defaultBase) throws {
