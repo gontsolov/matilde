@@ -25,23 +25,23 @@ describe("mailer selection", () => {
 
   it("sends through the Cloudflare Email Service binding", async () => {
     const send = vi.fn().mockResolvedValue({ messageId: "m1" });
-    await new CloudflareMailer({ send } as unknown as SendEmail, "Matilde <sign-in@matilde.example>").send(signInMail("a@example.com", "123456"));
+    await new CloudflareMailer({ send } as unknown as SendEmail, "Matilde <sign-in@matilde.page>").send(signInMail("a@example.com", "123456"));
     expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({ from: { name: "Matilde", email: "sign-in@matilde.example" }, to: "a@example.com", text: expect.stringContaining("123456") }),
+      expect.objectContaining({ from: { name: "Matilde", email: "sign-in@matilde.page" }, to: "a@example.com", text: expect.stringContaining("123456") }),
     );
   });
 
   it("sends through Resend", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
-    await new ResendMailer("re_test", "Matilde <sign-in@matilde.example>").send(signInMail("a@example.com", "123456"));
+    await new ResendMailer("re_test", "Matilde <sign-in@matilde.page>").send(signInMail("a@example.com", "123456"));
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe("https://api.resend.com/emails");
     expect((init!.headers as Record<string, string>).Authorization).toBe("Bearer re_test");
-    expect(JSON.parse(init!.body as string)).toMatchObject({ to: ["a@example.com"], from: "Matilde <sign-in@matilde.example>" });
+    expect(JSON.parse(init!.body as string)).toMatchObject({ to: ["a@example.com"], from: "Matilde <sign-in@matilde.page>" });
   });
 
   it("reports a failed send", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("nope", { status: 422 }));
-    await expect(new ResendMailer("re_test", "x@matilde.example").send(signInMail("a@example.com", "1"))).rejects.toThrow("422");
+    await expect(new ResendMailer("re_test", "x@matilde.page").send(signInMail("a@example.com", "1"))).rejects.toThrow("422");
   });
 });

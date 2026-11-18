@@ -1,9 +1,12 @@
 // Matilde sync server. See README.md for setup and PROTOCOL.md for the API.
 //
-// DOMAIN: the owner has not picked a domain yet. Every hostname and the mail
-// sender below use the placeholder "matilde.example". Replace it everywhere with
-//   npm run set-domain -- <your-domain>
-// (or search and replace "matilde.example"). Nothing else needs to change.
+// DOMAIN: matilde.page. Production serves https://sync.matilde.page, staging
+// https://sync-staging.matilde.page (custom domains: `wrangler deploy` creates the
+// DNS records and certificates). Sign-in mail comes from sign-in@matilde.page.
+//
+// MAIL: staging and production send through Resend (RESEND_API_KEY secret). To use
+// Cloudflare Email Service instead, set MAIL_PROVIDER to "cloudflare" and uncomment
+// the `send_email` binding in that environment.
 //
 // Secrets are never in this file. See README.md, "Secrets", for `wrangler secret put`.
 {
@@ -18,7 +21,7 @@
   "vars": {
     "ENVIRONMENT": "development",
     "MAIL_PROVIDER": "console",
-    "MAIL_FROM": "Matilde <sign-in@matilde.example>",
+    "MAIL_FROM": "Matilde <sign-in@matilde.page>",
     // Local workerd does not implement jurisdictions; staging and production set "eu".
     "DO_JURISDICTION": "",
     "MIN_CLIENT_BUILD": "0",
@@ -40,11 +43,11 @@
   "env": {
     "staging": {
       "name": "matilde-sync-staging",
-      "routes": [{ "pattern": "sync-staging.matilde.example", "custom_domain": true }],
+      "routes": [{ "pattern": "sync-staging.matilde.page", "custom_domain": true }],
       "vars": {
         "ENVIRONMENT": "staging",
-        "MAIL_PROVIDER": "cloudflare",
-        "MAIL_FROM": "Matilde <sign-in@matilde.example>",
+        "MAIL_PROVIDER": "resend",
+        "MAIL_FROM": "Matilde <sign-in@matilde.page>",
         "DO_JURISDICTION": "eu",
         "MIN_CLIENT_BUILD": "0",
         "GLOBAL_DAILY_CODE_CAP": "200"
@@ -60,16 +63,16 @@
       "durable_objects": {
         "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
       },
-      "send_email": [{ "name": "EMAIL" }],
+      // Only for MAIL_PROVIDER "cloudflare": "send_email": [{ "name": "EMAIL" }],
       "triggers": { "crons": ["17 3 * * *"] }
     },
     "production": {
       "name": "matilde-sync",
-      "routes": [{ "pattern": "sync.matilde.example", "custom_domain": true }],
+      "routes": [{ "pattern": "sync.matilde.page", "custom_domain": true }],
       "vars": {
         "ENVIRONMENT": "production",
-        "MAIL_PROVIDER": "cloudflare",
-        "MAIL_FROM": "Matilde <sign-in@matilde.example>",
+        "MAIL_PROVIDER": "resend",
+        "MAIL_FROM": "Matilde <sign-in@matilde.page>",
         "DO_JURISDICTION": "eu",
         "MIN_CLIENT_BUILD": "0",
         "GLOBAL_DAILY_CODE_CAP": "2000"
@@ -85,7 +88,7 @@
       "durable_objects": {
         "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
       },
-      "send_email": [{ "name": "EMAIL" }],
+      // Only for MAIL_PROVIDER "cloudflare": "send_email": [{ "name": "EMAIL" }],
       "triggers": { "crons": ["17 3 * * *"] }
     }
   }

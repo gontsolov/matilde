@@ -55,13 +55,9 @@ The tests run inside the Workers runtime with real D1, R2 and Durable Object imp
 
 `wrangler.jsonc` has three environments: the top level (local dev and tests), `staging` and `production`. Each deployed environment has its own Worker, D1 database, R2 bucket and Durable Object namespace.
 
-**Domain:** not chosen yet. Every hostname and the mail sender use the placeholder `matilde.example`. Once the owner picks a domain:
+**Domain:** `matilde.page`. Production is `https://sync.matilde.page`, staging `https://sync-staging.matilde.page` (Workers custom domains: `wrangler deploy` creates their DNS records and certificates), and sign-in mail comes from `Matilde <sign-in@matilde.page>`. The domain was set with `npm run set-domain -- matilde.page`, which replaced the `matilde.example` placeholder in `wrangler.jsonc`.
 
-```sh
-npm run set-domain -- example.org
-```
-
-That gives `sync.example.org` (production), `sync-staging.example.org` (staging) and `sign-in@example.org` as the sender.
+**Mail:** staging and production use `MAIL_PROVIDER: "resend"`. To switch to Cloudflare Email Service, set `MAIL_PROVIDER` to `"cloudflare"` in that environment and uncomment its `send_email` binding.
 
 Vars (in `wrangler.jsonc`, not secret):
 
@@ -69,7 +65,7 @@ Vars (in `wrangler.jsonc`, not secret):
 | --- | --- |
 | `ENVIRONMENT` | `development`, `staging` or `production` |
 | `MAIL_PROVIDER` | `cloudflare` (Email Service binding `EMAIL`), `resend`, or `console` (local only) |
-| `MAIL_FROM` | Sender, e.g. `Matilde <sign-in@example.org>` |
+| `MAIL_FROM` | Sender: `Matilde <sign-in@matilde.page>` |
 | `DO_JURISDICTION` | `eu` when deployed |
 | `MIN_CLIENT_BUILD` | Lowest `X-Matilde-Build` accepted (`0` = off); older apps get `426` |
 | `GLOBAL_DAILY_CODE_CAP` | Sign-in codes per day across all users before refusing more |
@@ -105,10 +101,10 @@ If the old private key wasn't kept, just replace `TOKEN_SIGNING_KEY`: every devi
 
 1. **Cloudflare account on Workers Paid** ($5/month, Workers & Pages → Plans). The limits and included usage in the plan assume it.
 2. **Spending and usage alerts:** in the dashboard's Notifications, add usage-based billing alerts for Workers, Durable Objects, D1 and R2 (and a billing budget alert if offered for the account). Once deployed, add a Workers Observability alert on the error rate and on `global_code_cap_reached` log events (the daily cap on sign-in mail was hit).
-3. **Domain on Cloudflare DNS:** register it with Cloudflare Registrar or point an existing domain's nameservers to Cloudflare. Then `npm run set-domain -- <domain>` and commit.
+3. **Domain on Cloudflare DNS:** `matilde.page` must be an active zone in the same Cloudflare account (Cloudflare Registrar, or the existing registrar's nameservers pointed to Cloudflare). `sync` and `sync-staging` must have no existing DNS records; `wrangler deploy` creates them. The config already uses the domain.
 4. **Email sending:**
-   - *Cloudflare Email Service (preferred, beta):* enable Email Service sending for the domain in the dashboard and let it add its DNS records (sending was in beta when this was written; the account may need access). Keep `MAIL_PROVIDER: "cloudflare"`.
-   - *Resend (fallback):* create an account, add and verify the domain, create an API key, set `MAIL_PROVIDER: "resend"` in `wrangler.jsonc` and the `RESEND_API_KEY` secret.
+   - *Resend (configured):* create an account, add `matilde.page` in the EU region (eu-west-1), add the DNS records it shows (DKIM `resend._domainkey`, SPF and bounce MX on `send`), verify, then create an API key with sending access restricted to the domain and set it as the `RESEND_API_KEY` secret.
+   - *Cloudflare Email Service (beta, alternative):* enable Email Service sending for the domain in the dashboard and let it add its DNS records (the account may need beta access). Then set `MAIL_PROVIDER: "cloudflare"` and uncomment the `send_email` binding in `wrangler.jsonc`.
    - Either way the domain needs **SPF**, **DKIM** (the provider's records) and **DMARC** (start with `_dmarc TXT "v=DMARC1; p=none; rua=mailto:<you>"`, tighten to `quarantine` once mail flows).
 5. **Create the resources in the EU** (logged in with `npx wrangler login`):
    ```sh
@@ -122,8 +118,9 @@ If the old private key wasn't kept, just replace `TOKEN_SIGNING_KEY`: every devi
 7. **Migrate and deploy staging, then production:**
    ```sh
    npm run migrate:staging && npm run deploy:staging
-   curl https://sync-staging.<domain>/v1/health
+   curl https://sync-staging.matilde.page/v1/health
    npm run migrate:production && npm run deploy:production
+   curl https://sync.matilde.page/v1/health
    ```
 8. **GitHub (for a later deploy workflow):**
    - Create a Cloudflare API token (My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template), limited to this account and the domain's zone, and add **Account → D1 → Edit**. The template already has Workers Scripts (includes Durable Objects), Workers R2 Storage, Workers Routes and Account Settings read. If deploying the custom domain reports a permission error, add **Zone → DNS → Edit**.

@@ -4,7 +4,7 @@ The contract between the Matilde apps (Swift client, SYNC-07) and the sync serve
 
 ## Basics
 
-- **Base URL:** `https://sync.<domain>/v1` (staging: `https://sync-staging.<domain>/v1`). The domain is not chosen yet; see README.
+- **Base URL:** `https://sync.matilde.page/v1` (staging: `https://sync-staging.matilde.page/v1`).
 - **Transport:** HTTPS with JSON bodies (`Content-Type: application/json`), except blob bodies (raw bytes) and the WebSocket.
 - **Auth:** `Authorization: Bearer <accessToken>` on everything except `/v1/health`, `/v1/auth/email/*` and `/v1/auth/refresh`.
 - **App build:** send `X-Matilde-Build: <integer build number>` on every request. If the server's minimum build is higher, every `/v1` request returns `426 upgrade_required`; the app should ask the user to update and stop syncing.
