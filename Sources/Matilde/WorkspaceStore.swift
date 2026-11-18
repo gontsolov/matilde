@@ -215,10 +215,13 @@ struct WorkspaceStore {
                     throw WorkspaceError.message("The copied database could not leave WAL mode.")
                 }
             }
-            // Reopen the closed copy: it must open, pass the integrity check and hold
-            // exactly the rows of the source.
+            // Reopen the closed copy: it must open in rollback-journal mode, pass the
+            // integrity check and hold exactly the rows of the source.
             do {
                 let check = try SQLiteConnection(incoming, flags: SQLITE_OPEN_READONLY)
+                guard try check.single("PRAGMA journal_mode")?.lowercased() == "delete" else {
+                    throw WorkspaceError.message("The copied database is still in WAL mode.")
+                }
                 guard try check.single("PRAGMA integrity_check") == "ok" else {
                     throw WorkspaceError.message("The copied database failed its integrity check.")
                 }
@@ -226,7 +229,11 @@ struct WorkspaceStore {
                 for table in try check.tables() { actual[table] = try check.count(table) }
                 guard actual == expected else { throw WorkspaceError.message("The copied database is incomplete.") }
             }
-            guard !sidecarSuffixes.contains(where: { fm.fileExists(atPath: incoming.path + $0) }) else {
+            // Apple's SQLite can keep empty -wal/-shm files after closing (persistent WAL).
+            // The copy is now in rollback mode, so SQLite ignores them; drop them so they
+            // never sit beside the live file. A leftover journal would be a hot journal.
+            for suffix in ["-wal", "-shm"] { try? fm.removeItem(atPath: incoming.path + suffix) }
+            guard !fm.fileExists(atPath: incoming.path + "-journal") else {
                 throw WorkspaceError.message("The copied database was not closed cleanly.")
             }
             try fm.moveItem(at: incoming, to: destination)

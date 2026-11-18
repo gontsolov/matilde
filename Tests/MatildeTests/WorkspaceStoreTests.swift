@@ -111,8 +111,9 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(try workspace.state("only-in-wal"), "kept")
         for suffix in ["", "-wal", "-shm"] {
             XCTAssertFalse(fm.fileExists(atPath: legacy.path + suffix), "workspace.sqlite\(suffix) left in the workspace")
-            XCTAssertFalse(fm.fileExists(atPath: workspace.store.databaseURL.path + "-wal"))
         }
+        XCTAssertFalse(fm.fileExists(atPath: workspace.store.databaseURL.path + "-wal"))
+        XCTAssertTrue(fm.fileExists(atPath: migrated.path))
         XCTAssertEqual(try workspace.db.execute("PRAGMA journal_mode").first?["journal_mode"], "delete")
     }
 
