@@ -25,14 +25,16 @@ jobs:
         working-directory: server
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # pnpm version comes from packageManager in the root package.json.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm test
 
   deploy-staging:
     needs: test
@@ -53,16 +55,18 @@ jobs:
         working-directory: server
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # pnpm version comes from packageManager in the root package.json.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
-      - run: npm ci
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
       - name: Apply D1 migrations
-        run: npm run migrate:staging
+        run: pnpm run migrate:staging
       - name: Deploy Worker
-        run: npm run deploy:staging
+        run: pnpm run deploy:staging
       - name: Smoke test /v1/health
         run: bash scripts/smoke-health.sh "$HEALTH_URL"
 
@@ -85,15 +89,17 @@ jobs:
         working-directory: server
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # pnpm version comes from packageManager in the root package.json.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
-      - run: npm ci
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
       - name: Apply D1 migrations
-        run: npm run migrate:production
+        run: pnpm run migrate:production
       - name: Deploy Worker
-        run: npm run deploy:production
+        run: pnpm run deploy:production
       - name: Smoke test /v1/health
         run: bash scripts/smoke-health.sh "$HEALTH_URL"

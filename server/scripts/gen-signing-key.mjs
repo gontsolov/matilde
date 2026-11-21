@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Generates an Ed25519 access-token signing key as a private JWK with a kid.
 // Pipe it straight into wrangler so it never lands in a file or the shell history:
-//   npm run --silent gen-signing-key | npx wrangler secret put TOKEN_SIGNING_KEY --env production
+//   pnpm run --silent gen-signing-key | pnpm exec wrangler secret put TOKEN_SIGNING_KEY --env production
 // For rotation, `--public` prints the public half of a key read from stdin, for TOKEN_VERIFY_KEYS.
 import { createPrivateKey, createPublicKey, generateKeyPairSync, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";

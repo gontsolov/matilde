@@ -7,3 +7,11 @@ updates:
     groups:
       github-actions:
         patterns: ['*']
+  # The npm ecosystem also covers pnpm: one root pnpm-lock.yaml for apps/web and server.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ['*']

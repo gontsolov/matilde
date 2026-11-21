@@ -6,13 +6,17 @@ It's separate from the sync server in `server/` (`sync.matilde.page`).
 
 ## Working on it
 
+Needs Node.js 22.12 or newer and pnpm (`corepack enable` once installs the version pinned in the
+root `package.json`). The repo is a pnpm workspace (`apps/web` and `server`) with one root
+`pnpm-lock.yaml`; `pnpm install` anywhere in the repo installs both.
+
 ```sh
 cd apps/web
-npm ci
-npm run dev        # http://localhost:4321, live reload
-npm run check      # astro check + worker types
-npm run build      # static files in dist/
-npm run preview    # the built site through the Worker (wrangler dev, http://localhost:8787)
+pnpm install
+pnpm run dev        # http://localhost:4321, live reload
+pnpm run check      # astro check + worker types
+pnpm run build      # static files in dist/
+pnpm run preview    # the built site through the Worker (wrangler dev, http://localhost:8787)
 ```
 
 - Copy lives in `src/pages/index.astro` and `src/pages/privacy.astro`.
@@ -37,17 +41,19 @@ The Worker serves `dist/` as static assets. `wrangler.jsonc` attaches it to two 
 certificates itself. Neither name has A/AAAA/CNAME records today, so nothing conflicts. The
 existing MX, SPF and DMARC records for email stay as they are.
 
-### First deploy (once, from the Mac)
+### Deploying by hand
+
+The first deploy ran from GitHub Actions when the site was merged (2026-11-21): it created the
+`matilde-web` Worker and both custom domains. Every merge to `main` that touches `apps/web/`
+deploys automatically through `.github/workflows/web.yml`. To deploy from the Mac instead (e.g.
+Actions unavailable):
 
 ```sh
+corepack enable && pnpm install
 cd apps/web
-npm ci
-npx wrangler login      # the Cloudflare account that owns matilde.page
-npm run deploy          # builds and runs wrangler deploy
+pnpm exec wrangler login   # the Cloudflare account that owns matilde.page
+pnpm run deploy            # builds and runs wrangler deploy
 ```
-
-After that, every merge to `main` that touches `apps/web/` deploys automatically through
-`.github/workflows/web.yml`.
 
 ### Check it's live
 
@@ -71,8 +77,7 @@ The current token already deploys the `sync.matilde.page` custom domain, so it s
 
 - **Pull requests** build and check the site, then upload a preview version of the Worker
   (`wrangler versions upload`) and comment its URL on the PR. This doesn't change matilde.page.
-  It's skipped for forks and Dependabot, and it fails harmlessly until the first deploy has
-  created the `matilde-web` Worker.
+  It's skipped for forks and Dependabot.
 - **Main** builds and runs `wrangler deploy`, then checks that matilde.page answers 200 and www
   redirects. There's no approval step: it's a static page with no user data, and a bad deploy is
-  undone with `npx wrangler rollback`.
+  undone with `pnpm exec wrangler rollback`.

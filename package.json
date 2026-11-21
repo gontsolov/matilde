@@ -1,0 +1,12 @@
+{
+  "name": "matilde",
+  "private": true,
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "web": "pnpm --filter matilde-web",
+    "server": "pnpm --filter matilde-sync-server"
+  }
+}
