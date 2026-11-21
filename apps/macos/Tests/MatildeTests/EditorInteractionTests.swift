@@ -2,6 +2,7 @@ import XCTest
 import AppKit
 import SwiftUI
 @testable import Matilde
+import MatildeKit
 
 @MainActor
 final class EditorInteractionTests: XCTestCase {

@@ -1,4 +1,4 @@
-# The Matilde iOS app (IOS-01). XcodeGen spec: `bash scripts/generate-project.sh` writes
+# The Matilde iOS app (IOS-01 to IOS-11). XcodeGen spec: `bash scripts/generate-project.sh` writes
 # Matilde.xcodeproj (not committed). Shared code comes from packages/MatildeKit.
 name: Matilde
 options:
@@ -12,9 +12,11 @@ packages:
     path: ../../packages/MatildeKit
 settings:
   base:
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
-    SWIFT_VERSION: "6.0"
+    # CFBundleVersion must be x.y.z: the sync server reads it as the build number (SyncBuild).
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "0.2.0"
+    # Swift 5 mode like the Mac app; MainActor is still the default isolation.
+    SWIFT_VERSION: "5.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -40,6 +42,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.matilde.ios
         PRODUCT_NAME: Matilde
         INFOPLIST_FILE: Matilde/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO

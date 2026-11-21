@@ -140,6 +140,11 @@ SF_REPLACED = {
     "numberedList": ["list.number"], "checkbox": ["checkmark.square"], "quote": ["text.quote"],
     "codeBlock": ["curlybraces"], "bold": ["bold"], "italic": ["italic"],
     "inlineCode": ["chevron.left.forwardslash.chevron.right"], "link": ["link"], "photo": ["photo"],
+    "devices": ["laptopcomputer.and.iphone"], "laptop": ["laptopcomputer"], "phone": ["iphone"],
+    "lock": ["lock"], "world": ["globe.europe.africa"], "cloudLock": ["key.icloud"],
+    "alert": ["exclamationmark.circle"], "circleCheck": ["checkmark.circle"],
+    "refresh": ["arrow.triangle.2.circlepath"], "download": ["square.and.arrow.down", "arrow.down.app"],
+    "printer": ["printer"], "copy": ["doc.on.doc"],
 }
 
 

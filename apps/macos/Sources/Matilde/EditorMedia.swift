@@ -1,4 +1,5 @@
 import AppKit
+import MatildeKit
 
 enum EditorLinks {
     static let pattern = #"(?<!!)\[((?:\\.|[^\]\\\n])+)\]\(([^\s)]+)\)"#

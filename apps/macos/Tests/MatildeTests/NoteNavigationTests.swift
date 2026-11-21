@@ -2,6 +2,7 @@ import XCTest
 import AppKit
 import SwiftUI
 @testable import Matilde
+import MatildeKit
 
 final class NoteNavigationTests: XCTestCase {
     private func draft(_ id: String, folder: String = "", family: String? = nil, parent: String? = nil, edited: Double) -> Draft {

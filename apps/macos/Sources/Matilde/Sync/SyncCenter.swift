@@ -40,6 +40,9 @@ final class SyncCenter: ObservableObject {
     @Published private(set) var syncing = false
     @Published var message: String?
     @Published private(set) var busy = false
+    @Published private(set) var devices: [SyncDeviceSummary] = []
+    /// Whether the new recovery key was also stored in iCloud Keychain (shown on the save-key step).
+    @Published private(set) var recoveryKeyInICloud = false
 
     /// Saves pending edits before a sync reads the files (set by `AppModel`).
     var prepare: (@MainActor () -> Void)?
@@ -48,6 +51,8 @@ final class SyncCenter: ObservableObject {
 
     private let defaults: UserDefaults
     private let keyStore = KeychainAccountKeyStore()
+    /// The recovery key's copy in iCloud Keychain (owner decision 2026-11-21), read when adding a device.
+    private let recoveryBackup: RecoveryKeyBackup = ICloudRecoveryKeyBackup()
     private var session: SyncSession
     private var ring: AccountKeyRing?
     private var root: URL?
@@ -143,6 +148,50 @@ final class SyncCenter: ObservableObject {
 
     func syncNow() { schedule(after: 0) }
 
+
+    // MARK: Onboarding (the guided "Sync your notes" flow)
+
+    /// The phase in the shared onboarding flow's terms.
+    var setupPhase: SyncSetupPhase {
+        switch phase {
+        case .off, .signedOut: return .signedOut
+        case .awaitingCode(let email): return .awaitingCode(email: email)
+        case .checkingKey: return .checkingKey
+        case .needsRecoveryKey: return .needsRecoveryKey
+        case .showRecoveryKey(let code): return .showRecoveryKey(code: code)
+        case .ready: return .ready
+        case .updateRequired: return .updateRequired
+        }
+    }
+
+    /// The email this device signed in with, for Settings (kept in UserDefaults, cleared on sign-out).
+    var signedInEmail: String? { defaults.string(forKey: Self.emailKey) }
+    static let emailKey = "sync.email"
+
+    /// "I've saved it" on the new account's recovery key.
+    func acknowledgeRecoveryKey() {
+        guard case .showRecoveryKey = phase else { return }
+        phase = .ready
+        startEngine()
+    }
+
+    /// The recovery key from iCloud Keychain, when another device stored it there; fills in the
+    /// unlock step.
+    func storedRecoveryKey() async -> String? {
+        guard let userId = await session.current?.userId else { return nil }
+        return recoveryBackup.load(userId: userId)
+    }
+
+    /// Refreshes `devices` from the server.
+    func loadDevices() {
+        guard phase == .ready else { return }
+        let transport = transport, ring = ring
+        Task {
+            guard let list = try? await transport.devices() else { return }
+            self.devices = list.map { SyncDeviceSummary($0, ring: ring) }
+        }
+    }
+
     // MARK: Sign-in and keys
 
     private func resume() async {
@@ -166,6 +215,7 @@ final class SyncCenter: ObservableObject {
         perform {
             let response = try await SyncAuthClient(http: self.session.http).verifyEmail(email, code: code, deviceId: self.deviceId)
             try await self.session.signIn(response.tokens())
+            self.defaults.set(email, forKey: Self.emailKey)
             NSLog("Matilde sync: signed in")
             await self.setUpKey()
         }
@@ -190,6 +240,10 @@ final class SyncCenter: ObservableObject {
                     NSLog("Matilde sync: account key created")
                     ring = made.ring
                     phase = made.recoveryKey.map { Phase.showRecoveryKey(code: $0.code) } ?? Phase.ready
+                    if let recovery = made.recoveryKey {
+                        recoveryKeyInICloud = recoveryBackup.save(code: recovery.code, userId: userId)
+                        NSLog("Matilde sync: recovery key %@ iCloud Keychain", recoveryKeyInICloud ? "saved to" : "not saved to")
+                    }
                     renameDevice()
                     if phase == .ready { startEngine() }
                     return
@@ -219,6 +273,8 @@ final class SyncCenter: ObservableObject {
             let ring = try SyncKeyEnrollment.recover(userId: userId, keys: keys, recoveryCode: code)
             try self.keyStore.save(ring)
             NSLog("Matilde sync: account key recovered")
+            // Keep (or refresh) the copy in iCloud Keychain for the next device.
+            self.recoveryBackup.save(code: (try? SyncRecoveryKey(code: code))?.code ?? code, userId: userId)
             self.ring = ring
             self.phase = .ready
             self.renameDevice()
@@ -243,6 +299,8 @@ final class SyncCenter: ObservableObject {
         phase = enabled ? .signedOut : .off
         status = ""
         lastSynced = nil
+        devices = []
+        defaults.removeObject(forKey: Self.emailKey)
         if let userId { try? keyStore.remove(userId: userId) }
         Task { await session.signOut(serverSide: true) }
         NSLog("Matilde sync: signed out")

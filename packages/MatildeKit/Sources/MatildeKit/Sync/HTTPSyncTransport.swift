@@ -266,8 +266,17 @@ public struct SyncAuthClient: Sendable {
         _ = try await http.send(http.request("POST", "auth/email/start", json: try SyncHTTP.encode(["email": email])))
     }
 
-    public func verifyEmail(_ email: String, code: String, deviceId: String, deviceNameCt: String? = nil) async throws -> TokenResponse {
-        var body = ["email": email, "code": code, "deviceId": deviceId, "platform": "macos"]
+    /// The `platform` this build signs in as (the server lists devices by it).
+    public static var currentPlatform: String {
+        #if os(iOS)
+        return "ios"
+        #else
+        return "macos"
+        #endif
+    }
+
+    public func verifyEmail(_ email: String, code: String, deviceId: String, deviceNameCt: String? = nil, platform: String = SyncAuthClient.currentPlatform) async throws -> TokenResponse {
+        var body = ["email": email, "code": code, "deviceId": deviceId, "platform": platform]
         body["deviceNameCt"] = deviceNameCt
         return try SyncHTTP.decode(TokenResponse.self, try await http.send(http.request("POST", "auth/email/verify", json: try SyncHTTP.encode(body))))
     }
@@ -415,6 +424,12 @@ public struct HTTPSyncTransport: SyncTransport {
         _ = try await session.send { http.request("PUT", "keys", json: body, token: $0) }
     }
 
+    /// The account's signed-in devices (`GET /v1/devices`); names are sealed, see `SyncSignedInDevice.name`.
+    public func devices() async throws -> [SyncSignedInDevice] {
+        let http = http
+        return try SyncHTTP.decode(SyncDeviceList.self, try await session.send { http.request("GET", "devices", token: $0) }).devices
+    }
+
     public func renameDevice(_ nameCt: Data) async throws {
         guard let sessionId = await session.current?.sessionId else { throw SyncSessionError.signedOut }
         try SyncIdentifiers.validate(sessionId, "sessionId")
@@ -428,6 +443,65 @@ public struct HTTPSyncTransport: SyncTransport {
         self.deviceId = deviceId
     }
 }
+
+/// A signed-in device as the server lists it.
+public struct SyncSignedInDevice: Decodable, Sendable, Identifiable, Equatable {
+    public let sessionId: String
+    public let deviceId: String
+    public let platform: String
+    public let nameCt: String?
+    public let createdAt: Double
+    public let lastSeenDay: String
+    public let current: Bool
+
+    public var id: String { sessionId }
+
+    public init(sessionId: String, deviceId: String, platform: String, nameCt: String?, createdAt: Double, lastSeenDay: String, current: Bool) {
+        self.sessionId = sessionId
+        self.deviceId = deviceId
+        self.platform = platform
+        self.nameCt = nameCt
+        self.createdAt = createdAt
+        self.lastSeenDay = lastSeenDay
+        self.current = current
+    }
+
+    /// The device's own name, opened with the account key; a platform name when it can't be read.
+    public func name(ring: AccountKeyRing?) -> String {
+        if let ring, let nameCt, let sealed = Data(base64Encoded: nameCt),
+           let name = try? SyncFieldCrypto.openDeviceName(sealed, deviceId: deviceId, ring: ring), !name.isEmpty {
+            return name
+        }
+        switch platform.lowercased() {
+        case "ios": return "iPhone"
+        case "macos": return "Mac"
+        default: return "Device"
+        }
+    }
+
+    /// "iphone" / "laptopcomputer" for SF Symbols.
+    public var symbolName: String { platform.lowercased() == "ios" ? "iphone" : "laptopcomputer" }
+}
+
+/// What Settings → Sync shows for a device.
+public struct SyncDeviceSummary: Identifiable, Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let symbolName: String
+    public let isCurrent: Bool
+    /// "2026-11-21", the last day the device talked to the server.
+    public let lastSeenDay: String
+
+    public init(_ device: SyncSignedInDevice, ring: AccountKeyRing?) {
+        id = device.sessionId
+        name = device.name(ring: ring)
+        symbolName = device.symbolName
+        isCurrent = device.current
+        lastSeenDay = device.lastSeenDay
+    }
+}
+
+struct SyncDeviceList: Decodable { let devices: [SyncSignedInDevice] }
 
 /// Backoff for retries and reconnects: exponential from 1 s to 60 s with ±20 % jitter, or the
 /// server's `Retry-After` when it sent one.

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import MatildeKit
 
 struct ComparisonDifferences {
     let left: [NSRange]

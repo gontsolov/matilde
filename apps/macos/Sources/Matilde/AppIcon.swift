@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import MatildeKit
 
 /// The app icons a writer can choose in Settings. The raw value names the bundled PNG in
 /// `Resources/AppIcons`; alternatives are rendered from `assets/app-icons/*.svg` by

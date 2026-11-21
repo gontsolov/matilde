@@ -1,5 +1,6 @@
 import XCTest
 @testable import Matilde
+import MatildeKit
 
 @MainActor
 final class UserCommentTests: XCTestCase {
