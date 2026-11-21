@@ -17,9 +17,10 @@ npm run preview    # the built site through the Worker (wrangler dev, http://loc
 
 - Copy lives in `src/pages/index.astro` and `src/pages/privacy.astro`.
 - Links, platform line and contact address are in `src/lib/site.ts`.
-- The version shown next to the button comes from the latest GitHub release at build time
-  (only if it has a `Matilde.dmg` asset), falling back to `apps/macos/Config/release.json`.
-- Colours are the app's Paper palette, light and dark, in `src/styles/global.css`.
+- The page shows no version number, so the build doesn't call GitHub; the button always links to
+  the latest release's `Matilde.dmg`.
+- Colours are the app's Paper palette, light and dark, in `src/styles/global.css`. The Download
+  button is a dark warm gray (`--button`) in light mode and a warm off-white in dark mode.
 - Newsreader is self-hosted through Fontsource; small UI text uses the system sans.
 
 ### Using a real screenshot

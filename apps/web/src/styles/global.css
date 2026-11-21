@@ -16,6 +16,10 @@
   --highlight: rgb(247 204 102 / 0.34); /* private comment highlighter */
   --card: #f9f6ef;
   --rule: rgb(61 64 56 / 0.09);
+  /* Download button: very dark warm gray, not black (off-white text ≈ 13:1). */
+  --button: #2b2724;
+  --button-hover: #3a3531;
+  --button-ink: #f6f2ea;
   color-scheme: light dark;
 }
 
@@ -30,6 +34,10 @@
     --highlight: rgb(199 153 77 / 0.24);
     --card: #262727;
     --rule: rgb(222 221 219 / 0.1);
+    /* Dark mode inverts it: warm off-white with the same dark text (≈ 12:1). */
+    --button: #ebe5da;
+    --button-hover: #f6f2ea;
+    --button-ink: #2b2724;
   }
 }
 
@@ -42,6 +50,9 @@
   --color-accent: var(--accent);
   --color-card: var(--card);
   --color-rule: var(--rule);
+  --color-button: var(--button);
+  --color-button-hover: var(--button-hover);
+  --color-button-ink: var(--button-ink);
   --font-serif: "Newsreader Variable", "Iowan Old Style", Georgia, serif;
   --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }

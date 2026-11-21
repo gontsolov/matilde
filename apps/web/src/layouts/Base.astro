@@ -1,14 +1,12 @@
 ---
 import "../styles/global.css";
 import { PLATFORM } from "../lib/site";
-import { latestRelease } from "../lib/release";
 
 interface Props {
   title: string;
   description: string;
 }
 const { title, description } = Astro.props;
-const release = await latestRelease();
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
@@ -36,7 +34,6 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
         <a href="/" class="hover:text-ink">Matilde</a>
         <a href="/privacy" class="hover:text-ink">Privacy</a>
-        {release.version && <span>Version {release.version}</span>}
         <span>{PLATFORM}</span>
       </div>
     </footer>

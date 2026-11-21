@@ -31,10 +31,7 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npm run check
-      # The token lets the build read the latest release (version number) without hitting the anonymous rate limit.
       - run: npm run build
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
 
   # A preview version of the Worker for each pull request. It doesn't touch matilde.page.
   # Skipped for forks and Dependabot, which don't get the Cloudflare secrets. Until the first
@@ -62,8 +59,6 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npm run build
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
       - name: Upload preview version
         id: upload
         run: |
@@ -105,8 +100,6 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npm run build
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
       - run: npx wrangler deploy
       - name: Smoke test
         run: |

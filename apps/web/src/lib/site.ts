@@ -5,6 +5,6 @@ export const DOWNLOAD_URL = `https://github.com/${REPO}/releases/latest/download
 export const RELEASES_URL = `https://github.com/${REPO}/releases/latest`;
 export const SOURCE_URL = `https://github.com/${REPO}`;
 /** LSMinimumSystemVersion in apps/macos/scripts/write-info.py; arm64-only since 0.1.9. */
-export const PLATFORM = "Apple silicon, macOS 14 or later";
+export const PLATFORM = "Apple silicon · macOS 14 or later";
 /** Where people can reach the owner, e.g. to delete a sync account. OWNER: confirm this address receives mail. */
 export const CONTACT_EMAIL = "hello@matilde.page";
