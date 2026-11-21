@@ -1,5 +1,6 @@
 import Foundation
 import CSQLite
+import MatildeKit
 
 struct Draft: Identifiable, Hashable {
     var id: String

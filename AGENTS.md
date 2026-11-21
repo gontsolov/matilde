@@ -36,21 +36,21 @@ Matilde (also called Tilde during naming) is a native macOS writing app. The pri
 
 ## Repository layout
 
-A monorepo. Paths in the sections below are relative to `apps/macos/` unless they start with `docs/`, `server/`, `ROADMAP.md` or `.github/`.
+A monorepo. Paths in the sections below are relative to `apps/macos/` unless they start with `docs/`, `server/`, `packages/`, `apps/ios/`, `ROADMAP.md` or `.github/`.
 
 | Path | Contents |
 | --- | --- |
 | `apps/macos/` | The macOS app: `Package.swift`/`Package.resolved`, `Sources/`, `Tests/`, `assets/` (icon sources), `Config/release.json`, `release-notes/`, and its build, packaging and release scripts in `scripts/` (with `scripts/tests/`) |
 | `apps/web/` | Landing page (matilde.page): Astro site on a Cloudflare Worker, see `apps/web/README.md` |
-| `apps/ios/` | Planned iOS app; not created yet |
-| `packages/` | Planned shared Swift packages (e.g. `MatildeKit`: sync engine, crypto, record ledger, models), extracted from `apps/macos` when the iOS app needs them; not created yet |
+| `apps/ios/` | The iOS app (IOS-01 skeleton): SwiftUI, iOS 26, iPhone first; XcodeGen `project.yml` (the `.xcodeproj` is generated, not committed), see `apps/ios/README.md` |
+| `packages/MatildeKit/` | Shared Swift package used by the macOS and iOS apps: sync records, sync engine, HTTPS transport and end-to-end encryption, plus `MatildeKitTesting` (fake sync server). Builds and tests on Linux too (swift-crypto stands in for CryptoKit); see `packages/MatildeKit/README.md` |
 | `server/` | Cloud sync server (Cloudflare Worker), deployed by `.github/workflows/server.yml` |
 | `docs/` | Product, architecture, sync and release documentation, verification log; `docs/sync-vectors/` are shared crypto test vectors for every client |
 | `scripts/` | Repo-wide scripts only (`sync-vectors.py`, which regenerates `docs/sync-vectors/`) |
 | `ROADMAP.md` | Backlog for the whole product |
 | `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml` | pnpm workspace for the JavaScript packages (`apps/web`, `server`): one root lockfile, pnpm version pinned in `packageManager`. Use `pnpm install` / `pnpm run` / `pnpm exec`, never npm; `corepack enable` once installs pnpm |
 
-CI (`.github/workflows/ci.yml`) runs the macOS job only when `apps/macos/`, `packages/`, `docs/sync-vectors/` or the CI/Release workflows change; its `required` job always reports and is the check to require. `server.yml` and the web workflow have their own path filters.
+CI (`.github/workflows/ci.yml`) runs the macOS job (app and MatildeKit tests) only when `apps/macos/`, `packages/`, `docs/sync-vectors/` or the CI/Release workflows change; the iOS job (macos-26, XcodeGen, iPhone simulator tests) when `apps/ios/`, `packages/`, `docs/sync-vectors/` or `ci.yml` change; the Linux `kit` job (MatildeKit `swift test`) when `packages/`, `docs/sync-vectors/` or `ci.yml` change; its `required` job always reports and is the check to require. `server.yml` and the web workflow have their own path filters.
 
 ## Stack and source map
 
@@ -62,7 +62,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | `Sources/Matilde/AppModel.swift` | Workspace and draft state, autosave, selection, external reload, branching/removal, board navigation and editor readiness |
 | `Sources/Matilde/Workspace.swift` | Markdown file operations, SQLite metadata, snapshots, draft relationships, session state, Trash behavior |
 | `Sources/Matilde/WorkspaceStore.swift` | Workspace ID, database location in Application Support and the one-time migration out of `.matilde` (SYNC-01) |
-| `Sources/Matilde/SyncRecord.swift`, `SyncPayloads.swift`, `SyncLedger.swift` | Portable sync records (SYNC-02): HLC, record ids, canonical fields, change tracking, tombstones and outbox in `sync_records`; contract in `docs/sync-model.md` |
+| `packages/MatildeKit/Sources/MatildeKit/Records/` (`SyncRecord.swift`, `SyncPayloads.swift`), `Sources/Matilde/SyncLedger.swift` | Portable sync records (SYNC-02): HLC, record ids, canonical fields in MatildeKit; change tracking, tombstones and outbox in `sync_records` in the app; contract in `docs/sync-model.md` |
 | `Sources/Matilde/MarkdownEditor.swift` | AppKit text view embedded in SwiftUI, Markdown styling/concealment, formatting commands, list behavior, cursor/scroll restoration |
 | `Sources/Matilde/DraftComparison.swift` | Independent editable comparison buffer, autosave/recovery and native split pane |
 | `Sources/Matilde/BoardStore.swift` | Persisted sheet placement and family viewport storage |
@@ -72,9 +72,10 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | `Sources/Matilde/AppIcon.swift` | App icon choices, stored preference, runtime Dock icon and the Settings picker; SVG sources in `assets/app-icons`, PNGs from `scripts/app-icons.py` |
 | `Sources/Matilde/MatildeIcon.swift` | Tabler icon names, template image loading and sizes; PDFs in `Resources/Icons`, source SVGs in `assets/tabler-icons` |
 | `Sources/Matilde/AppUpdater.swift` | Sparkle controller and native Check for Updates action |
-| `Sources/Matilde/Sync/` | Client sync (SYNC-07): `SyncEngine` push/pull actor, `SyncMerge` rules, `SyncCodec` framing, `WorkspaceSyncStore` mirror into files and tables, `HTTPSyncTransport` (sessions, Keychain tokens, WebSocket), `SyncCenter` app controller and the Settings → Sync tab; see `docs/sync-client.md` |
-| `Sources/Matilde/SyncCrypto/` | End-to-end encryption for cloud sync (SYNC-06): account key ring, record/blob/field envelopes, recovery key, key slots, Keychain store; spec in `docs/sync-encryption.md` |
+| `packages/MatildeKit/Sources/MatildeKit/Sync/`, `Sources/Matilde/Sync/` | Client sync (SYNC-07): in MatildeKit the `SyncEngine` push/pull actor, `SyncMerge` rules, `SyncCodec` framing, `SyncWire` and `HTTPSyncTransport` (sessions, Keychain tokens, WebSocket); in the app `WorkspaceSyncStore` mirror into files and tables, `SyncCenter` app controller and the Settings → Sync tab; see `docs/sync-client.md` |
+| `packages/MatildeKit/Sources/MatildeKit/SyncCrypto/` | End-to-end encryption for cloud sync (SYNC-06): account key ring, record/blob/field envelopes, recovery key, key slots, Keychain store; spec in `docs/sync-encryption.md` |
 | `Tests/MatildeTests/` | Workspace, Markdown, curl geometry, and native editor regression tests |
+| `packages/MatildeKit/Tests/MatildeKitTests/` | Sync record, engine, transport, crypto, recovery and shared-vector tests (run on macOS and Linux) |
 | `Config/release.json` | Local version, stable bundle identifier, repository, update URL and public signing key |
 | `server/` | Cloud sync server (TypeScript Cloudflare Worker, Durable Objects, D1, R2); its own README, PROTOCOL.md and vitest suite (`cd server && pnpm install && pnpm test`, runs on Linux) |
 | `scripts/` (plus `.github/workflows/` at the repo root) | App assembly, tests, signing, packaging, release validation and publication |

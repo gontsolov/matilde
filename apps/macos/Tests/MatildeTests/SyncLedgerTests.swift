@@ -1,5 +1,6 @@
 import XCTest
 @testable import Matilde
+import MatildeKit
 
 /// SYNC-02: change tracking, tombstones, the outbox and the migration of existing data.
 final class SyncLedgerTests: XCTestCase {

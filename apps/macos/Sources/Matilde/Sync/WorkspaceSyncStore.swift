@@ -1,4 +1,5 @@
 import Foundation
+import MatildeKit
 
 // SYNC-07: the workspace side of sync. Applies pulled records to the Markdown files and the app's
 // own tables (the mirror), and keeps the change ledger (SYNC-02) in step so an applied record is

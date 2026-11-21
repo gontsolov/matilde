@@ -1,5 +1,7 @@
 import XCTest
 @testable import Matilde
+import MatildeKit
+import MatildeKitTesting
 
 /// SYNC-07: two real (disposable) workspaces syncing through the in-memory server.
 final class WorkspaceSyncTests: XCTestCase {

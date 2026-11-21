@@ -1,0 +1,63 @@
+# The Matilde iOS app (IOS-01). XcodeGen spec: `bash scripts/generate-project.sh` writes
+# Matilde.xcodeproj (not committed). Shared code comes from packages/MatildeKit.
+name: Matilde
+options:
+  bundleIdPrefix: app.matilde
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+packages:
+  MatildeKit:
+    path: ../../packages/MatildeKit
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    # Set once the Apple Developer Program membership is active (IOS-07).
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  Matilde:
+    type: application
+    platform: iOS
+    sources:
+      - path: Matilde
+      # The writing typeface, shared with the Mac app (SIL Open Font License, see OFL.txt there).
+      - path: ../macos/Sources/Matilde/Resources/Fonts/Newsreader.ttf
+        buildPhase: resources
+      - path: ../macos/Sources/Matilde/Resources/Fonts/Newsreader-Italic.ttf
+        buildPhase: resources
+    dependencies:
+      - package: MatildeKit
+        product: MatildeKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.matilde.ios
+        PRODUCT_NAME: Matilde
+        INFOPLIST_FILE: Matilde/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+    scheme:
+      testTargets:
+        - MatildeTests
+      gatherCoverageData: false
+  MatildeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MatildeTests
+    dependencies:
+      - target: Matilde
+      - package: MatildeKit
+        product: MatildeKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.matilde.ios.tests
+        GENERATE_INFOPLIST_FILE: YES

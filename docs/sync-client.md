@@ -6,6 +6,8 @@ Sync is **off by default**. Settings → Sync turns it on, signs in with an emai
 
 ## Code
 
+The platform-neutral parts (wire, codec, merge, engine, transport) live in the shared package `packages/MatildeKit/Sources/MatildeKit/Sync/`, so the iOS app uses the same engine; the workspace mirror, controller and Settings tab stay in `apps/macos/Sources/Matilde/Sync/`.
+
 | File | Responsibility |
 | --- | --- |
 | `Sync/SyncWire.swift` | Wire types (push change, pull row, responses), live events, server errors, limits, the `SyncTransport` protocol |
@@ -17,7 +19,7 @@ Sync is **off by default**. Settings → Sync turns it on, signs in with an emai
 | `Sync/SyncCenter.swift` | `@MainActor` app controller: settings, sign-in, key setup, engine per workspace, triggers, status |
 | `Sync/SyncSettings.swift` | The Settings → Sync tab |
 
-Tests: `SyncEngineTests` (25, against `FakeSyncServer`, an in-memory model of the server's push/pull/blob rules, and `MemorySyncStore`), `SyncTransportTests` (8, HTTP stubbed with `URLProtocol`), `WorkspaceSyncTests` (7, two real workspaces syncing through the fake server).
+Tests: `SyncEngineTests` (25, in MatildeKit, against `FakeSyncServer` from `MatildeKitTesting`, an in-memory model of the server's push/pull/blob rules, and `MemorySyncStore`), `SyncTransportTests` (8, in MatildeKit, HTTP stubbed with `URLProtocol`), `WorkspaceSyncTests` (7, in the macOS app, two real workspaces syncing through the fake server).
 
 ## One sync
 
