@@ -1,0 +1,63 @@
+---
+// A hand-drawn red pen underline under a word or two, like an editor's mark on a proof.
+// It draws itself in once it scrolls into view; with Reduce Motion (or without JavaScript) it's
+// simply there. Decorative: screen readers only read the wrapped text.
+---
+
+<span class="pen-mark relative inline-block whitespace-nowrap">
+  <slot />
+  <svg
+    class="pen-stroke pointer-events-none absolute -bottom-[0.2em] -left-[0.12em] h-auto w-[calc(100%+0.3em)] overflow-visible"
+    viewBox="0 0 100 16"
+    fill="none"
+    stroke="currentColor"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <!-- One quick stroke that wavers and lifts at the end, then a shorter, lighter second pass. -->
+    <path pathLength="1" stroke-width="2.4" d="M3 8.6c-.8-.6.4-1.1 2.2-1.3 9.6-1.2 20-2.3 30.8-2.5 13.2-.3 25.6.9 38.4.9 8.6 0 16.2-1 23.6-3" />
+    <path pathLength="1" stroke-width="1.7" opacity="0.75" d="M11 12.8c13.5-2.1 29-3.4 45.5-3.3 11.6.1 21.5 1.1 30-.9" />
+  </svg>
+</span>
+
+<style>
+  .pen-stroke {
+    color: var(--pen);
+  }
+  .pen-stroke path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+  /* Only hidden when the script below is there to draw it in. */
+  :global(html.pen-ready) .pen-mark:not(.is-drawn) path {
+    stroke-dashoffset: 1;
+  }
+  :global(html.pen-ready) .pen-mark.is-drawn path {
+    transition: stroke-dashoffset 0.55s cubic-bezier(0.55, 0.1, 0.3, 1) 0.15s;
+  }
+  :global(html.pen-ready) .pen-mark.is-drawn path + path {
+    transition-duration: 0.35s;
+    transition-delay: 0.72s;
+  }
+</style>
+
+<script>
+  const marks = document.querySelectorAll<HTMLElement>(".pen-mark");
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (marks.length && !still && "IntersectionObserver" in window) {
+    document.documentElement.classList.add("pen-ready");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add("is-drawn");
+          observer.unobserve(entry.target);
+        }
+      },
+      { rootMargin: "0px 0px -15% 0px" },
+    );
+    marks.forEach((mark) => observer.observe(mark));
+  }
+</script>

@@ -29,7 +29,9 @@ pnpm run preview    # the built site through the Worker (wrangler dev, http://lo
 
 ### Using a real screenshot
 
-The page shows an HTML/CSS mock-up of the editor (`src/components/EditorMockup.astro`). To use a
+The page shows an HTML/CSS mock-up of the editor (`src/components/EditorMockup.astro`): the
+sidebar (hidden below 1024 px), a letter and two Matilde margin comments that a small script lines
+up with their passages. The red pen underline under “yours” is `src/components/PenMark.astro`. To use a
 real screenshot instead, save it as `public/screenshot.png` (about 2400 px wide, light mode).
 `src/components/AppPreview.astro` picks it up automatically on the next build. Delete the file to
 go back to the mock-up.

@@ -2,6 +2,7 @@
 import Base from "../layouts/Base.astro";
 import AppPreview from "../components/AppPreview.astro";
 import DownloadButton from "../components/DownloadButton.astro";
+import PenMark from "../components/PenMark.astro";
 
 const points = [
   "Plain Markdown files, in a folder on your Mac.",
@@ -39,7 +40,7 @@ const privacy = [
       <h1 class="max-w-3xl text-[40px] font-medium leading-[1.08] tracking-[-0.015em] sm:text-[56px]">
         You write every word.<br />Matilde reads along.
       </h1>
-      <p class="mt-6 max-w-xl text-[19px] leading-[1.55] text-ink/85 sm:text-[21px]">
+      <p class="mt-6 max-w-[44rem] text-[18px] leading-[1.55] text-ink/85 sm:text-[19.5px]">
         Matilde is a quiet writing app for the Mac. It reads along like a thoughtful editor: it asks questions
         and leaves notes in the margin. It won't write your paragraphs or make your decisions. The thinking stays yours.
       </p>
@@ -48,7 +49,7 @@ const privacy = [
       </div>
     </section>
 
-    <section class="mx-auto mt-16 max-w-5xl px-4 sm:mt-20 sm:px-6">
+    <section class="mx-auto mt-16 max-w-6xl px-4 sm:mt-20 sm:px-6">
       <AppPreview />
     </section>
 
@@ -60,7 +61,9 @@ const privacy = [
 
     <section class="mx-auto mt-24 max-w-2xl px-6" aria-labelledby="privacy-heading">
       <div class="border-t border-rule pt-14">
-        <h2 id="privacy-heading" class="text-[28px] font-medium tracking-[-0.01em]">Your writing stays yours.</h2>
+        <h2 id="privacy-heading" class="text-[28px] font-medium tracking-[-0.01em]">
+          Your writing stays <PenMark>yours</PenMark>.
+        </h2>
         <dl class="mt-7 space-y-5 text-[17.5px] leading-[1.6]">
           {
             privacy.map((item) => (
