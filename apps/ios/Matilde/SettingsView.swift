@@ -6,6 +6,7 @@ import MatildeKit
 /// for Ask Matilde) and About.
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(FirstRunTour.seenKey) private var tourSeen = false
 
     var body: some View {
         NavigationStack {
@@ -15,6 +16,11 @@ struct SettingsView: View {
                 Section("About") {
                     LabeledContent("Version", value: Self.version)
                     Link("matilde.page", destination: URL(string: "https://matilde.page")!)
+                    Button("Show Welcome Again") {
+                        // RootView plays the tour once this sheet has closed.
+                        tourSeen = false
+                        dismiss()
+                    }
                 }
             }
             .navigationTitle("Settings")
