@@ -29,7 +29,7 @@ final class NoteLibrary {
     @ObservationIgnored private var bodies: [String: (edited: Date?, text: String)] = [:]
 
     /// `Application Support/Matilde/Notes`.
-    static var defaultRoot: URL {
+    nonisolated static var defaultRoot: URL {
         let support = (try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
             ?? FileManager.default.temporaryDirectory
         return support.appendingPathComponent("Matilde/Notes", isDirectory: true)
