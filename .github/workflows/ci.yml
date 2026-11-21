@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       macos: ${{ steps.filter.outputs.macos }}
+      ios: ${{ steps.filter.outputs.ios }}
+      kit: ${{ steps.filter.outputs.kit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -33,12 +35,13 @@ jobs:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
-          if [[ "$EVENT" == workflow_dispatch ]]; then echo macos=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          all() { printf 'macos=true\nios=true\nkit=true\n' >> "$GITHUB_OUTPUT"; }
+          if [[ "$EVENT" == workflow_dispatch ]]; then all; exit 0; fi
           if [[ "$EVENT" == pull_request ]]; then
             range="$(git merge-base "$BASE_SHA" "$HEAD_SHA")...$HEAD_SHA"
           elif [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
             # New branch or unknown history: build everything.
-            echo macos=true >> "$GITHUB_OUTPUT"; exit 0
+            all; exit 0
           else
             range="$BEFORE...$AFTER"
           fi
@@ -49,6 +52,18 @@ jobs:
             echo macos=true >> "$GITHUB_OUTPUT"
           else
             echo macos=false >> "$GITHUB_OUTPUT"
+          fi
+          # The iOS app: its own sources, the shared packages it builds on, and this workflow.
+          if grep -qE '^(apps/ios/|packages/|docs/sync-vectors/|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed.txt"; then
+            echo ios=true >> "$GITHUB_OUTPUT"
+          else
+            echo ios=false >> "$GITHUB_OUTPUT"
+          fi
+          # MatildeKit on Linux: the shared Swift package and the vectors its tests check.
+          if grep -qE '^(packages/|docs/sync-vectors/|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed.txt"; then
+            echo kit=true >> "$GITHUB_OUTPUT"
+          else
+            echo kit=false >> "$GITHUB_OUTPUT"
           fi
 
   macos:
@@ -61,6 +76,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Test
+        run: swift test --disable-sandbox
+      - name: Test MatildeKit
+        working-directory: packages/MatildeKit
         run: swift test --disable-sandbox
       - name: Build app bundle
         run: bash scripts/build-app.sh
@@ -94,16 +112,69 @@ jobs:
           test -x .build/artifacts/sparkle/Sparkle/bin/generate_appcast
           ls -l "build/releases/$VERSION"
 
+  # The iOS app (IOS-01): XcodeGen project, simulator build and tests on the latest iOS SDK.
+  # macos-26 ships Xcode 26 as the default, with iOS 26 simulators.
+  ios:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: apps/ios
+    env:
+      XCODEGEN_VERSION: 2.48.0
+      XCODEGEN_SHA256: 620c9f0dc10849f94728ab5df52d225ebab8187439dd6fee1925e59e80dff892
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Show Xcode and simulators
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes available
+      - name: Install XcodeGen
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate project
+        run: bash scripts/generate-project.sh
+      - name: Build and test (iPhone simulator)
+        run: |
+          set -o pipefail
+          xcodebuild test -project Matilde.xcodeproj -scheme Matilde \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -resultBundlePath "$RUNNER_TEMP/ios-tests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
+
+  # MatildeKit is platform-neutral: its tests also run on Linux (swift-crypto stands in for CryptoKit),
+  # which keeps it buildable in the Linux sandboxes agents work in.
+  kit:
+    needs: changes
+    if: needs.changes.outputs.kit == 'true'
+    runs-on: ubuntu-latest
+    container: swift:6.2-noble
+    defaults:
+      run:
+        working-directory: packages/MatildeKit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Test
+        run: swift test
+
   # The single check to require on main: always reports, passes when the macOS job passed or was skipped.
   required:
     if: always()
-    needs: [changes, macos]
+    needs: [changes, macos, ios, kit]
     runs-on: ubuntu-latest
     steps:
       - env:
           CHANGES: ${{ needs.changes.result }}
           MACOS: ${{ needs.macos.result }}
+          IOS: ${{ needs.ios.result }}
+          KIT: ${{ needs.kit.result }}
         run: |
-          echo "changes=$CHANGES macos=$MACOS"
+          echo "changes=$CHANGES macos=$MACOS ios=$IOS kit=$KIT"
           [[ "$CHANGES" == success ]] || exit 1
-          [[ "$MACOS" == success || "$MACOS" == skipped ]] || exit 1
+          for result in "$MACOS" "$IOS" "$KIT"; do
+            [[ "$result" == success || "$result" == skipped ]] || exit 1
+          done

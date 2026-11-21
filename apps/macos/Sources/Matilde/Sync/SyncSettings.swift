@@ -1,5 +1,6 @@
 #if canImport(AppKit)
 import SwiftUI
+import MatildeKit
 
 /// The Sync tab in Settings (SYNC-07): on/off, server, sign-in, the recovery key and a status line.
 struct SyncSettingsView: View {

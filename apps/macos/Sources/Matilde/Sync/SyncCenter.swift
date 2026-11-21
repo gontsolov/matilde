@@ -1,6 +1,7 @@
 #if canImport(AppKit)
 import AppKit
 import SystemConfiguration
+import MatildeKit
 
 // SYNC-07: the app side of sync. Owns the settings (off by default), sign-in, the account key, one
 // `SyncEngine` for the open workspace and the triggers that run it: a local change (debounced),
