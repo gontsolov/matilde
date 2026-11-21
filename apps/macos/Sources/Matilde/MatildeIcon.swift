@@ -58,6 +58,33 @@ enum MatildeIcon: String, CaseIterable {
     case inlineCode = "code"
     case link = "link"
     case photo = "photo"
+    // Sync setup and Settings → Sync
+    case devices = "devices"
+    case laptop = "device-laptop"
+    case phone = "device-mobile"
+    case lock = "lock"
+    case world = "world"
+    case cloudLock = "cloud-lock"
+    case alert = "alert-circle"
+    case circleCheck = "circle-check"
+    case refresh = "refresh"
+    case download = "download"
+    case printer = "printer"
+    case copy = "copy"
+
+    /// The Mac icon for a symbol named in shared MatildeKit copy (`SyncOnboardingCopy.points`),
+    /// which names SF Symbols for the iPhone.
+    static func forSharedSymbol(_ name: String) -> MatildeIcon {
+        switch name {
+        case "laptopcomputer.and.iphone": .devices
+        case "text.bubble": .askMatilde
+        case "lock": .lock
+        case "globe.europe.africa": .world
+        case "iphone": .phone
+        case "laptopcomputer": .laptop
+        default: .check
+        }
+    }
 
     /// Design grid of every Tabler icon, in points. The glyphs leave 2 points of padding on each side.
     static let gridSize: CGFloat = 24

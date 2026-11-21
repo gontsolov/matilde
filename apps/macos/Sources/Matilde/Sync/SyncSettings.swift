@@ -32,7 +32,7 @@ struct SyncSettingsView: View {
                                 Text(device.name)
                                 if device.isCurrent { Text("This Mac").foregroundStyle(.secondary) }
                             } icon: {
-                                Image(systemName: device.symbolName)
+                                MatildeIcon.forSharedSymbol(device.symbolName).image(size: 18)
                             }
                         }
                     }
@@ -40,8 +40,7 @@ struct SyncSettingsView: View {
             case .off, .signedOut:
                 Section {
                     HStack(alignment: .top, spacing: 14) {
-                        Image(systemName: "laptopcomputer.and.iphone")
-                            .font(.system(size: 28, weight: .light))
+                        MatildeIcon.devices.image(size: 32)
                             .foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 6) {
                             Text(SyncOnboardingCopy.callToActionTitle).font(.headline)
@@ -122,7 +121,7 @@ struct SyncSetupSheet: View {
                 .transition(reduceMotion ? .opacity : .asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
                                                                   removal: .move(edge: .leading).combined(with: .opacity)))
             if let message = center.message, flow.step != .done {
-                Label(message, systemImage: "exclamationmark.circle")
+                Label { Text(message) } icon: { MatildeIcon.alert.image(size: 16).iconBaseline() }
                     .font(.callout)
                     .foregroundStyle(Color(nsColor: .systemRed))
                     .fixedSize(horizontal: false, vertical: true)
@@ -187,7 +186,7 @@ struct SyncSetupSheet: View {
                 MacStepHeader(title: SyncOnboardingCopy.introTitle, text: SyncOnboardingCopy.introText)
                 ForEach(SyncOnboardingCopy.points) { point in
                     HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: point.symbol).font(.system(size: 17)).foregroundStyle(Color(Paper.accent)).frame(width: 24)
+                        MatildeIcon.forSharedSymbol(point.symbol).image(size: 20).foregroundStyle(Color(Paper.accent)).frame(width: 24)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(point.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(Paper.ink))
                             Text(point.text).font(.system(size: 13)).foregroundStyle(Color(Paper.muted))
@@ -206,7 +205,7 @@ struct SyncSetupSheet: View {
         case .code(let address):
             MacCodeStep(center: center, email: address, failures: flow.failures, shakes: shakes)
         case .signingIn:
-            MacStatusStep(symbol: "checkmark.circle.fill", title: SyncOnboardingCopy.signingInTitle,
+            MacStatusStep(icon: .done, title: SyncOnboardingCopy.signingInTitle,
                           text: SyncOnboardingCopy.signingInText, success: true, working: true)
         case .saveKey(let recovery):
             MacSaveKeyStep(center: center, recovery: recovery, saved: $saved)
@@ -225,17 +224,17 @@ struct SyncSetupSheet: View {
                 if let message = RecoveryKeyInput.message(for: RecoveryKeyInput.state(of: key)) {
                     Text(message).foregroundStyle(Color(nsColor: .systemRed)).font(.callout)
                 } else if RecoveryKeyInput.state(of: key) == .valid {
-                    Label("Looks right", systemImage: "checkmark.circle").foregroundStyle(Color(Paper.accent)).font(.callout)
+                    Label { Text("Looks right") } icon: { MatildeIcon.circleCheck.image(size: 16).iconBaseline() }.foregroundStyle(Color(Paper.accent)).font(.callout)
                 }
             }
         case .syncing:
-            MacStatusStep(symbol: "arrow.triangle.2.circlepath", title: SyncOnboardingCopy.syncingTitle,
+            MacStatusStep(icon: .refresh, title: SyncOnboardingCopy.syncingTitle,
                           text: SyncOnboardingCopy.syncingText, working: true)
         case .done:
-            MacStatusStep(symbol: "checkmark.circle.fill", title: SyncOnboardingCopy.doneTitle,
+            MacStatusStep(icon: .done, title: SyncOnboardingCopy.doneTitle,
                           text: SyncOnboardingCopy.doneText, success: true)
         case .updateRequired:
-            MacStatusStep(symbol: "arrow.down.app", title: SyncOnboardingCopy.updateTitle, text: SyncOnboardingCopy.updateText)
+            MacStatusStep(icon: .download, title: SyncOnboardingCopy.updateTitle, text: SyncOnboardingCopy.updateText)
         }
     }
 
@@ -560,7 +559,7 @@ private struct OneTimeCodeKeyField: NSViewRepresentable {
 /// Signing in, syncing, done: a centred symbol, title and line. `success` draws the tick in the
 /// accent and lets it spring in (a plain fade with Reduce Motion).
 private struct MacStatusStep: View {
-    let symbol: String
+    let icon: MatildeIcon
     let title: String
     let text: String
     var success = false
@@ -570,8 +569,7 @@ private struct MacStatusStep: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.system(size: 52, weight: .light))
+            icon.image(size: 56)
                 .foregroundStyle(success ? Color(Paper.accent) : Color(Paper.muted))
                 .scaleEffect(appeared || reduceMotion ? 1 : 0.6)
                 .opacity(appeared ? 1 : 0)
@@ -628,18 +626,18 @@ private struct MacSaveKeyStep: View {
                     NSPasteboard.general.setString(recovery, forType: .string)
                     copied = true
                 } label: {
-                    Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
+                    Label { Text(copied ? "Copied" : "Copy") } icon: { (copied ? MatildeIcon.check : .copy).image(size: 14) }
                 }
                 Button { RecoveryKeyExport.save(code: recovery, email: center.signedInEmail) } label: {
-                    Label("Save…", systemImage: "square.and.arrow.down")
+                    Label { Text("Save…") } icon: { MatildeIcon.download.image(size: 14) }
                 }
                 Button { RecoveryKeyExport.print(code: recovery, email: center.signedInEmail) } label: {
-                    Label("Print…", systemImage: "printer")
+                    Label { Text("Print…") } icon: { MatildeIcon.printer.image(size: 14) }
                 }
             }
             .buttonStyle(MacOutlineButtonStyle())
             if center.recoveryKeyInICloud {
-                Label(SyncOnboardingCopy.savedToICloud, systemImage: "key.icloud")
+                Label { Text(SyncOnboardingCopy.savedToICloud) } icon: { MatildeIcon.cloudLock.image(size: 14) }
                     .font(.footnote)
                     .foregroundStyle(Color(Paper.muted))
                     .fixedSize(horizontal: false, vertical: true)
