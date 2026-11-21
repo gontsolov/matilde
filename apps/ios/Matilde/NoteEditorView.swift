@@ -55,6 +55,9 @@ struct NoteEditorView: View {
             case .thread(let runID, let commentID): ThreadSheet(model: model, review: review, runID: runID, commentID: commentID)
             }
         }
+        .onChange(of: model.sheet) { _, sheet in
+            if sheet != nil { model.revealSheetPassage() }
+        }
         .alert("Ask Matilde", isPresented: Binding(get: { review.error != nil && model.sheet == nil }, set: { if !$0 { review.error = nil } })) {
             Button("OK", role: .cancel) { review.error = nil }
         } message: {
@@ -77,7 +80,8 @@ struct NoteEditorView: View {
         _ = review.history
         let comments = model.comments.comments.filter(\.attached).map { TextHighlight(kind: .comment, range: $0.range) }
         let threads = model.threads.map { TextHighlight(kind: $0.comment.isUnread ? .unreadThread : .thread, range: $0.comment.range) }
-        return comments + threads
+        let focus = model.sheetPassage.map { [TextHighlight(kind: .focus, range: $0)] } ?? []
+        return comments + threads + focus
     }
 
     private var unreadCount: Int { model.threads.filter { $0.comment.isUnread }.count }

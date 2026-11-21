@@ -49,7 +49,7 @@ struct ThreadSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .editorSheetPresentation()
         .onAppear {
             review.threadOpened(commentID)
             if comment?.messages?.isEmpty ?? true, comment?.suggestion.replacement == nil { composing = true }

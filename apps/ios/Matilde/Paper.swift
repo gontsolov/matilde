@@ -11,6 +11,7 @@ enum Paper {
         })
     }
 
+    /// Also the launch screen's colour: keep `LaunchBackground` in Assets.xcassets on the same values.
     static let background = adaptive(light: (0.976, 0.965, 0.938), dark: (0.13, 0.132, 0.135))
     static let ink = adaptive(light: (0.24, 0.25, 0.22), dark: (0.87, 0.87, 0.86))
     static let muted = adaptive(light: (0.48, 0.48, 0.43), dark: (0.62, 0.625, 0.63))
@@ -24,6 +25,12 @@ enum Paper {
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 0.78, green: 0.60, blue: 0.30, alpha: 0.24)
             : UIColor(red: 0.97, green: 0.80, blue: 0.40, alpha: 0.34)
+    }
+    /// The passage a comment or thread sheet is open on, kept visible above the sheet.
+    static let focusHighlight = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.69, green: 0.65, blue: 0.60, alpha: 0.28)
+            : UIColor(red: 0.48, green: 0.32, blue: 0.23, alpha: 0.16)
     }
     /// The comment's quote rule.
     static let commentRule = Color(uiColor: UIColor { traits in
