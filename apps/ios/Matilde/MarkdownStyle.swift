@@ -26,9 +26,9 @@ enum MarkdownStyle {
         let range: NSRange
     }
 
-    static let textSize: CGFloat = 19
+    static let textSize: CGFloat = 20
 
-    /// Heading sizes on the Mac's modular scale (Typography.headingSize), for 19 pt text.
+    /// Heading sizes on the Mac's modular scale (Typography.headingSize), for the body size (20 pt on iPhone, a point above the Mac's 19).
     static func headingSize(level: Int) -> CGFloat {
         let steps: [CGFloat] = [3, 2, 1, 0, 0, 0]
         let ratio: CGFloat = 1.125

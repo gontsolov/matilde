@@ -22,16 +22,16 @@ struct RootView: View {
                         Button("Settings", systemImage: "gearshape") { showingSettings = true }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Menu {
-                            Button("New Folder", systemImage: "folder.badge.plus") { folderName = ""; newFolder = true }
-                        } label: {
-                            Label("New Note", systemImage: "square.and.pencil")
-                        } primaryAction: {
-                            newNote()
+                        Button("New Folder", systemImage: "folder.badge.plus") { folderName = ""; newFolder = true }
+                    }
+                    if let problem = sync.attention {
+                        ToolbarItem(placement: .bottomBar) {
+                            SyncAttention(text: problem) { showingSettings = true }
                         }
                     }
+                    ToolbarSpacer(.flexible, placement: .bottomBar)
                     ToolbarItem(placement: .bottomBar) {
-                        SyncStatusLine()
+                        Button("New Note", systemImage: "square.and.pencil") { newNote() }
                     }
                 }
         } detail: {
@@ -61,15 +61,21 @@ struct RootView: View {
     }
 }
 
-/// "Synced 09:41", "Syncing…", "Offline" or "Not signed in" under the list.
-private struct SyncStatusLine: View {
-    @Environment(SyncController.self) private var sync
+/// A sync problem (offline, update required, setup not finished) in the bottom bar; opens
+/// Settings. Nothing is shown while sync is fine.
+private struct SyncAttention: View {
+    let text: String
+    let open: () -> Void
 
     var body: some View {
-        Text(sync.phase == .ready ? sync.statusText : sync.isSignedIn ? "Setting up sync" : "Not signed in")
-            .font(.footnote)
-            .foregroundStyle(Paper.muted)
-            .accessibilityLabel("Sync status: " + (sync.phase == .ready ? sync.statusText : "not syncing"))
+        Button(action: open) {
+            Label(text, systemImage: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90")
+                .labelStyle(.titleAndIcon)
+                .font(.footnote)
+                .lineLimit(1)
+        }
+        .tint(Paper.muted)
+        .accessibilityLabel("Sync: " + text)
     }
 }
 
@@ -131,39 +137,37 @@ private struct NoteList: View {
     }
 }
 
+/// Two lines, like Notes: the title with the edited time on the right, then one line of text.
 private struct NoteRow: View {
     @Environment(NoteLibrary.self) private var library
     let draft: Draft
 
     var body: some View {
         let title = library.displayTitle(draft)
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title.isEmpty ? "Untitled" : title)
-                .font(Paper.body(18, relativeTo: .headline).weight(.semibold))
-                .foregroundStyle(title.isEmpty ? Paper.muted : Paper.ink)
-                .lineLimit(2)
-            let preview = library.preview(of: draft)
-            if !preview.isEmpty {
-                Text(preview)
-                    .font(Paper.body(15))
-                    .foregroundStyle(Paper.muted)
-                    .lineLimit(2)
-            }
-            HStack(alignment: .firstTextBaseline) {
-                if !draft.goal.isEmpty {
-                    Label(draft.goal, systemImage: "flag")
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 8)
+        let preview = library.preview(of: draft)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(title.isEmpty ? "Untitled" : title)
+                    .font(Font(MarkdownStyle.bodyFont(18, bold: true)))
+                    .foregroundStyle(title.isEmpty ? Paper.muted : Paper.ink)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
                 if let edited = draft.editedAt {
-                    Text(edited, format: .relative(presentation: .named))
+                    Text(edited, format: .relative(presentation: .named, unitsStyle: .abbreviated))
+                        .font(.footnote)
+                        .foregroundStyle(Paper.muted)
+                        .lineLimit(1)
+                        .layoutPriority(1)
                 }
             }
-            .font(.footnote)
-            .foregroundStyle(Paper.muted)
+            Text(preview.isEmpty ? "No text yet" : preview)
+                .font(Font(MarkdownStyle.bodyFont(16)))
+                .foregroundStyle(Paper.muted)
+                .lineLimit(1)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
         .listRowBackground(Color.clear)
+        .listRowSeparatorTint(Paper.muted.opacity(0.16))
     }
 }
 

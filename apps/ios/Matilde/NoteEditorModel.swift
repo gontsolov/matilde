@@ -37,6 +37,9 @@ final class NoteEditorModel {
     var selection = NSRange(location: 0, length: 0)
     /// Set when the note disappeared (deleted on another device).
     private(set) var gone = false
+    /// How far the big title has scrolled under the top bar: 0 fully visible, 1 gone. The small
+    /// title in the navigation bar fades in with it.
+    var titleProgress: Double = 0
 
     @ObservationIgnored weak var textView: UITextView?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
@@ -57,6 +60,12 @@ final class NoteEditorModel {
     }
 
     var input: ReviewInput { ReviewInput(title: title.isEmpty ? draft.title : title, goal: goal, body: text) }
+
+    /// Tapping the small title: back to the top of the note.
+    func scrollToTop() {
+        guard let textView else { return }
+        textView.setContentOffset(CGPoint(x: 0, y: -textView.adjustedContentInset.top), animated: true)
+    }
 
     // MARK: Editing
 

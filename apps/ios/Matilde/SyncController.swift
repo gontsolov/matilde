@@ -144,6 +144,17 @@ final class SyncController {
         return "Synced \(last.formatted(date: .omitted, time: .shortened))"
     }
 
+    /// Sync problems worth showing under the notes list; nil while all is well (the normal
+    /// "Synced 9:41" status lives in Settings).
+    var attention: String? {
+        switch phase {
+        case .updateRequired: return "Update Matilde to keep syncing"
+        case .needsRecoveryKey, .showRecoveryKey, .checkingKey: return "Finish setting up sync"
+        case .ready: return syncing || status.isEmpty ? nil : status
+        case .signedOut, .awaitingCode: return nil
+        }
+    }
+
     var isSignedIn: Bool {
         switch phase {
         case .signedOut, .awaitingCode: return false

@@ -38,12 +38,10 @@ struct NoteEditorView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            NoteTextView(model: model, highlights: highlights)
-        }
-        .background(Paper.background)
-        .navigationBarTitleDisplayMode(.inline)
+        NoteTextView(model: model, highlights: highlights)
+            .ignoresSafeArea(.keyboard)
+            .background(Paper.background.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
         .sheet(item: $model.sheet) { sheet in
             switch sheet {
@@ -70,27 +68,6 @@ struct NoteEditorView: View {
         .onChange(of: model.gone) { _, gone in if gone { dismiss() } }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            TextField("Untitled", text: $model.title, axis: .vertical)
-                .font(Paper.body(31, relativeTo: .largeTitle).weight(.bold))
-                .foregroundStyle(Paper.ink)
-                .submitLabel(.next)
-                .onSubmit { model.textView?.becomeFirstResponder() }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "flag")
-                    .foregroundStyle(Paper.muted)
-                    .accessibilityHidden(true)
-                TextField("What is this writing for?", text: $model.goal, axis: .vertical)
-                    .font(Paper.body(17))
-                    .foregroundStyle(Paper.muted)
-            }
-        }
-        .padding(.horizontal, 22)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
-    }
-
     private var highlights: [TextHighlight] {
         _ = review.history
         let comments = model.comments.comments.filter(\.attached).map { TextHighlight(kind: .comment, range: $0.range) }
@@ -101,6 +78,10 @@ struct NoteEditorView: View {
     private var unreadCount: Int { model.threads.filter { $0.comment.isUnread }.count }
 
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            CollapsedTitle(model: model)
+        }
+        .sharedBackgroundVisibility(.hidden)
         ToolbarItem(placement: .topBarTrailing) {
             if review.isRunning {
                 ProgressView().accessibilityLabel("Matilde is reading")
@@ -134,6 +115,75 @@ struct NoteEditorView: View {
                 Label("More", systemImage: "ellipsis")
             }
         }
+    }
+}
+
+/// The title and goal above the text. Lives inside the text view (`NoteUITextView.header`), so
+/// it scrolls away with the writing; reports its height and where the title ends.
+struct NoteHeader: View {
+    @Bindable var model: NoteEditorModel
+    let onMeasure: (_ height: CGFloat, _ titleBottom: CGFloat) -> Void
+    @State private var titleBottom: CGFloat = 60
+
+    private static let goalFont = MarkdownStyle.bodyFont(17)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("Untitled", text: $model.title, axis: .vertical)
+                .font(Font(MarkdownStyle.bodyFont(31, bold: true)))
+                .foregroundStyle(Paper.ink)
+                .submitLabel(.next)
+                .onSubmit { model.textView?.becomeFirstResponder() }
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("header")).maxY } action: { bottom in
+                    titleBottom = bottom
+                }
+            // The flag sits centred on the goal's first line; wrapped lines hang under the text.
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "flag")
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(Paper.muted)
+                    .frame(width: 16, height: Self.goalFont.lineHeight)
+                    .accessibilityHidden(true)
+                TextField("What is this writing for?", text: $model.goal, axis: .vertical)
+                    .font(Font(Self.goalFont))
+                    .foregroundStyle(Paper.muted)
+                    .lineLimit(1...5)
+            }
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 8)
+        .coordinateSpace(.named("header"))
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+            onMeasure(height, titleBottom)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onChange(of: titleBottom) { _, bottom in onMeasure(0, bottom) }
+    }
+}
+
+/// The small title in the navigation bar: fades and settles in as the big title scrolls away;
+/// tap to go back to the top.
+private struct CollapsedTitle: View {
+    let model: NoteEditorModel
+
+    var body: some View {
+        let progress = model.titleProgress
+        Button { model.scrollToTop() } label: {
+            Text(model.title.isEmpty ? "Untitled" : model.title)
+                .font(Font(MarkdownStyle.bodyFont(17, bold: true)))
+                .foregroundStyle(Paper.ink)
+                .lineLimit(1)
+                .frame(maxWidth: 220)
+        }
+        .buttonStyle(.plain)
+        .opacity(progress)
+        .scaleEffect(0.9 + 0.1 * progress)
+        .offset(y: 6 * (1 - progress))
+        .allowsHitTesting(progress > 0.5)
+        .accessibilityHidden(progress < 0.5)
+        .accessibilityHint("Scrolls to the top of the note")
+        .animation(.smooth(duration: 0.18), value: progress)
     }
 }
 

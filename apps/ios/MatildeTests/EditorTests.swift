@@ -34,9 +34,10 @@ struct MarkdownStyleTests {
         #expect(spans.contains(MarkdownStyle.Span(kind: .link, range: NSRange(location: 12, length: 5))))
     }
 
-    @Test func headingSizesMatchTheMac() {
-        #expect(MarkdownStyle.headingSize(level: 1) == 27)
-        #expect(MarkdownStyle.headingSize(level: 4) == 19)
+    @Test func headingSizesFollowTheMacScale() {
+        #expect(MarkdownStyle.textSize == 20)
+        #expect(MarkdownStyle.headingSize(level: 1) == 28.5)
+        #expect(MarkdownStyle.headingSize(level: 4) == 20)
     }
 
     @Test func stylingNeverChangesTheText() {
