@@ -1,5 +1,6 @@
 import XCTest
-@testable import Matilde
+@testable import MatildeKit
+import MatildeKit
 
 /// SYNC-01: the live database moves from `.matilde/workspace.sqlite` to Application Support.
 final class WorkspaceStoreTests: XCTestCase {

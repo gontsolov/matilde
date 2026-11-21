@@ -15,19 +15,19 @@ import MatildeKit
 // - A record whose parent isn't here yet (a body before its draft, a message before its thread)
 //   waits in `sync_inbox` and is applied once the parent arrives.
 
-final class WorkspaceSyncStore: SyncLocalStore {
-    let workspace: Workspace
+public final class WorkspaceSyncStore: SyncLocalStore {
+    public let workspace: Workspace
     /// Applied in this order (parents before children); tombstones go in the reverse order.
-    static let applyOrder: [SyncRecordType] = [.folder, .draft, .body, .snapshot, .stash, .asset, .comment, .thread, .message, .readMarker, .trashed, .settings]
-    static let transactionSize = 50
+    public static let applyOrder: [SyncRecordType] = [.folder, .draft, .body, .snapshot, .stash, .asset, .comment, .thread, .message, .readMarker, .trashed, .settings]
+    public static let transactionSize = 50
     private let fm = FileManager.default
     private var db: Database { workspace.db }
     /// Name used for conflict branches made from this Mac's text ("Letter — from MacBook Air").
-    var deviceName = "this Mac"
+    public var deviceName = "this Mac"
     /// Moves a file to the Trash; replaceable in tests.
-    var trashItem: (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }
+    public var trashItem: (URL) throws -> Void = { try WorkspaceTrash.move($0) }
 
-    init(workspace: Workspace) throws {
+    public init(workspace: Workspace) throws {
         self.workspace = workspace
         try workspace.ensureSyncLedger()
         try db.execute("CREATE TABLE IF NOT EXISTS sync_blobs (id TEXT PRIMARY KEY, hlc TEXT NOT NULL, reference TEXT NOT NULL)")
@@ -36,11 +36,11 @@ final class WorkspaceSyncStore: SyncLocalStore {
 
     // MARK: Ledger
 
-    func track() throws { try workspace.trackSyncChanges() }
+    public func track() throws { try workspace.trackSyncChanges() }
 
-    func pendingRecords(limit: Int) throws -> [SyncRecord] { try workspace.pendingSyncRecords(limit: limit) }
+    public func pendingRecords(limit: Int) throws -> [SyncRecord] { try workspace.pendingSyncRecords(limit: limit) }
 
-    func localStates(ids: [String]) throws -> [String: SyncLocalState] {
+    public func localStates(ids: [String]) throws -> [String: SyncLocalState] {
         var entries: [String: SyncLedgerEntry] = [:]
         for id in ids { if let entry = try workspace.syncLedgerEntries(id: id).first { entries[id] = entry } }
         // Only pending records need their current fields (for merging); read the sources once.
@@ -60,10 +60,10 @@ final class WorkspaceSyncStore: SyncLocalStore {
         return states
     }
 
-    func markAccepted(_ versions: [(id: String, hlc: HLC)]) throws { try workspace.markSyncAccepted(versions) }
-    func observeClock(_ remote: HLC) throws { try workspace.observeSyncClock(remote) }
+    public func markAccepted(_ versions: [(id: String, hlc: HLC)]) throws { try workspace.markSyncAccepted(versions) }
+    public func observeClock(_ remote: HLC) throws { try workspace.observeSyncClock(remote) }
 
-    func nextHLC() throws -> HLC {
+    public func nextHLC() throws -> HLC {
         var clock = try workspace.syncClock()
         let hlc = clock.next()
         try workspace.saveSyncClock(clock)
@@ -76,11 +76,11 @@ final class WorkspaceSyncStore: SyncLocalStore {
         else { try db.execute("DELETE FROM sync_meta WHERE key=?", [key]) }
     }
 
-    func cursor() throws -> SyncCursor {
+    public func cursor() throws -> SyncCursor {
         SyncCursor(userId: try meta("sync_user"), since: Int(try meta("sync_cursor") ?? "0") ?? 0, epoch: try meta("sync_epoch"))
     }
 
-    func saveCursor(_ cursor: SyncCursor) throws {
+    public func saveCursor(_ cursor: SyncCursor) throws {
         try transaction {
             try setMeta("sync_user", cursor.userId)
             try setMeta("sync_cursor", String(cursor.since))
@@ -88,7 +88,7 @@ final class WorkspaceSyncStore: SyncLocalStore {
         }
     }
 
-    func resetServerState(userId: String, accountChanged: Bool) throws {
+    public func resetServerState(userId: String, accountChanged: Bool) throws {
         try transaction {
             if accountChanged {
                 try db.execute("DELETE FROM sync_records WHERE deleted=1")
@@ -104,30 +104,30 @@ final class WorkspaceSyncStore: SyncLocalStore {
 
     // MARK: Blobs
 
-    func assetData(for record: SyncRecord) throws -> Data? {
+    public func assetData(for record: SyncRecord) throws -> Data? {
         guard let payload = try? record.payload(AssetPayload.self), let url = try? workspace.url(for: payload.path) else { return nil }
         return try? Data(contentsOf: url)
     }
 
-    func cachedBlob(recordId: String, hlc: HLC) throws -> SyncBlobReference? {
+    public func cachedBlob(recordId: String, hlc: HLC) throws -> SyncBlobReference? {
         guard let row = try db.execute("SELECT reference FROM sync_blobs WHERE id=? AND hlc=?", [recordId, hlc.description]).first,
               let text = row["reference"] else { return nil }
         return try? JSONDecoder().decode(SyncBlobReference.self, from: Data(text.utf8))
     }
 
-    func cacheBlob(_ reference: SyncBlobReference, recordId: String, hlc: HLC) throws {
+    public func cacheBlob(_ reference: SyncBlobReference, recordId: String, hlc: HLC) throws {
         let text = String(decoding: try JSONEncoder().encode(reference), as: UTF8.self)
         try db.execute("INSERT OR REPLACE INTO sync_blobs VALUES (?, ?, ?)", [recordId, hlc.description, text])
     }
 
-    func forgetBlob(recordId: String) throws { try db.execute("DELETE FROM sync_blobs WHERE id=?", [recordId]) }
+    public func forgetBlob(recordId: String) throws { try db.execute("DELETE FROM sync_blobs WHERE id=?", [recordId]) }
 
     // MARK: Apply
 
     /// Outcome of writing one record to the local data.
     private enum Outcome { case written, parked, skipped }
 
-    func apply(_ steps: [SyncStep], blobs: [String: Data]) throws -> SyncApplyReport {
+    public func apply(_ steps: [SyncStep], blobs: [String: Data]) throws -> SyncApplyReport {
         var report = SyncApplyReport()
         // 1. Conflict branches, while the drafts they come from still exist.
         for step in steps {

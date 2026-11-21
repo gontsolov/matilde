@@ -15,10 +15,10 @@ import MatildeKit
 
 /// The random per-install device id (lowercase UUID). It is the device part of every HLC
 /// and the `deviceId` the sync server knows the install by.
-enum SyncDevice {
-    static let defaultsKey = "sync.deviceID"
+public enum SyncDevice {
+    public static let defaultsKey = "sync.deviceID"
 
-    static func current(_ defaults: UserDefaults = .standard) -> String {
+    public static func current(_ defaults: UserDefaults = .standard) -> String {
         if let stored = defaults.string(forKey: defaultsKey), SyncID.isCanonical(stored) { return stored }
         let id = UUID().uuidString.lowercased()
         defaults.set(id, forKey: defaultsKey)
@@ -26,16 +26,21 @@ enum SyncDevice {
     }
 }
 
-struct SyncTrackResult: Equatable {
+public struct SyncTrackResult: Equatable {
     /// New records and new versions of changed records.
-    var updated = 0
+    public var updated = 0
     /// Records whose entity disappeared.
-    var tombstoned = 0
+    public var tombstoned = 0
+
+    public init(updated: Int = 0, tombstoned: Int = 0) {
+        self.updated = updated
+        self.tombstoned = tombstoned
+    }
 }
 
 /// One record as currently found in the local data.
-struct SyncSource {
-    enum State {
+public struct SyncSource {
+    public enum State {
         /// Present. `fingerprint` (size and modification time of a backing file) lets an unchanged
         /// file skip reading; `load` returns the record's fields.
         case present(fingerprint: String?, load: () throws -> [String: JSONValue])
@@ -43,37 +48,61 @@ struct SyncSource {
         /// keep the last known version, never tombstone it.
         case unavailable
     }
-    let id: String
-    let type: SyncRecordType
+    public let id: String
+    public let type: SyncRecordType
     /// The local key (draft id, comment id, path…). Stored locally only, for debugging and the mirror.
-    let entity: String
-    let state: State
+    public let entity: String
+    public let state: State
+
+    public init(id: String, type: SyncRecordType, entity: String, state: State) {
+        self.id = id
+        self.type = type
+        self.entity = entity
+        self.state = state
+    }
 }
 
 /// A ledger row.
-struct SyncLedgerEntry: Equatable {
-    struct Field: Codable, Equatable {
+public struct SyncLedgerEntry: Equatable {
+    public struct Field: Codable, Equatable {
         /// SHA-256 of the field's canonical JSON.
-        let d: String
+        public let d: String
         /// HLC of the field's last change.
-        let t: String
+        public let t: String
+
+        public init(d: String, t: String) {
+            self.d = d
+            self.t = t
+        }
     }
-    let id: String
-    let type: SyncRecordType
-    let entity: String
-    let hlc: HLC
-    let serverHLC: HLC?
-    let deleted: Bool
-    let digest: String?
-    let fields: [String: Field]
-    let fingerprint: String?
-    var pending: Bool { serverHLC != hlc }
+    public let id: String
+    public let type: SyncRecordType
+    public let entity: String
+    public let hlc: HLC
+    public let serverHLC: HLC?
+    public let deleted: Bool
+    public let digest: String?
+    public let fields: [String: Field]
+    public let fingerprint: String?
+    public var pending: Bool { serverHLC != hlc }
+
+    public init(id: String, type: SyncRecordType, entity: String, hlc: HLC, serverHLC: HLC?, deleted: Bool, digest: String?, fields: [String: Field], fingerprint: String?) {
+        self.id = id
+        self.type = type
+        self.entity = entity
+        self.hlc = hlc
+        self.serverHLC = serverHLC
+        self.deleted = deleted
+        self.digest = digest
+        self.fields = fields
+        self.fingerprint = fingerprint
+    }
 }
 
 extension Workspace {
-    static let syncLedgerVersion = 1
+    public static let syncLedgerVersion = 1
 
-    func ensureSyncLedger() throws {
+    public func ensureSyncLedger() throws {
         try db.execute("""
             CREATE TABLE IF NOT EXISTS sync_records (
                 id TEXT PRIMARY KEY, type INTEGER NOT NULL, entity TEXT NOT NULL,
@@ -89,7 +118,7 @@ extension Workspace {
     /// Bring the ledger up to date with the local data. Safe to run at any time and any number
     /// of times; it never modifies the Markdown files or the app's own tables.
     @discardableResult
-    func trackSyncChanges(now: Date = Date()) throws -> SyncTrackResult {
+    public func trackSyncChanges(now: Date = Date()) throws -> SyncTrackResult {
         try ensureSyncLedger()
         let sources = try syncSources()
         try db.execute("BEGIN IMMEDIATE")
@@ -152,7 +181,7 @@ extension Workspace {
 
     /// Track changes without letting a failure interrupt the caller (opening or quitting).
     /// Logs only counts and the error type, never content or paths.
-    func trackSyncChangesLogged() {
+    public func trackSyncChangesLogged() {
         do {
             let result = try trackSyncChanges()
             if result != SyncTrackResult() {
@@ -166,7 +195,7 @@ extension Workspace {
     // MARK: Outbox
 
     /// Records with local changes the server hasn't acknowledged yet, oldest first. Tracks changes first.
-    func pendingSyncRecords(limit: Int = 200) throws -> [SyncRecord] {
+    public func pendingSyncRecords(limit: Int = 200) throws -> [SyncRecord] {
         try trackSyncChanges()
         let pending = try syncLedgerEntries().filter(\.pending).sorted { $0.hlc < $1.hlc }.prefix(limit)
         guard !pending.isEmpty else { return [] }
@@ -183,7 +212,7 @@ extension Workspace {
     }
 
     /// The current version of one record, or nil if the ledger doesn't know it.
-    func syncRecord(id: String) throws -> SyncRecord? {
+    public func syncRecord(id: String) throws -> SyncRecord? {
         try ensureSyncLedger()
         guard let entry = try syncLedgerEntries(id: id).first else { return nil }
         if entry.deleted { return record(entry, fields: [:]) }
@@ -194,7 +223,7 @@ extension Workspace {
     }
 
     /// The server accepted these versions. A record changed again since keeps its newer version pending.
-    func markSyncAccepted(_ versions: [(id: String, hlc: HLC)]) throws {
+    public func markSyncAccepted(_ versions: [(id: String, hlc: HLC)]) throws {
         try ensureSyncLedger()
         try db.execute("BEGIN IMMEDIATE")
         do {
@@ -209,14 +238,14 @@ extension Workspace {
     }
 
     /// Fold a clock seen on the server into this device's clock, so later local writes order after it.
-    func observeSyncClock(_ remote: HLC) throws {
+    public func observeSyncClock(_ remote: HLC) throws {
         try ensureSyncLedger()
         var clock = try syncClock()
         clock.observe(remote)
         try saveSyncClock(clock)
     }
 
-    func syncLedgerEntries(id: String? = nil) throws -> [SyncLedgerEntry] {
+    public func syncLedgerEntries(id: String? = nil) throws -> [SyncLedgerEntry] {
         let rows = try id.map { try db.execute("SELECT * FROM sync_records WHERE id=?", [$0]) } ?? db.execute("SELECT * FROM sync_records")
         return rows.compactMap { row in
             guard let id = row["id"], let type = row["type"].flatMap(Int.init).flatMap(SyncRecordType.init(rawValue:)),
@@ -227,20 +256,20 @@ extension Workspace {
         }
     }
 
-    func record(_ entry: SyncLedgerEntry, fields: [String: JSONValue]) -> SyncRecord {
+    public func record(_ entry: SyncLedgerEntry, fields: [String: JSONValue]) -> SyncRecord {
         var clocks: [String: HLC] = [:]
         for key in fields.keys { clocks[key] = entry.fields[key].flatMap { HLC($0.t) } ?? entry.hlc }
         return SyncRecord(id: entry.id, type: entry.type, hlc: entry.hlc, baseHlc: entry.serverHLC, deleted: entry.deleted,
                           fields: entry.deleted ? [:] : fields, fieldHLCs: entry.deleted ? [:] : clocks)
     }
 
-    func encodeLedgerFields(_ fields: [String: SyncLedgerEntry.Field]) throws -> String {
+    public func encodeLedgerFields(_ fields: [String: SyncLedgerEntry.Field]) throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         return String(decoding: try encoder.encode(fields), as: UTF8.self)
     }
 
-    func syncClock() throws -> HybridClock {
+    public func syncClock() throws -> HybridClock {
         var clock = HybridClock(device: syncDeviceID)
         if let stored = try db.execute("SELECT value FROM sync_meta WHERE key='clock'").first?["value"].flatMap(HLC.init) {
             clock.observe(stored)
@@ -252,18 +281,18 @@ extension Workspace {
         return clock
     }
 
-    func saveSyncClock(_ clock: HybridClock) throws {
+    public func saveSyncClock(_ clock: HybridClock) throws {
         guard let last = clock.last else { return }
         try db.execute("INSERT INTO sync_meta VALUES ('clock', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [last.description])
     }
 
     // MARK: Sources
 
-    func tableExists(_ name: String) throws -> Bool {
+    public func tableExists(_ name: String) throws -> Bool {
         try !db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [name]).isEmpty
     }
 
-    static func milliseconds(_ seconds: String?) -> Double? {
+    public static func milliseconds(_ seconds: String?) -> Double? {
         seconds.flatMap(Double.init).map { ($0 * 1000).rounded() }
     }
 
@@ -273,7 +302,7 @@ extension Workspace {
     }
 
     /// Size and modification time of a regular file, or nil if it isn't one.
-    func fileFingerprint(_ url: URL) -> String? {
+    public func fileFingerprint(_ url: URL) -> String? {
         guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]),
               values.isRegularFile == true, let size = values.fileSize else { return nil }
         return "\(size):\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)"
@@ -288,7 +317,7 @@ extension Workspace {
     }
 
     /// Every record the local data currently holds.
-    func syncSources() throws -> [SyncSource] {
+    public func syncSources() throws -> [SyncSource] {
         var sources: [SyncSource] = []
         func add<T: Encodable>(_ type: SyncRecordType, _ id: String, _ entity: String, _ payload: T) throws {
             let fields = try JSONValue.fields(of: payload)

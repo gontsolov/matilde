@@ -1,6 +1,7 @@
 import XCTest
 import Combine
 @testable import Matilde
+import MatildeKit
 
 /// Ask Matilde chat requests: whole draft as context, marked focus, cache-stable prefix.
 @MainActor

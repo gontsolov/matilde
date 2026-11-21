@@ -1,4 +1,5 @@
 import AppKit
+import MatildeKit
 
 private final class SelectionAssistSurface: NSView {
     override func draw(_ dirtyRect: NSRect) {

@@ -1,5 +1,6 @@
 import SwiftUI
 import Security
+import MatildeKit
 
 enum SettingKeys {
     static let appearance = "appearance.mode"

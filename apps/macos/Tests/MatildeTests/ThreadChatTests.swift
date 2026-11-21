@@ -1,5 +1,6 @@
 import XCTest
 @testable import Matilde
+import MatildeKit
 
 final class ThreadChatTests: XCTestCase {
     private let viewport: CGFloat = 300

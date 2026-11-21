@@ -2,7 +2,8 @@
 import PackageDescription
 
 // Shared, platform-neutral Swift code for the Matilde apps (apps/macos, apps/ios):
-// the sync record model, end-to-end encryption and the sync client core.
+// the workspace store (Markdown files plus SQLite), review data, the sync record model,
+// end-to-end encryption, the sync client core and the Ask Matilde client.
 // Foundation and CryptoKit only: no AppKit, UIKit or SwiftUI.
 //
 // On Apple platforms CryptoKit is used. On Linux (agent sandboxes, the Linux CI job) the same
@@ -25,7 +26,9 @@ let package = Package(
     ],
     dependencies: cryptoDependencies,
     targets: [
-        .target(name: "MatildeKit", dependencies: cryptoProducts),
+        // System SQLite (macOS and iOS SDKs; libsqlite3-dev on Linux) for the workspace store.
+        .systemLibrary(name: "CSQLite"),
+        .target(name: "MatildeKit", dependencies: ["CSQLite"] + cryptoProducts),
         .target(name: "MatildeKitTesting", dependencies: ["MatildeKit"]),
         .testTarget(name: "MatildeKitTests", dependencies: ["MatildeKit", "MatildeKitTesting"] + cryptoProducts)
     ],

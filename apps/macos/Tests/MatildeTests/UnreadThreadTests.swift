@@ -1,6 +1,7 @@
 import XCTest
 import Combine
 @testable import Matilde
+import MatildeKit
 
 @MainActor
 final class UnreadThreadTests: XCTestCase {

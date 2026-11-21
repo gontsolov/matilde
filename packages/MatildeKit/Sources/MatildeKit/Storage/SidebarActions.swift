@@ -1,27 +1,27 @@
 import Foundation
 
 /// Pure decisions behind the sidebar context menus.
-enum SidebarActions {
+public enum SidebarActions {
     /// Drafts stored in `folder` or any of its subfolders.
-    static func drafts(in folder: String, among drafts: [Draft]) -> [Draft] {
+    public static func drafts(in folder: String, among drafts: [Draft]) -> [Draft] {
         guard !folder.isEmpty else { return drafts }
         return drafts.filter { $0.folder == folder || $0.folder.hasPrefix(folder + "/") }
     }
 
     /// Sidebar note rows inside `folder` and its subfolders: one per draft family per folder.
-    static func noteCount(in folder: String, among drafts: [Draft]) -> Int {
+    public static func noteCount(in folder: String, among drafts: [Draft]) -> Int {
         Set(Self.drafts(in: folder, among: drafts).map { $0.folder + "\u{0}" + $0.family }).count
     }
 
     /// Folders a note in `current` can move to: the workspace root ("Documents") first, then
     /// every other folder in sidebar order.
-    static func moveTargets(folders: [String], from current: String) -> [String] {
+    public static func moveTargets(folders: [String], from current: String) -> [String] {
         ([""] + folders.filter { !$0.isEmpty }).filter { $0 != current }
     }
 
     /// The note to open after `removed` notes leave the sidebar: `current` if it stays, otherwise
     /// the next remaining note below it, then the nearest one above, in the visible `order`.
-    static func successor(of current: String?, removing removed: Set<String>, in order: [String]) -> String? {
+    public static func successor(of current: String?, removing removed: Set<String>, in order: [String]) -> String? {
         guard let current, let index = order.firstIndex(of: current) else {
             return order.first { !removed.contains($0) }
         }
@@ -31,13 +31,13 @@ enum SidebarActions {
     }
 
     /// The folder path after renaming `folder`'s last component to `name`.
-    static func renamedFolder(_ folder: String, to name: String) -> String {
+    public static func renamedFolder(_ folder: String, to name: String) -> String {
         let parent = (folder as NSString).deletingLastPathComponent
         return parent.isEmpty || parent == "." ? name : parent + "/" + name
     }
 
     /// `path` inside `folder` rewritten to live inside `renamed`. Paths outside `folder` stay.
-    static func path(_ path: String, movingFolder folder: String, to renamed: String) -> String {
+    public static func path(_ path: String, movingFolder folder: String, to renamed: String) -> String {
         if path == folder { return renamed }
         guard path.hasPrefix(folder + "/") else { return path }
         return renamed + path.dropFirst(folder.count)
@@ -48,7 +48,7 @@ enum SidebarActions {
 /// and note moves: native macOS Trash only, metadata archived, rollback on failure.
 extension Workspace {
     /// A new, independent note beside `draft` with the same text and goal.
-    func duplicate(_ draft: Draft, text: String) throws -> Draft {
+    public func duplicate(_ draft: Draft, text: String) throws -> Draft {
         let path = try availablePath(title: draft.title + " copy", folder: draft.folder)
         let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
         return try create(name: name, folder: draft.folder, goal: draft.goal, text: text)
@@ -56,7 +56,7 @@ extension Workspace {
 
     /// Rename the last component of `folder`. Returns the new folder path.
     @discardableResult
-    func renameFolder(_ folder: String, to name: String,
+    public func renameFolder(_ folder: String, to name: String,
                       moveItem: (URL, URL) throws -> Void = { try FileManager.default.moveItem(at: $0, to: $1) }) throws -> String {
         let fm = FileManager.default
         guard !folder.isEmpty else { throw WorkspaceError.message("The workspace folder cannot be renamed here.") }
@@ -91,8 +91,8 @@ extension Workspace {
     /// `trashed_drafts` like a single-draft Trash; drafts outside reconnect to the nearest
     /// surviving ancestor. Returns the drafts that were removed.
     @discardableResult
-    func trashFolder(_ folder: String, move: (URL) throws -> Void = { url in
-        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+    public func trashFolder(_ folder: String, move: (URL) throws -> Void = { url in
+        try WorkspaceTrash.move(url)
     }) throws -> [Draft] {
         guard !folder.isEmpty else { throw WorkspaceError.message("The workspace folder cannot be moved to the Trash.") }
         let directory = try validFolder(folder)

@@ -2,6 +2,7 @@ import XCTest
 import AppKit
 import SwiftUI
 @testable import Matilde
+import MatildeKit
 
 @MainActor private final class SpellEditorModel: ObservableObject { @Published var text = "" }
 private struct SpellEditorHost: View {

@@ -1,4 +1,5 @@
 import AppKit
+import MatildeKit
 
 struct SlashCommand {
     let title: String

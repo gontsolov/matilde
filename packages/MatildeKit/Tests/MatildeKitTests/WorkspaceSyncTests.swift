@@ -1,5 +1,5 @@
 import XCTest
-@testable import Matilde
+@testable import MatildeKit
 import MatildeKit
 import MatildeKitTesting
 

@@ -2,33 +2,45 @@ import Foundation
 import CSQLite
 import MatildeKit
 
-struct Draft: Identifiable, Hashable {
-    var id: String
-    var path: String
-    var family: String
-    var parent: String?
-    var goal: String
-    var cursor: Int
-    var scroll: Double
-    var createdAt: Date?
-    var editedAt: Date?
-    var title: String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
-    var folder: String {
+public struct Draft: Identifiable, Hashable {
+    public var id: String
+    public var path: String
+    public var family: String
+    public var parent: String?
+    public var goal: String
+    public var cursor: Int
+    public var scroll: Double
+    public var createdAt: Date?
+    public var editedAt: Date?
+    public var title: String { URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent }
+    public var folder: String {
         let value = (path as NSString).deletingLastPathComponent
         return value == "." ? "" : value
     }
+
+    public init(id: String, path: String, family: String, parent: String? = nil, goal: String, cursor: Int, scroll: Double, createdAt: Date? = nil, editedAt: Date? = nil) {
+        self.id = id
+        self.path = path
+        self.family = family
+        self.parent = parent
+        self.goal = goal
+        self.cursor = cursor
+        self.scroll = scroll
+        self.createdAt = createdAt
+        self.editedAt = editedAt
+    }
 }
 
-enum WorkspaceError: LocalizedError {
+public enum WorkspaceError: LocalizedError {
     case message(String)
-    var errorDescription: String? { if case .message(let text) = self { return text }; return nil }
+    public var errorDescription: String? { if case .message(let text) = self { return text }; return nil }
 }
 
-final class Database {
+public final class Database {
     private var handle: OpaquePointer?
     private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-    init(url: URL) throws {
+    public init(url: URL) throws {
         guard sqlite3_open(url.path, &handle) == SQLITE_OK else {
             if let handle { sqlite3_close(handle) }
             throw WorkspaceError.message("Could not open the workspace database.")
@@ -46,7 +58,7 @@ final class Database {
     deinit { sqlite3_close(handle) }
 
     @discardableResult
-    func execute(_ sql: String, _ values: [String?] = []) throws -> [[String: String]] {
+    public func execute(_ sql: String, _ values: [String?] = []) throws -> [[String: String]] {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK else { throw error() }
         defer { sqlite3_finalize(statement) }
@@ -73,17 +85,17 @@ final class Database {
     private func error() -> WorkspaceError { .message(String(cString: sqlite3_errmsg(handle))) }
 }
 
-final class Workspace {
-    let root: URL
-    let db: Database
+public final class Workspace {
+    public let root: URL
+    public let db: Database
     /// Where the live database lives (Application Support, SYNC-01) and how it got there.
-    let store: WorkspaceStore
-    var workspaceID: String { store.workspaceID }
+    public let store: WorkspaceStore
+    public var workspaceID: String { store.workspaceID }
     /// This install's device id: the device part of every sync HLC (SYNC-02).
-    var syncDeviceID: String = SyncDevice.current()
+    public var syncDeviceID: String = SyncDevice.current()
     private let fm = FileManager.default
 
-    init(root: URL, storeBase: URL = WorkspaceStore.defaultBase) throws {
+    public init(root: URL, storeBase: URL = WorkspaceStore.defaultBase) throws {
         self.root = root.standardizedFileURL.resolvingSymlinksInPath()
         var isDirectory: ObjCBool = false
         guard fm.fileExists(atPath: self.root.path, isDirectory: &isDirectory), isDirectory.boolValue else {
@@ -98,7 +110,7 @@ final class Workspace {
         db = try Database(url: store.databaseURL)
     }
 
-    func url(for path: String) throws -> URL {
+    public func url(for path: String) throws -> URL {
         var componentURL = root
         for component in path.split(separator: "/") {
             guard component != "..", component != ".matilde" else { throw WorkspaceError.message("Files must stay inside the workspace and outside .matilde.") }
@@ -114,7 +126,7 @@ final class Workspace {
         return url
     }
 
-    func scan() throws -> (drafts: [Draft], folders: [String]) {
+    public func scan() throws -> (drafts: [Draft], folders: [String]) {
         var paths: [String] = []
         var folders = [""]
         var scanError: Error?
@@ -140,7 +152,7 @@ final class Workspace {
         return (try allDrafts().filter { visible.contains($0.path) }.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }, folders.sorted())
     }
 
-    func allDrafts() throws -> [Draft] {
+    public func allDrafts() throws -> [Draft] {
         try db.execute("SELECT * FROM drafts").map {
             try dated(Draft(id: $0["id"]!, path: $0["path"]!, family: $0["family"]!, parent: $0["parent"], goal: $0["goal"] ?? "", cursor: Int($0["cursor"] ?? "0") ?? 0, scroll: Double($0["scroll"] ?? "0") ?? 0))
         }
@@ -165,10 +177,10 @@ final class Workspace {
     private func touch(_ draft: Draft) throws {
         try db.execute("UPDATE draft_dates SET edited=? WHERE id=?", [String(Date().timeIntervalSince1970), draft.id])
     }
-    func read(_ draft: Draft) throws -> String { try String(contentsOf: url(for: draft.path), encoding: .utf8) }
+    public func read(_ draft: Draft) throws -> String { try String(contentsOf: url(for: draft.path), encoding: .utf8) }
     /// Trash only this file. Keep its metadata and snapshots as history, and reconnect children.
-    func trash(_ draft: Draft, move: (URL) throws -> Void = { url in
-        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+    public func trash(_ draft: Draft, move: (URL) throws -> Void = { url in
+        try WorkspaceTrash.move(url)
     }) throws {
         let file = try url(for: draft.path)
         try db.execute("CREATE TABLE IF NOT EXISTS trashed_drafts AS SELECT *, '' AS trashed_at FROM drafts WHERE 0")
@@ -184,26 +196,26 @@ final class Workspace {
             throw error
         }
     }
-    func save(_ draft: Draft, text: String) throws {
+    public func save(_ draft: Draft, text: String) throws {
         _ = try dated(draft)
         // Branching/explicit saves of unchanged writing must not reset its age.
         guard try read(draft) != text else { return }
         try text.write(to: url(for: draft.path), atomically: true, encoding: .utf8)
     }
 
-    func validName(_ name: String) throws -> String {
+    public func validName(_ name: String) throws -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !trimmed.hasPrefix("."), !trimmed.contains("/"), !trimmed.contains(":"), !trimmed.contains("\\"), !trimmed.contains(where: { $0.isNewline || $0.asciiValue == 0 }) else {
             throw WorkspaceError.message("Use a name without slashes, colons, or a leading dot.")
         }
         return trimmed
     }
-    func filePath(name: String, folder: String) throws -> String {
+    public func filePath(name: String, folder: String) throws -> String {
         let name = try validName(name)
         let filename = name.lowercased().hasSuffix(".md") ? name : name + ".md"
         return folder.isEmpty ? filename : folder + "/" + filename
     }
-    func create(name: String, folder: String, goal: String, text: String = "") throws -> Draft {
+    public func create(name: String, folder: String, goal: String, text: String = "") throws -> Draft {
         let path = try filePath(name: name, folder: folder)
         let file = try url(for: path)
         guard !fm.fileExists(atPath: file.path) else { throw WorkspaceError.message("A file with that name already exists.") }
@@ -213,7 +225,7 @@ final class Workspace {
         catch { try? fm.removeItem(at: file); throw error }
         return try dated(Draft(id: id, path: path, family: id, parent: nil, goal: goal, cursor: 0, scroll: 0))
     }
-    func createUntitled(folder: String) throws -> Draft {
+    public func createUntitled(folder: String) throws -> Draft {
         var name = "Untitled"
         var number = 2
         while fm.fileExists(atPath: try url(for: filePath(name: name, folder: folder)).path) {
@@ -223,7 +235,7 @@ final class Workspace {
         try setState("untitled:\(draft.id)", "true")
         return draft
     }
-    func createFolder(name: String, parent: String) throws {
+    public func createFolder(name: String, parent: String) throws {
         let name = try validName(name)
         let path = parent.isEmpty ? name : parent + "/" + name
         let target = try url(for: path)
@@ -231,12 +243,12 @@ final class Workspace {
         try fm.createDirectory(at: target, withIntermediateDirectories: false)
     }
     /// Branching an alternative counts up from the original title instead of stacking suffixes.
-    static func branchBase(_ title: String) -> String {
+    public static func branchBase(_ title: String) -> String {
         guard let match = title.range(of: #"( [—–-] Alternative \d+)+$"#, options: .regularExpression),
               match.lowerBound > title.startIndex else { return title }
         return String(title[..<match.lowerBound])
     }
-    func branch(_ source: Draft, text: String) throws -> Draft {
+    public func branch(_ source: Draft, text: String) throws -> Draft {
         try save(source, text: text)
         let base = Self.branchBase(source.title)
         var number = 1
@@ -265,7 +277,7 @@ final class Workspace {
         }
         return try dated(Draft(id: child, path: path, family: source.family, parent: source.id, goal: source.goal, cursor: source.cursor, scroll: source.scroll))
     }
-    func rename(_ draft: Draft, name: String) throws {
+    public func rename(_ draft: Draft, name: String) throws {
         let path = try filePath(name: name, folder: draft.folder)
         if path == draft.path { return }
         _ = try dated(draft)
@@ -276,18 +288,18 @@ final class Workspace {
         catch { try? fm.moveItem(at: new, to: old); throw error }
         try touch(draft)
     }
-    func goal(_ draft: Draft, text: String) throws {
+    public func goal(_ draft: Draft, text: String) throws {
         _ = try dated(draft)
         let current = try db.execute("SELECT goal FROM drafts WHERE id=?", [draft.id]).first?["goal"]
         guard current != text else { return }
         try db.execute("UPDATE drafts SET goal=? WHERE id=?", [text, draft.id])
         try touch(draft)
     }
-    func position(_ draft: Draft, cursor: Int, scroll: Double) throws {
+    public func position(_ draft: Draft, cursor: Int, scroll: Double) throws {
         try db.execute("UPDATE drafts SET cursor=?, scroll=? WHERE id=?", [String(cursor), String(scroll), draft.id])
     }
-    func state(_ key: String) throws -> String? { try db.execute("SELECT value FROM state WHERE key=?", [key]).first?["value"] }
-    func setState(_ key: String, _ value: String) throws {
+    public func state(_ key: String) throws -> String? { try db.execute("SELECT value FROM state WHERE key=?", [key]).first?["value"] }
+    public func setState(_ key: String, _ value: String) throws {
         try db.execute("INSERT INTO state VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [key, value])
     }
 }

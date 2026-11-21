@@ -1,6 +1,7 @@
 import XCTest
 import AppKit
 @testable import Matilde
+import MatildeKit
 
 /// Screen coordinates: y grows upward, so "above" the caret means larger y.
 final class SlashMenuLayoutTests: XCTestCase {

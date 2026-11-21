@@ -1,4 +1,5 @@
 import AppKit
+import MatildeKit
 
 /// The editor's single type and spacing scale. Every block the Markdown styler renders takes
 /// its size, line spacing and vertical space from here. Spacing is measured in ems of the

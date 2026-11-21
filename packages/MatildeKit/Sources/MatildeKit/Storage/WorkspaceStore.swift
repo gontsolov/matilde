@@ -15,15 +15,15 @@ import CSQLite
 /// file to `workspace.sqlite.migrated`. Every step can be interrupted and repeated:
 /// the store database only exists once it is complete, and the old file is renamed,
 /// never deleted.
-struct WorkspaceStore {
-    static let databaseName = "workspace.sqlite"
-    static let migratedName = "workspace.sqlite.migrated"
-    static let identityName = "workspace.json"
-    static let recordName = "store.json"
-    static let incomingPrefix = "workspace.sqlite.incoming-"
-    static let sidecarSuffixes = ["-wal", "-shm", "-journal"]
+public struct WorkspaceStore {
+    public static let databaseName = "workspace.sqlite"
+    public static let migratedName = "workspace.sqlite.migrated"
+    public static let identityName = "workspace.json"
+    public static let recordName = "store.json"
+    public static let incomingPrefix = "workspace.sqlite.incoming-"
+    public static let sidecarSuffixes = ["-wal", "-shm", "-journal"]
 
-    enum Origin: Equatable {
+    public enum Origin: Equatable {
         /// The store database already existed.
         case existing
         /// Copied from `.matilde/workspace.sqlite` in this workspace.
@@ -39,12 +39,12 @@ struct WorkspaceStore {
         case legacyFallback
     }
 
-    let workspaceID: String
-    let directory: URL
-    let databaseURL: URL
-    let origin: Origin
+    public let workspaceID: String
+    public let directory: URL
+    public let databaseURL: URL
+    public let origin: Origin
 
-    static var defaultBase: URL {
+    public static var defaultBase: URL {
         let environment = ProcessInfo.processInfo.environment
         if let override = environment["MATILDE_STORE_DIRECTORY"], !override.isEmpty {
             return URL(fileURLWithPath: override, isDirectory: true)
@@ -60,7 +60,7 @@ struct WorkspaceStore {
 
     /// Resolve the database for a workspace, migrating the old in-workspace database once.
     /// `metadata` is the workspace's `.matilde` folder, which must already exist.
-    static func prepare(root: URL, metadata: URL, base: URL = defaultBase, fileManager fm: FileManager = .default) throws -> WorkspaceStore {
+    public static func prepare(root: URL, metadata: URL, base: URL = defaultBase, fileManager fm: FileManager = .default) throws -> WorkspaceStore {
         var id = try identity(metadata: metadata, fileManager: fm)
         var forkSource: URL?
         if let previous = storeRecord(in: base.appendingPathComponent(id, isDirectory: true)),
@@ -129,7 +129,7 @@ struct WorkspaceStore {
     // MARK: Identity
 
     /// Read the workspace ID, creating it on first use.
-    static func identity(metadata: URL, fileManager fm: FileManager = .default) throws -> String {
+    public static func identity(metadata: URL, fileManager fm: FileManager = .default) throws -> String {
         if let id = try? existingIdentity(metadata: metadata) { return id }
         let id = UUID().uuidString
         try writeJSON(["id": id], to: metadata.appendingPathComponent(identityName))
@@ -137,7 +137,7 @@ struct WorkspaceStore {
     }
 
     /// The ID is used as a folder name, so only a well-formed UUID is accepted.
-    static func existingIdentity(metadata: URL) throws -> String? {
+    public static func existingIdentity(metadata: URL) throws -> String? {
         let data = try Data(contentsOf: metadata.appendingPathComponent(identityName))
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let raw = object["id"] as? String, let uuid = UUID(uuidString: raw) else { return nil }
@@ -157,7 +157,7 @@ struct WorkspaceStore {
     // MARK: Migration steps
 
     /// Rename the old database (and any SQLite sidecar files) out of the way. Never deletes.
-    static func retire(_ legacy: URL, fileManager fm: FileManager = .default) throws {
+    public static func retire(_ legacy: URL, fileManager fm: FileManager = .default) throws {
         let folder = legacy.deletingLastPathComponent()
         var target = folder.appendingPathComponent(migratedName)
         if fm.fileExists(atPath: target.path) {
@@ -178,7 +178,7 @@ struct WorkspaceStore {
         catch { NSLog("Matilde: could not rename the old workspace database: \(error.localizedDescription)") }
     }
 
-    static func newestMigratedCopy(in metadata: URL, fileManager fm: FileManager = .default) -> URL? {
+    public static func newestMigratedCopy(in metadata: URL, fileManager fm: FileManager = .default) -> URL? {
         let names = (try? fm.contentsOfDirectory(atPath: metadata.path)) ?? []
         let candidates = names.filter { name in
             name.hasPrefix(migratedName) && !sidecarSuffixes.contains { name.hasSuffix($0) }
@@ -197,7 +197,7 @@ struct WorkspaceStore {
 
     /// Copy `source` into a temporary file beside `destination`, verify it, then rename
     /// it into place. `destination` only ever appears complete.
-    static func copyVerified(from source: URL, to destination: URL, fileManager fm: FileManager = .default, readOnly: Bool = false) throws {
+    public static func copyVerified(from source: URL, to destination: URL, fileManager fm: FileManager = .default, readOnly: Bool = false) throws {
         let incoming = destination.deletingLastPathComponent().appendingPathComponent(incomingPrefix + UUID().uuidString)
         func cleanUp() {
             try? fm.removeItem(at: incoming)
@@ -241,6 +241,13 @@ struct WorkspaceStore {
             cleanUp()
             throw error
         }
+    }
+
+    public init(workspaceID: String, directory: URL, databaseURL: URL, origin: Origin) {
+        self.workspaceID = workspaceID
+        self.directory = directory
+        self.databaseURL = databaseURL
+        self.origin = origin
     }
 }
 

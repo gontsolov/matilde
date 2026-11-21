@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import MatildeKit
 
 struct BranchMoment: Identifiable {
     let id = UUID()

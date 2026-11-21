@@ -1,4 +1,5 @@
 import Foundation
+import MatildeKit
 
 /// Where the writing editor puts the caret and scroll when a draft opens, and when the body
 /// shows its placeholder.

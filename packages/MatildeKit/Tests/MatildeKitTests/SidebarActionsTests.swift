@@ -1,5 +1,6 @@
 import XCTest
-@testable import Matilde
+@testable import MatildeKit
+import MatildeKit
 
 final class SidebarActionsTests: XCTestCase {
     var root: URL!

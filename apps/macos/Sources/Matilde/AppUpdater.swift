@@ -1,6 +1,7 @@
 import Combine
 import Sparkle
 import SwiftUI
+import MatildeKit
 
 /// Sparkle owns update discovery, signature validation, installation, and relaunch.
 @MainActor

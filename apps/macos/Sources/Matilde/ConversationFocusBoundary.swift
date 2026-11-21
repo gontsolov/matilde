@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import MatildeKit
 
 /// Observe focus leaving the whole card, including its scrollable transcript and fixed composer.
 struct ConversationFocusBoundary: NSViewRepresentable {

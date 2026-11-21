@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import MatildeKit
 
 enum AppAppearance: String, CaseIterable, Identifiable {
     case system, light, dark

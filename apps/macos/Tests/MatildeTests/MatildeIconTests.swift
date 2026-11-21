@@ -1,6 +1,7 @@
 import XCTest
 import AppKit
 @testable import Matilde
+import MatildeKit
 
 final class MatildeIconTests: XCTestCase {
     func testEveryIconLoadsFromTheBundleAsATemplateImage() throws {

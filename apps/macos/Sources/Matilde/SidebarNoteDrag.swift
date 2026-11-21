@@ -1,5 +1,6 @@
 import Foundation
 import UniformTypeIdentifiers
+import MatildeKit
 
 /// A sidebar note being dragged to another folder. The pasteboard carries only
 /// a private type, so dropping it on the editor or Finder never inserts text.

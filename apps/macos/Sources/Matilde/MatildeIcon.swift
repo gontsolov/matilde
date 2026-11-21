@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import MatildeKit
 
 /// Every interface icon, drawn from Tabler Icons (see `Resources/Icons/SOURCE.md`).
 /// The raw value is the Tabler icon name; filled variants end in `-filled`.
