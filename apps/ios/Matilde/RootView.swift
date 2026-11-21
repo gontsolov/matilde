@@ -11,10 +11,11 @@ struct RootView: View {
     @State private var showingSettings = false
     @State private var newFolder = false
     @State private var folderName = ""
+    @State private var settingUpSync = false
 
     var body: some View {
         NavigationSplitView {
-            NoteList(selection: $selection, query: query, showingSettings: $showingSettings)
+            NoteList(selection: $selection, query: query, showingSettings: $showingSettings, settingUpSync: $settingUpSync)
                 .navigationTitle("Notes")
                 .searchable(text: $query)
                 .toolbar {
@@ -26,7 +27,7 @@ struct RootView: View {
                     }
                     if let problem = sync.attention {
                         ToolbarItem(placement: .bottomBar) {
-                            SyncAttention(text: problem) { showingSettings = true }
+                            SyncAttention(text: problem) { if sync.phase == .ready { showingSettings = true } else { settingUpSync = true } }
                         }
                     }
                     ToolbarSpacer(.flexible, placement: .bottomBar)
@@ -43,6 +44,9 @@ struct RootView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
+        }
+        .fullScreenCover(isPresented: $settingUpSync) {
+            SyncOnboardingView(phase: sync.setupPhase)
         }
         .alert("New Folder", isPresented: $newFolder) {
             TextField("Name", text: $folderName)
@@ -85,6 +89,7 @@ private struct NoteList: View {
     @Binding var selection: Draft.ID?
     let query: String
     @Binding var showingSettings: Bool
+    @Binding var settingUpSync: Bool
 
     var body: some View {
         let sections = library.sections(matching: query)
@@ -111,23 +116,27 @@ private struct NoteList: View {
         .refreshable { await sync.refresh() }
         .overlay {
             if library.drafts.isEmpty {
-                if sync.isSignedIn {
+                if sync.phase == .ready {
                     ContentUnavailableView {
                         Label("No notes yet", systemImage: "doc.text")
                     } description: {
-                        Text(sync.phase == .ready ? "Notes from your Mac appear here. Pull down to sync now." : "Finish setting up sync in Settings.")
+                        Text("Notes from your Mac appear here.")
                     } actions: {
                         Button("New Note") { if let draft = library.create() { selection = draft.id } }
-                            .buttonStyle(.glassProminent)
+                            .buttonStyle(.matildePrimary)
+                            .fixedSize()
                     }
                 } else {
                     ContentUnavailableView {
                         Label("No notes yet", systemImage: "doc.text")
                     } description: {
-                        Text("Sign in with the email you use for sync on your Mac.")
+                        Text(sync.isSignedIn ? "Finish setting up sync to bring your notes over." : SyncOnboardingCopy.callToActionText)
                     } actions: {
-                        Button("Sign In") { showingSettings = true }
-                            .buttonStyle(.glassProminent)
+                        Button(sync.isSignedIn ? "Finish Setting Up Sync" : SyncOnboardingCopy.callToActionTitle) { settingUpSync = true }
+                            .buttonStyle(.matildePrimary)
+                            .fixedSize()
+                        Button("New Note") { if let draft = library.create() { selection = draft.id } }
+                            .buttonStyle(.matildeSecondary)
                     }
                 }
             } else if sections.isEmpty {

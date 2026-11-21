@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 import MatildeKit
 
-/// Settings: Sync (sign-in, the recovery key, status), Connections (the Langdock key and model
+/// Settings: Sync (status and devices; setup is the guided flow), Connections (the Langdock key and model
 /// for Ask Matilde) and About.
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -35,110 +35,92 @@ struct SettingsView: View {
     }
 }
 
-/// IOS-03: the same steps as Settings → Sync on the Mac.
+/// Sync in Settings: an invitation to the guided setup (`SyncOnboardingView`) until sync is on,
+/// then its status, the account, the signed-in devices, Sync Now and Sign Out. No forms here.
 private struct SyncSection: View {
     @Environment(SyncController.self) private var sync
-    @State private var email = ""
-    @State private var code = ""
-    @State private var recoveryCode = ""
-    @State private var lastGroup = ""
+    @State private var settingUp = false
+    @State private var signingOut = false
 
     var body: some View {
         Section {
-            phase
-            if let message = sync.message {
-                Text(message).foregroundStyle(.red).font(.callout)
+            switch sync.phase {
+            case .ready:
+                LabeledContent("Status") {
+                    Text(sync.statusText).contentTransition(.opacity)
+                }
+                if let email = sync.signedInEmail {
+                    LabeledContent("Account", value: email)
+                }
+                Button("Sync Now", systemImage: "arrow.triangle.2.circlepath") { sync.syncNow() }
+                    .disabled(sync.syncing)
+                Button("Sign Out", role: .destructive) { signingOut = true }
+            case .updateRequired:
+                Label(SyncOnboardingCopy.updateText, systemImage: "arrow.down.app")
+            case .signedOut:
+                SyncCallToAction { settingUp = true }
+            case .awaitingCode, .checkingKey, .needsRecoveryKey, .showRecoveryKey:
+                Button("Finish Setting Up Sync", systemImage: "arrow.forward.circle") { settingUp = true }
+                Button("Sign Out", role: .destructive) { sync.signOut() }
             }
         } header: {
             Text("Sync")
         } footer: {
-            Text(footer)
+            if sync.phase == .ready {
+                Text("End-to-end encrypted. The server can’t read your notes.")
+            }
         }
-        .disabled(sync.busy)
-        .onChange(of: sync.phase) { _, _ in code = ""; recoveryCode = ""; lastGroup = "" }
+        .onAppear { sync.loadDevices() }
+        .onChange(of: sync.phase) { _, phase in if phase == .ready { sync.loadDevices() } }
+        .fullScreenCover(isPresented: $settingUp) {
+            SyncOnboardingView(phase: sync.setupPhase)
+        }
+        .confirmationDialog("Sign out of sync on this iPhone?", isPresented: $signingOut, titleVisibility: .visible) {
+            Button("Sign Out", role: .destructive) { sync.signOut() }
+        } message: {
+            Text("Your notes stay on this iPhone. To sync again you’ll need your email and, if another device made your account, your recovery key.")
+        }
+        if sync.phase == .ready, !sync.devices.isEmpty {
+            Section("Signed-in Devices") {
+                ForEach(sync.devices) { device in
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(device.name)
+                            Text(device.isCurrent ? "This iPhone" : "Last seen \(Self.day(device.lastSeenDay))")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: device.symbolName)
+                    }
+                }
+            }
+        }
         if SyncServerSelection.showsPicker {
             Section {
                 Picker("Server", selection: Binding(get: { sync.server.isStaging }, set: { sync.setServer($0 ? .staging : .production) })) {
                     Text("Matilde").tag(false)
                     Text("Staging").tag(true)
                 }
+                LabeledContent("Address", value: sync.serverHost)
             } footer: {
                 Text("Debug builds only.")
             }
         }
     }
 
-    private var footer: String {
-        switch sync.phase {
-        case .signedOut: return "Use the email you sync with on your Mac. Your notes are end-to-end encrypted: the server can’t read them."
-        case .awaitingCode(let email): return "We sent a code to \(email)."
-        case .needsRecoveryKey: return "Your account key was made on another device. Enter the recovery key you saved then; you can also find it on your Mac in Settings → Sync."
-        case .showRecoveryKey: return "Save this recovery key somewhere safe, such as a password manager. You need it to add another device, and it is shown only once."
-        default: return ""
-        }
-    }
-
-    @ViewBuilder private var phase: some View {
-        switch sync.phase {
-        case .signedOut:
-            TextField("Email", text: $email)
-                .textContentType(.emailAddress)
-                .keyboardType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .submitLabel(.send)
-                .onSubmit(sendCode)
-            Button("Send Code", action: sendCode)
-                .disabled(email.trimmingCharacters(in: .whitespaces).isEmpty)
-        case .awaitingCode:
-            TextField("Code", text: $code)
-                .textContentType(.oneTimeCode)
-                .keyboardType(.numberPad)
-                .onSubmit(signIn)
-            Button("Sign In", action: signIn)
-                .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty)
-            Button("Cancel", role: .cancel) { sync.cancelSignIn() }
-        case .checkingKey:
-            HStack {
-                Text("Checking your account key")
-                Spacer()
-                ProgressView()
-            }
-        case .needsRecoveryKey:
-            TextField("Recovery key", text: $recoveryCode, axis: .vertical)
-                .font(.body.monospaced())
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-            Button("Unlock", action: unlock)
-                .disabled(recoveryCode.trimmingCharacters(in: .whitespaces).isEmpty)
-            Button("Sign Out", role: .destructive) { sync.signOut() }
-        case .showRecoveryKey(let key):
-            Text(key)
-                .font(.body.monospaced())
-                .textSelection(.enabled)
-            Button("Copy Recovery Key", systemImage: "doc.on.doc") { UIPasteboard.general.string = key }
-            TextField("Type its last four characters", text: $lastGroup)
-                .textInputAutocapitalization(.characters)
-                .autocorrectionDisabled()
-                .onSubmit(confirm)
-            Button("Done", action: confirm)
-                .disabled(lastGroup.count < 4)
-        case .ready:
-            LabeledContent("Status", value: sync.statusText)
-            LabeledContent("Server", value: sync.serverHost)
-            Button("Sync Now") { sync.syncNow() }
-                .disabled(sync.syncing)
-            Button("Sign Out", role: .destructive) { sync.signOut() }
-        case .updateRequired:
-            Text("Update Matilde to keep syncing.")
-        }
-    }
-
-    private func sendCode() { sync.requestCode(email: email) }
-    private func signIn() { sync.verify(code: code) }
-    private func unlock() { sync.recover(code: recoveryCode) }
-    private func confirm() {
-        if !sync.confirmRecoveryKey(lastGroup: lastGroup) { sync.message = "That doesn’t match the recovery key." }
+    /// "2026-11-21" as "Today", "Yesterday" or a short date.
+    static func day(_ value: String) -> String {
+        let parser = DateFormatter()
+        parser.calendar = Calendar(identifier: .gregorian)
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = TimeZone(identifier: "UTC")
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: value) else { return value }
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "today" }
+        if calendar.isDateInYesterday(date) { return "yesterday" }
+        return date.formatted(date: .abbreviated, time: .omitted)
     }
 }
 
