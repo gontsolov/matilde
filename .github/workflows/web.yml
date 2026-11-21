@@ -67,6 +67,7 @@ jobs:
       - name: Upload preview version
         id: upload
         run: |
+          set -o pipefail
           npx wrangler versions upload --preview-alias "pr-${{ github.event.pull_request.number }}" \
             --message "PR #${{ github.event.pull_request.number }} ${GITHUB_SHA::7}" | tee upload.log
           url=$(grep -Eo 'https://[^ ]+\.workers\.dev' upload.log | tail -n 1 || true)
