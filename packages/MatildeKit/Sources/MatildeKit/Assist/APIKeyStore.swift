@@ -66,7 +66,7 @@ public struct APIKeyStore {
     }
     public enum KeyError: LocalizedError {
         case empty, access(OSStatus)
-        var errorDescription: String? {
+        public var errorDescription: String? {
             switch self {
             case .empty: return "Enter an API key before saving."
             case .access(let status): return "Keychain could not complete the operation (\(status)). Your saved key has not been cleared."
