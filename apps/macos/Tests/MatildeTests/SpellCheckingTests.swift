@@ -18,6 +18,13 @@ private struct SpellEditorHost: View {
 @MainActor
 final class SpellCheckingTests: XCTestCase {
     private func run(_ seconds: Double) { RunLoop.main.run(until: Date().addingTimeInterval(seconds)) }
+    /// Spins the run loop until `condition` holds or `timeout` passes. The editor reports a change
+    /// made inside an editing batch on the next main-queue turn, which a busy CI runner can delay
+    /// past a fixed short wait.
+    private func run(until condition: () -> Bool, timeout: Double = 2) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline { run(0.01) }
+    }
 
     /// Autocorrection can replace a word and report the change before the text storage has
     /// finished its editing batch. Restyling then must wait instead of forcing layout mid-edit.
@@ -48,12 +55,12 @@ final class SpellCheckingTests: XCTestCase {
                 storage.replaceCharacters(in: current[index], with: replacement)
                 view.didChangeText()
                 storage.endEditing()
-                run(0.01)
+                run(until: { model.text == view.string })
                 XCTAssertEqual(model.text, view.string)
                 XCTAssertNotNil(storage.attribute(.paragraphStyle, at: 0, effectiveRange: nil))
                 corrected += 1
                 view.undoManager?.undo()
-                run(0.01)
+                run(until: { model.text == view.string })
             }
         }
         XCTAssertGreaterThan(corrected, 20)
