@@ -42,7 +42,7 @@ A monorepo. Paths in the sections below are relative to `apps/macos/` unless the
 | --- | --- |
 | `apps/macos/` | The macOS app: `Package.swift`/`Package.resolved`, `Sources/`, `Tests/`, `assets/` (icon sources), `Config/release.json`, `release-notes/`, and its build, packaging and release scripts in `scripts/` (with `scripts/tests/`) |
 | `apps/web/` | Landing page (matilde.page): Astro site on a Cloudflare Worker, see `apps/web/README.md` |
-| `apps/ios/` | The iOS app (IOS-01 skeleton): SwiftUI, iOS 26, iPhone first; XcodeGen `project.yml` (the `.xcodeproj` is generated, not committed), see `apps/ios/README.md` |
+| `apps/ios/` | The iOS app: SwiftUI, iOS 26, iPhone first; notes library, editor, comments, Ask Matilde threads and sync on MatildeKit; XcodeGen `project.yml` (the `.xcodeproj` is generated, not committed), see `apps/ios/README.md` |
 | `packages/MatildeKit/` | Shared Swift package used by the macOS and iOS apps: sync records, sync engine, HTTPS transport and end-to-end encryption, plus `MatildeKitTesting` (fake sync server). Builds and tests on Linux too (swift-crypto stands in for CryptoKit); see `packages/MatildeKit/README.md` |
 | `server/` | Cloud sync server (Cloudflare Worker), deployed by `.github/workflows/server.yml` |
 | `docs/` | Product, architecture, sync and release documentation, verification log; `docs/sync-vectors/` are shared crypto test vectors for every client |
@@ -60,19 +60,20 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | --- | --- |
 | `Sources/Matilde/MatildeApp.swift` | App lifecycle, menus/toolbars, sidebar, inline title/goal, writing layout, editor/board transition orchestration |
 | `Sources/Matilde/AppModel.swift` | Workspace and draft state, autosave, selection, external reload, branching/removal, board navigation and editor readiness |
-| `Sources/Matilde/Workspace.swift` | Markdown file operations, SQLite metadata, snapshots, draft relationships, session state, Trash behavior |
-| `Sources/Matilde/WorkspaceStore.swift` | Workspace ID, database location in Application Support and the one-time migration out of `.matilde` (SYNC-01) |
-| `packages/MatildeKit/Sources/MatildeKit/Records/` (`SyncRecord.swift`, `SyncPayloads.swift`), `Sources/Matilde/SyncLedger.swift` | Portable sync records (SYNC-02): HLC, record ids, canonical fields in MatildeKit; change tracking, tombstones and outbox in `sync_records` in the app; contract in `docs/sync-model.md` |
+| `packages/MatildeKit/Sources/MatildeKit/Storage/Workspace.swift` | Markdown file operations, SQLite metadata, snapshots, draft relationships, session state, Trash behavior |
+| `packages/MatildeKit/Sources/MatildeKit/Storage/WorkspaceStore.swift` | Workspace ID, database location in Application Support and the one-time migration out of `.matilde` (SYNC-01) |
+| `packages/MatildeKit/Sources/MatildeKit/Storage/` (rest), `Review/`, `Assist/` | Shared with iOS since IOS-02: trash, sidebar order, note moves, stash storage and welcome document; review data (`UserComment`, `WritingReview`, `ReviewTracking`, `ThreadTimeline`); Ask Matilde client (`LangdockClient`, prompts, `APIKeyStore`, `WritingReviewModel`). The macOS files with the same names keep only the AppKit/SwiftUI parts |
+| `packages/MatildeKit/Sources/MatildeKit/Records/` (`SyncRecord.swift`, `SyncPayloads.swift`), `packages/MatildeKit/Sources/MatildeKit/Storage/SyncLedger.swift` | Portable sync records (SYNC-02): HLC, record ids, canonical fields; change tracking, tombstones and outbox in `sync_records` (all in MatildeKit since IOS-02); contract in `docs/sync-model.md` |
 | `Sources/Matilde/MarkdownEditor.swift` | AppKit text view embedded in SwiftUI, Markdown styling/concealment, formatting commands, list behavior, cursor/scroll restoration |
 | `Sources/Matilde/DraftComparison.swift` | Independent editable comparison buffer, autosave/recovery and native split pane |
-| `Sources/Matilde/BoardStore.swift` | Persisted sheet placement and family viewport storage |
+| `packages/MatildeKit/Sources/MatildeKit/Storage/BoardStore.swift` | Persisted sheet placement and family viewport storage |
 | `Sources/Matilde/DraftBoard.swift` | Pinned draft canvas, shared page previews, mounted editor surface, pan/zoom, hover/cursors, keyboard navigation |
 | `Sources/Matilde/DraftInteraction.swift` | Branch preview tray and in-memory page capture used for the curl |
 | `Sources/Matilde/PageCurlView.swift` | SceneKit page mesh, materials, and diagonal branch animation |
 | `Sources/Matilde/AppIcon.swift` | App icon choices, stored preference, runtime Dock icon and the Settings picker; SVG sources in `assets/app-icons`, PNGs from `scripts/app-icons.py` |
 | `Sources/Matilde/MatildeIcon.swift` | Tabler icon names, template image loading and sizes; PDFs in `Resources/Icons`, source SVGs in `assets/tabler-icons` |
 | `Sources/Matilde/AppUpdater.swift` | Sparkle controller and native Check for Updates action |
-| `packages/MatildeKit/Sources/MatildeKit/Sync/`, `Sources/Matilde/Sync/` | Client sync (SYNC-07): in MatildeKit the `SyncEngine` push/pull actor, `SyncMerge` rules, `SyncCodec` framing, `SyncWire` and `HTTPSyncTransport` (sessions, Keychain tokens, WebSocket); in the app `WorkspaceSyncStore` mirror into files and tables, `SyncCenter` app controller and the Settings → Sync tab; see `docs/sync-client.md` |
+| `packages/MatildeKit/Sources/MatildeKit/Sync/`, `Sources/Matilde/Sync/` | Client sync (SYNC-07): in MatildeKit the `SyncEngine` push/pull actor, `SyncMerge` rules, `SyncCodec` framing, `SyncWire` and `HTTPSyncTransport` (sessions, Keychain tokens, WebSocket); `WorkspaceSyncStore` mirror into files and tables (MatildeKit since IOS-02); in the app the `SyncCenter` controller and the Settings → Sync tab; see `docs/sync-client.md` |
 | `packages/MatildeKit/Sources/MatildeKit/SyncCrypto/` | End-to-end encryption for cloud sync (SYNC-06): account key ring, record/blob/field envelopes, recovery key, key slots, Keychain store; spec in `docs/sync-encryption.md` |
 | `Tests/MatildeTests/` | Workspace, Markdown, curl geometry, and native editor regression tests |
 | `packages/MatildeKit/Tests/MatildeKitTests/` | Sync record, engine, transport, crypto, recovery and shared-vector tests (run on macOS and Linux) |

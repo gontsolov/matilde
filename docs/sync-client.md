@@ -6,7 +6,7 @@ Sync is **off by default**. Settings → Sync turns it on, signs in with an emai
 
 ## Code
 
-The platform-neutral parts (wire, codec, merge, engine, transport) live in the shared package `packages/MatildeKit/Sources/MatildeKit/Sync/`, so the iOS app uses the same engine; the workspace mirror, controller and Settings tab stay in `apps/macos/Sources/Matilde/Sync/`.
+The platform-neutral parts (wire, codec, merge, engine, transport and, since IOS-02, the workspace mirror) live in the shared package `packages/MatildeKit/Sources/MatildeKit/Sync/`, so the iOS app uses the same engine and mirror; the macOS controller and Settings tab stay in `apps/macos/Sources/Matilde/Sync/`. The iPhone's controller is `apps/ios/Matilde/SyncController.swift` (no on/off switch: signing in turns sync on).
 
 | File | Responsibility |
 | --- | --- |

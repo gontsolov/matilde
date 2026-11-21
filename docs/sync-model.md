@@ -2,7 +2,7 @@
 
 The local contract between Matilde's data and the sync engine. Design background: the project plan `plans/cloud-sync.md` (§0, §2). Wire format and server rules: [`server/PROTOCOL.md`](../server/PROTOCOL.md) (PR #25). Encryption of the plaintext: SYNC-06. Transport, pulling and the workspace mirror: SYNC-07.
 
-Code: `packages/MatildeKit/Sources/MatildeKit/Records/SyncRecord.swift` (HLC, ids, canonical fields, record and envelope), `Records/SyncPayloads.swift` (fields per type), `apps/macos/Sources/Matilde/SyncLedger.swift` (change tracking, tombstones, outbox). Tests: `SyncRecordTests`, `SyncLedgerTests`.
+Code: `packages/MatildeKit/Sources/MatildeKit/Records/SyncRecord.swift` (HLC, ids, canonical fields, record and envelope), `Records/SyncPayloads.swift` (fields per type), `Storage/SyncLedger.swift` (change tracking, tombstones, outbox). Tests: `SyncRecordTests`, `SyncLedgerTests`.
 
 ## Source of truth
 
