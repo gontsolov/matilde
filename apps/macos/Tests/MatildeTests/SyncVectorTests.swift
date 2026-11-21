@@ -28,9 +28,10 @@ final class SyncVectorTests: XCTestCase {
     }
 
     private func load() throws -> Vectors {
-        let url = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("docs/sync-vectors/v1.json")
+        // apps/macos/Tests/MatildeTests/<file> -> repository root, where the shared vectors live.
+        var url = URL(fileURLWithPath: #filePath)
+        for _ in 0..<5 { url.deleteLastPathComponent() }
+        url.appendPathComponent("docs/sync-vectors/v1.json")
         return try JSONDecoder().decode(Vectors.self, from: Data(contentsOf: url))
     }
 

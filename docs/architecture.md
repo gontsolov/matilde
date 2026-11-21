@@ -123,7 +123,7 @@ Header interaction refinement (2026-09-14): the editor header omits edited-time 
 
 Appearance (2026-09-14): General settings offers System (default), Light, and Dark, persisted in app preferences. Both SwiftUI windows and native AppKit controls follow the choice. Paper colors are adaptive, with neutral charcoal surfaces, soft near-white ink and desaturated accents in dark mode; sidebar, canvas, code backgrounds, stash and curl underside share the palette. Sidebar has a native Settings link anchored at bottom-left.
 
-App icon (2026-11-15): General settings also offers a row of app icons: the current Matilde icon (default) and four alternatives with the same body and tilde in other materials (Leather, Neon, Blueprint, Chalk) from SVG sources in `assets/app-icons/`. The choice is applied through `NSApplication.applicationIconImage` while the app runs and re-applied at launch; the signed bundle is never modified, so Sparkle updates and the code signature are unaffected, and Finder shows the default icon. Trade-offs and rejected options are in `docs/verification.md` (UI-19).
+App icon (2026-11-15): General settings also offers a row of app icons: the current Matilde icon (default) and four alternatives with the same body and tilde in other materials (Leather, Neon, Blueprint, Chalk) from SVG sources in `apps/macos/assets/app-icons/`. The choice is applied through `NSApplication.applicationIconImage` while the app runs and re-applied at launch; the signed bundle is never modified, so Sparkle updates and the code signature are unaffected, and Finder shows the default icon. Trade-offs and rejected options are in `docs/verification.md` (UI-19).
 
 
 ## Editable draft comparison

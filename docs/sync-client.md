@@ -58,7 +58,7 @@ Each step is applied as it comes; an error keeps whatever was applied or acknowl
 ## Transport and sessions
 
 - `SyncServer.production` = `https://sync.matilde.page/v1/`, `.staging` = `https://sync-staging.matilde.page/v1/`. The server in use is stored in UserDefaults `sync.serverURL`.
-- Release builds (including `bash scripts/build-app.sh`, which builds `-c release`) always use production and show no Server picker. Staging is for testing only (`SyncServerSelection`):
+- Release builds (including `bash apps/macos/scripts/build-app.sh`, which builds `-c release`) always use production and show no Server picker. Staging is for testing only (`SyncServerSelection`):
   - persistent: `defaults write app.matilde.local sync.server staging` (quit Matilde first; undo with `defaults delete app.matilde.local sync.server`);
   - one launch: `open build/Matilde.app --args --sync-server staging` (`production` also accepted). The next launch without it goes back to production.
   - Order: launch argument, then the `sync.server` default, then (debug builds only) the Settings picker's stored choice, else production. Unknown values mean production.

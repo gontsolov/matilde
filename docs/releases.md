@@ -17,7 +17,7 @@ The stable feed is `https://github.com/gontsolov/matilde/releases/latest/downloa
 2. Open GitHub Actions → **Release** → **Run workflow**, select `main`, and enter a version such as `0.1.1`. Alternatively, push a `v0.1.1` tag on a commit already in `main`.
 3. The workflow validates version ordering, tests, builds arm64, packages the DMG, signs the archive and feed, uploads all assets to a draft release, then publishes it as latest.
 
-The single release concurrency group prevents overlapping publications. Versions must increase numerically and use three numeric components. Published versions cannot be overwritten. A failed draft release can be retried from the same commit. `Config/release.json` controls local build version, stable bundle identity, update URL, repository, and public signing key. The release version overrides the local default through `MATILDE_VERSION`; keep the default current when beginning a new development cycle.
+The single release concurrency group prevents overlapping publications. Versions must increase numerically and use three numeric components. Published versions cannot be overwritten. A failed draft release can be retried from the same commit. `apps/macos/Config/release.json` controls local build version, stable bundle identity, update URL, repository, and public signing key. The release version overrides the local default through `MATILDE_VERSION`; keep the default current when beginning a new development cycle.
 
 Version 0.1.8 was universal. Starting with 0.1.9, feeds must contain `sparkle:hardwareRequirements` set to `arm64`; the pinned Sparkle generator infers this from the executable and release verification enforces it before publication. Sparkle 2.9.6 in existing installations rejects incompatible hardware updates. See [Sparkle hardware requirements](https://sparkle-project.org/documentation/publishing/#minimum-system-version-requirements). If the minimum supported macOS version changes, preserve compatible older feed entries before release; do not strand users on an unsupported update. This workflow intentionally does not generate delta updates or prerelease channels yet.
 
@@ -47,7 +47,10 @@ The workflow then imports the certificate into a temporary keychain, signs Spark
 
 ## Local verification
 
+From `apps/macos/` (the macOS app's package root; release notes are in `apps/macos/release-notes/`):
+
 ```sh
+cd apps/macos
 swift test --disable-sandbox
 python3 -m unittest discover -s scripts/tests
 bash scripts/build-app.sh
