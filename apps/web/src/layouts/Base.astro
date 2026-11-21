@@ -1,0 +1,41 @@
+---
+import "../styles/global.css";
+import { PLATFORM } from "../lib/site";
+
+interface Props {
+  title: string;
+  description: string;
+}
+const { title, description } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#f9f6ef" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#212222" media="(prefers-color-scheme: dark)" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={new URL("/icon.png", Astro.site)} />
+  </head>
+  <body class="min-h-dvh bg-paper font-serif text-ink">
+    <slot />
+    <footer class="mx-auto max-w-5xl px-6 pb-10 pt-16 font-sans text-[13px] text-muted">
+      <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        <a href="/" class="hover:text-ink">Matilde</a>
+        <a href="/privacy" class="hover:text-ink">Privacy</a>
+        <span>{PLATFORM}</span>
+      </div>
+    </footer>
+  </body>
+</html>

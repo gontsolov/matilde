@@ -1,0 +1,14 @@
+---
+import { DOWNLOAD_URL, PLATFORM } from "../lib/site";
+---
+
+<div class="flex flex-col items-center gap-2.5 font-sans">
+  <a
+    href={DOWNLOAD_URL}
+    class="inline-flex items-center gap-1.5 rounded-full bg-button px-4 py-2 text-[14px] font-medium tracking-[-0.005em] text-button-ink transition-colors duration-150 hover:bg-button-hover"
+  >
+    <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 11l5 5l5 -5" /><path d="M12 4l0 12" /></svg>
+    Download for Mac
+  </a>
+  <p class="text-[13px] text-muted">{PLATFORM}</p>
+</div>
