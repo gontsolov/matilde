@@ -1,0 +1,85 @@
+---
+import Base from "../layouts/Base.astro";
+import AppPreview from "../components/AppPreview.astro";
+import DownloadButton from "../components/DownloadButton.astro";
+
+const points = [
+  "Plain Markdown files, in a folder on your Mac.",
+  "Branch a draft to try another version, and keep both.",
+  "Your own notes in the margin, next to Matilde's.",
+];
+
+const privacy = [
+  {
+    title: "On your Mac first.",
+    text: "Your writing is plain files in a folder on your Mac. Sync is optional and off until you turn it on.",
+  },
+  {
+    title: "Locked before it leaves.",
+    text: "When you sync, your notes are encrypted on your Mac before they're sent. The key stays with you, so we can't read your writing, and neither could anyone who broke into our servers.",
+  },
+  {
+    title: "Kept in the EU.",
+    text: "Synced notes are stored in the EU. We can see your email address and how much you sync, but never what you write.",
+  },
+  {
+    title: "Your recovery key matters.",
+    text: "Keep it somewhere safe. If you lose all your devices and the key, nobody can unlock your notes, not even us.",
+  },
+];
+---
+
+<Base
+  title="Matilde: a quiet writing app for the Mac"
+  description="You write every word. Matilde reads along like a thoughtful editor, asks questions and leaves notes in the margin."
+>
+  <main>
+    <section class="mx-auto flex max-w-5xl flex-col items-center px-6 pt-16 text-center sm:pt-24">
+      <img src="/icon.png" alt="" width="76" height="76" class="mb-8 size-[76px]" />
+      <h1 class="max-w-3xl text-[40px] font-medium leading-[1.08] tracking-[-0.015em] sm:text-[56px]">
+        You write every word.<br />Matilde reads along.
+      </h1>
+      <p class="mt-6 max-w-xl text-[19px] leading-[1.55] text-ink/85 sm:text-[21px]">
+        Matilde is a quiet writing app for the Mac. It reads along like a thoughtful editor: it asks questions
+        and leaves notes in the margin. It won't write your paragraphs or make your decisions. The thinking stays yours.
+      </p>
+      <div class="mt-9">
+        <DownloadButton />
+      </div>
+    </section>
+
+    <section class="mx-auto mt-16 max-w-5xl px-4 sm:mt-20 sm:px-6">
+      <AppPreview />
+    </section>
+
+    <section class="mx-auto mt-20 max-w-3xl px-6">
+      <ul class="grid gap-4 text-center font-sans text-[14.5px] text-muted sm:grid-cols-3 sm:gap-8">
+        {points.map((point) => <li>{point}</li>)}
+      </ul>
+    </section>
+
+    <section class="mx-auto mt-24 max-w-2xl px-6" aria-labelledby="privacy-heading">
+      <div class="border-t border-rule pt-14">
+        <h2 id="privacy-heading" class="text-[28px] font-medium tracking-[-0.01em]">Your writing stays yours.</h2>
+        <dl class="mt-7 space-y-5 text-[17.5px] leading-[1.6]">
+          {
+            privacy.map((item) => (
+              <div>
+                <dt class="inline font-semibold">{item.title}</dt>{" "}
+                <dd class="inline text-ink/85">{item.text}</dd>
+              </div>
+            ))
+          }
+        </dl>
+        <p class="mt-6 text-[15.5px] leading-[1.6] text-muted">
+          Ask Matilde is the one exception. It's off until you connect your own Langdock account. After that, the
+          page you're on is sent to Langdock whenever Matilde reads it, and that part isn't covered by sync's
+          encryption.
+        </p>
+        <p class="mt-6 font-sans text-[14px]">
+          <a href="/privacy" class="text-accent underline decoration-accent/40 underline-offset-4 hover:decoration-accent">How privacy works →</a>
+        </p>
+      </div>
+    </section>
+  </main>
+</Base>

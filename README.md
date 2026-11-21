@@ -39,7 +39,7 @@ Builds, GitHub Actions, update signing, and optional Apple notarization: [releas
 | Path | Contents |
 | --- | --- |
 | `apps/macos/` | The macOS app: Swift package, sources, tests, icon sources, `Config/release.json`, release notes and the build/release scripts |
-| `apps/web/` | The matilde.page landing page (added in a follow-up) |
+| `apps/web/` | The matilde.page landing page (Astro, Cloudflare Worker) |
 | `server/` | The optional sync server (Cloudflare Worker); see [server/README.md](server/README.md) |
 | `docs/` | Product, architecture, sync and release documentation |
 | `scripts/` | Repo-wide scripts (shared sync test vectors) |

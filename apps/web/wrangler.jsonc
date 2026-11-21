@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The matilde.page landing page. Separate from the sync server (server/, sync.matilde.page).
+  "name": "matilde-web",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    // The Worker runs first only to redirect www; everything else is a static file.
+    "run_worker_first": true
+  },
+  "routes": [
+    { "pattern": "matilde.page", "custom_domain": true },
+    { "pattern": "www.matilde.page", "custom_domain": true }
+  ],
+  // No workers.dev site; pull-request previews use version preview URLs.
+  "workers_dev": false,
+  "preview_urls": true,
+  // A static page: no request logs kept by Workers Observability.
+  "observability": { "enabled": false }
+}

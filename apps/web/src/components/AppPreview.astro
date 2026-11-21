@@ -1,0 +1,23 @@
+---
+// Shows public/screenshot.png when it exists, otherwise the HTML mock-up of the editor.
+// To use a real screenshot, add the file and rebuild; no code change needed (see README.md).
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import EditorMockup from "./EditorMockup.astro";
+
+const hasScreenshot = existsSync(resolve(process.cwd(), "public/screenshot.png"));
+---
+
+{
+  hasScreenshot ? (
+    <img
+      src="/screenshot.png"
+      alt="The Matilde editor with a margin comment from Matilde."
+      class="mx-auto w-full max-w-4xl rounded-[14px] shadow-[0_18px_50px_-18px_rgb(60_50_40/0.28)]"
+      loading="eager"
+      decoding="async"
+    />
+  ) : (
+    <EditorMockup />
+  )
+}

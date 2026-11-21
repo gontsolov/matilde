@@ -1,0 +1,139 @@
+---
+import Base from "../layouts/Base.astro";
+import { CONTACT_EMAIL, SOURCE_URL } from "../lib/site";
+
+// Checked against the code on 2026-11-21: apps/macos (Sync/, SyncCrypto/, LangdockClient.swift,
+// WritingReview.swift, write-info.py) and server/ (PROTOCOL.md, migrations, wrangler.jsonc).
+// Update this page whenever sync, sign-in or Ask Matilde changes what leaves the Mac.
+const updated = "21 November 2026";
+
+const canSee = [
+  "Your email address, so you can sign in and we can send you sign-in codes.",
+  "That you have an account, and when you created it.",
+  "Your devices: what kind they are (for example macOS), when they signed in, and the day each one was last used. Their names are encrypted.",
+  "For each synced item: a random ID, what kind of item it is (a note, a folder, a comment), how big it is, when it changed, which of your devices changed it, and whether it was deleted.",
+];
+
+const cantSee = [
+  "Your titles, your writing and your goals.",
+  "Your folder names, images, stash and comments.",
+  "Your conversations with Matilde.",
+  "Your recovery key, or the key that unlocks your notes.",
+];
+---
+
+<Base
+  title="Privacy · Matilde"
+  description="What stays on your Mac, what sync can and can't see, and what happens when you ask Matilde."
+>
+  <main class="prose-quiet mx-auto max-w-2xl px-6 pt-14 sm:pt-20">
+    <a href="/" class="inline-flex items-center gap-3 font-sans text-[14px] text-muted hover:text-ink">
+      <img src="/icon.png" alt="" width="28" height="28" class="size-7" />
+      Matilde
+    </a>
+
+    <h1 class="mt-10 text-[40px] font-medium leading-tight tracking-[-0.015em]">How privacy works</h1>
+    <p class="mt-4 text-[19px] text-ink/85">
+      Matilde is a small side project. This page says plainly what happens to your writing. Matilde is open
+      source, so you can <a class="text-accent underline underline-offset-4" href={SOURCE_URL}>check the code</a> yourself.
+    </p>
+
+    <h2 class="mt-12 text-[24px] font-semibold">On your Mac</h2>
+    <p class="mt-3 text-[17.5px]">
+      Your writing is ordinary Markdown files in a folder you choose on your Mac. Goals, comments, draft history and
+      your conversations with Matilde are kept in a small database on your Mac too. Nothing leaves your Mac unless
+      you turn on sync or use Ask Matilde.
+    </p>
+    <p class="mt-3 text-[17.5px]">
+      To look for updates, Matilde downloads a small file from GitHub, where the app is published. That request
+      doesn't include your writing, and Matilde doesn't send a profile of your Mac with it.
+    </p>
+
+    <h2 class="mt-12 text-[24px] font-semibold">Sync</h2>
+    <p class="mt-3 text-[17.5px]">
+      Sync is optional, off until you turn it on, and still in beta. You sign in with your email address and a
+      six-digit code. There's no password.
+    </p>
+    <p class="mt-3 text-[17.5px]">
+      Before anything leaves your Mac, it's encrypted with a key that only your devices have (end-to-end encryption,
+      AES-256-GCM). The key is kept in your Mac's Keychain. Our server stores your encrypted notes and copies of the
+      key that are locked with your recovery key, which the server never gets. So we can't read your writing, and
+      neither could anyone who broke into the server.
+    </p>
+
+    <div class="mt-8 grid gap-8 sm:grid-cols-2">
+      <div>
+        <h3 class="font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-muted">What we can see</h3>
+        <ul class="mt-3 list-disc space-y-2 pl-5 text-[16px]">
+          {canSee.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+      <div>
+        <h3 class="font-sans text-[13px] font-semibold uppercase tracking-[0.06em] text-muted">What we can't see</h3>
+        <ul class="mt-3 list-disc space-y-2 pl-5 text-[16px]">
+          {cantSee.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    </div>
+    <p class="mt-6 text-[16px] text-ink/85">
+      We don't store your IP address. To stop people trying lots of sign-in codes, a scrambled form of part of it is
+      counted for a short while. Our server's logs record which kind of request came in and whether it worked, not
+      what was in it. Cloudflare, which runs the server, handles connection details such as IP addresses to deliver
+      requests.
+    </p>
+
+    <h2 class="mt-12 text-[24px] font-semibold">Where it's stored</h2>
+    <p class="mt-3 text-[17.5px]">
+      The sync server runs on Cloudflare. Your account and your encrypted notes are stored in Cloudflare's EU
+      locations. On the way there, requests travel through Cloudflare's network over an encrypted connection, so they
+      may pass through a data centre near you. Sign-in emails are sent by Cloudflare too.
+    </p>
+
+    <h2 class="mt-12 text-[24px] font-semibold">Your recovery key</h2>
+    <p class="mt-3 text-[17.5px]">
+      When you turn on sync, Matilde shows you a recovery key once. Write it down or keep it in your password manager.
+      You'll need it to set up a new Mac, or if your Mac loses its copy of the key.
+    </p>
+    <p class="mt-3 text-[17.5px]">
+      This is the trade-off for privacy: if you lose all your devices and the recovery key, nobody can unlock your
+      synced notes, not even us. The files on your Mac are unaffected, because they're never locked.
+    </p>
+
+    <h2 class="mt-12 text-[24px] font-semibold">Deleting your account</h2>
+    <p class="mt-3 text-[17.5px]">
+      Deleting your sync account removes your synced notes, devices, email address and keys from the server right
+      away. Database backups are kept for up to 30 days, so your email address and encrypted notes can stay in them
+      until they expire. They never contain readable writing. You can't delete your account from
+      inside the app yet. Until you can, write to <a class="text-accent underline underline-offset-4" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+      and we'll delete it for you.
+    </p>
+
+    <h2 class="mt-12 text-[24px] font-semibold">Ask Matilde</h2>
+    <p class="mt-3 text-[17.5px]">
+      Ask Matilde is optional and off until you add your own Langdock API key and choose a model in Settings. Langdock
+      is the AI service that gives Matilde its answers. Your key stays in your Mac's Keychain.
+    </p>
+    <p class="mt-3 text-[17.5px]">
+      When Matilde reads your page, Matilde sends it to Langdock: the title, the goal and the whole text of the draft
+      you're on, with images and file locations on your Mac left out. When you talk about a passage, the conversation
+      goes with it. Other drafts and your stash aren't sent.
+    </p>
+    <p class="mt-3 text-[17.5px]">
+      That happens when you ask, and on its own after you've changed the draft and paused for about thirty seconds.
+      You can pause that from the Ask Matilde menu. Just opening a draft never sends anything.
+    </p>
+    <p class="mt-3 text-[17.5px]">
+      This text is not covered by sync's encryption: Langdock and the AI model you picked have to read it to
+      answer. Langdock uses its EU region unless you change it, and passes the text to the model's provider. Their own
+      privacy terms apply to it.
+    </p>
+
+    <h2 class="mt-12 text-[24px] font-semibold">This website</h2>
+    <p class="mt-3 text-[17.5px]">
+      No cookies, no analytics and no tracking. The fonts are served from this site. It's hosted on Cloudflare, which
+      handles the requests.
+    </p>
+
+    <p class="mt-12 font-sans text-[13px] text-muted">Last updated {updated}.</p>
+  </main>
+</Base>

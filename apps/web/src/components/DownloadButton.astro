@@ -1,0 +1,24 @@
+---
+import { DOWNLOAD_URL, PLATFORM } from "../lib/site";
+import { latestRelease } from "../lib/release";
+
+const release = await latestRelease();
+---
+
+<div class="flex flex-col items-center gap-3 font-sans">
+  <a
+    href={DOWNLOAD_URL}
+    class="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-[15px] font-medium text-paper shadow-[0_1px_2px_rgb(0_0_0/0.12)] transition hover:brightness-110"
+  >
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 11l5 5l5 -5" /><path d="M12 4l0 12" /></svg>
+    Download for Mac
+  </a>
+  <p class="text-[13px] text-muted">
+    Free{release.version && <> · Version {release.version}</>} · {PLATFORM}
+  </p>
+  <!-- Remove once releases are notarized (DIST-02). -->
+  <p class="max-w-sm text-center text-[12.5px] leading-relaxed text-muted">
+    Matilde isn't notarized by Apple yet, so macOS asks before the first launch: right-click the app and
+    choose Open. On macOS 15 or later, open it once, then click Open Anyway in System Settings → Privacy &amp; Security.
+  </p>
+</div>

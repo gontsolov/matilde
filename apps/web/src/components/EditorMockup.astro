@@ -1,0 +1,53 @@
+---
+// A light HTML/CSS impression of the Matilde editor: a page of writing with one Ask Matilde
+// margin comment. Colours and type follow the app (see src/styles/global.css). Decorative only.
+---
+
+<figure
+  class="relative mx-auto w-full max-w-4xl overflow-hidden rounded-[14px] border border-rule bg-paper shadow-[0_1px_2px_rgb(0_0_0/0.04),0_18px_50px_-18px_rgb(60_50_40/0.28)]"
+  aria-label="The Matilde editor: a letter being written, with a question from Matilde in the margin."
+>
+  <div class="flex h-9 items-center gap-2 bg-sidebar/70 px-4" aria-hidden="true">
+    <span class="size-3 rounded-full bg-[#ec6a5e]/80"></span>
+    <span class="size-3 rounded-full bg-[#f4bf4f]/80"></span>
+    <span class="size-3 rounded-full bg-[#61c554]/80"></span>
+  </div>
+
+  <div class="grid gap-8 px-7 pb-10 pt-8 text-left sm:px-10 md:grid-cols-[minmax(0,1fr)_16rem] md:gap-9" aria-hidden="true">
+    <div class="min-w-0">
+      <p class="text-[28px] font-bold leading-tight tracking-[-0.01em] sm:text-[31px]">Letter to Anna</p>
+      <p class="mt-2 flex items-center gap-1.5 text-[16px] text-muted">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9z" /><path d="M5 21v-7" /></svg>
+        Tell her why I'm moving back.
+      </p>
+      <div class="mt-6 space-y-4 text-[17px] leading-[1.6] sm:text-[18px]">
+        <p>
+          I keep starting this letter and stopping. Not because I don't know what to say, but because every
+          version sounds more certain than I feel.
+        </p>
+        <p>
+          The flat is nearly empty now. The plants went to the neighbours, the books to a shop on the corner
+          that still smells of the bakery it used to be.
+          <span class="rounded-[3px] bg-accent/[0.07] underline decoration-accent/60 decoration-[1.5px] underline-offset-[5px]">The city never really felt like home.</span>
+        </p>
+        <p class="text-ink/80">
+          What I miss most is the sound of the kitchen on Sunday mornings, and you arguing with the radio.
+        </p>
+      </div>
+    </div>
+
+    <aside class="md:pt-[7.6rem]">
+      <div class="rounded-[10px] border border-rule bg-card p-4 font-sans shadow-[0_2px_6px_rgb(0_0_0/0.04)]">
+        <div class="border-l-2 border-accent/50 pl-2.5 font-serif text-[13.5px] italic leading-snug text-muted">
+          The city never really felt like home.
+        </div>
+        <p class="mt-3 text-[11.5px] font-medium uppercase tracking-[0.06em] text-muted">Matilde</p>
+        <p class="mt-1 text-[13.5px] leading-relaxed text-ink">
+          The paragraph before is full of things you loved there: the shop, the plants, the neighbours. Is this
+          sentence what you feel, or what's easier to tell her?
+        </p>
+        <div class="mt-3 rounded-md border border-rule px-2.5 py-1.5 text-[12.5px] text-muted/80">Reply…</div>
+      </div>
+    </aside>
+  </div>
+</figure>

@@ -41,7 +41,7 @@ A monorepo. Paths in the sections below are relative to `apps/macos/` unless the
 | Path | Contents |
 | --- | --- |
 | `apps/macos/` | The macOS app: `Package.swift`/`Package.resolved`, `Sources/`, `Tests/`, `assets/` (icon sources), `Config/release.json`, `release-notes/`, and its build, packaging and release scripts in `scripts/` (with `scripts/tests/`) |
-| `apps/web/` | Landing page (matilde.page), added in a follow-up PR |
+| `apps/web/` | Landing page (matilde.page): Astro site on a Cloudflare Worker, see `apps/web/README.md` |
 | `apps/ios/` | Planned iOS app; not created yet |
 | `packages/` | Planned shared Swift packages (e.g. `MatildeKit`: sync engine, crypto, record ledger, models), extracted from `apps/macos` when the iOS app needs them; not created yet |
 | `server/` | Cloud sync server (Cloudflare Worker), deployed by `.github/workflows/server.yml` |

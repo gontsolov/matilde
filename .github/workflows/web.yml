@@ -1,0 +1,118 @@
+name: Web
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+# Pull requests: a new push cancels the previous run. Main: deploys queue and are never cancelled mid-deploy.
+concurrency:
+  group: web-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+defaults:
+  run:
+    working-directory: apps/web
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      # The token lets the build read the latest release (version number) without hitting the anonymous rate limit.
+      - run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  # A preview version of the Worker for each pull request. It doesn't touch matilde.page.
+  # Skipped for forks and Dependabot, which don't get the Cloudflare secrets. Until the first
+  # production deploy creates the matilde-web Worker, the upload fails; that doesn't block the PR.
+  preview:
+    needs: build
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Upload preview version
+        id: upload
+        run: |
+          npx wrangler versions upload --preview-alias "pr-${{ github.event.pull_request.number }}" \
+            --message "PR #${{ github.event.pull_request.number }} ${GITHUB_SHA::7}" | tee upload.log
+          url=$(grep -Eo 'https://[^ ]+\.workers\.dev' upload.log | tail -n 1 || true)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### Web preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "${url:-No preview URL in the wrangler output.}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Comment the preview URL
+        if: steps.upload.outputs.url != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          URL: ${{ steps.upload.outputs.url }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --edit-last --create-if-none \
+            --body "Web preview for ${GITHUB_SHA::7}: $URL"
+
+  # Main deploys straight to matilde.page, without an approval step: it's a static page with no
+  # user data, every change was already reviewed in its PR, and `wrangler rollback` undoes it in seconds.
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: web
+      url: https://matilde.page
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - run: npx wrangler deploy
+      - name: Smoke test
+        run: |
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://matilde.page/) && [ "$code" = 200 ] && break
+            sleep 10
+          done
+          echo "https://matilde.page/ -> $code"; [ "$code" = 200 ]
+          www=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' https://www.matilde.page/)
+          echo "https://www.matilde.page/ -> $www"; [[ "$www" == 301* ]]
