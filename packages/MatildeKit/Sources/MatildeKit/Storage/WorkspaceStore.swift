@@ -54,7 +54,7 @@ public struct WorkspaceStore {
             return FileManager.default.temporaryDirectory.appendingPathComponent("matilde-test-store", isDirectory: true)
         }
         let support = (try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support", isDirectory: true)
+            ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true).appendingPathComponent("Library/Application Support", isDirectory: true)
         return support.appendingPathComponent("Matilde/workspaces", isDirectory: true)
     }
 
