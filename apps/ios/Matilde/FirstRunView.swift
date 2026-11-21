@@ -40,23 +40,35 @@ struct FirstRunView: View {
         let index = Binding(get: { tour.carouselIndex ?? 0 }, set: { tour.show(carouselIndex: $0) })
         return ZStack(alignment: .bottom) {
             Paper.background.ignoresSafeArea()
-            TabView(selection: index) {
-                TourPage(title: "A quiet page", text: "Give each note a goal, then just write. Markdown stays plain text, and every word is yours.") {
-                    EditorVignette()
+            VStack(spacing: 0) {
+                // Skip sits in its own row so the pages never run under it.
+                HStack {
+                    Spacer()
+                    Button("Skip") { finish(false) }
+                        .buttonStyle(.matildeSecondary)
+                        .padding(.horizontal, 16)
+                        .opacity(tour.screen == .finish ? 0 : 1)
+                        .disabled(tour.screen == .finish)
                 }
-                .tag(0)
-                TourPage(title: "Ask Matilde", text: "Highlight a passage and ask. Matilde answers in the margin: questions and notes, never a rewrite unless you accept it.") {
-                    CommentVignette()
+                .frame(height: 44)
+                TabView(selection: index) {
+                    TourPage(title: "A quiet page", text: "Give each note a goal, then just write. Markdown stays plain text, and every word is yours.") {
+                        EditorVignette()
+                    }
+                    .tag(0)
+                    TourPage(title: "Ask Matilde", text: "Highlight a passage and ask. Matilde answers in the margin: questions and notes, never a rewrite unless you accept it.") {
+                        CommentVignette()
+                    }
+                    .tag(1)
+                    TourPage(title: "Yours, on every device", text: "Your notes sync between your Mac and iPhone, encrypted before they leave. Nobody else can read them.") {
+                        SyncVignette()
+                    }
+                    .tag(2)
+                    FinishPage(finish: finish)
+                        .tag(FirstRunTour.pageCount)
                 }
-                .tag(1)
-                TourPage(title: "Yours, on every device", text: "Your notes sync between your Mac and iPhone, encrypted before they leave. Nobody else can read them.") {
-                    SyncVignette()
-                }
-                .tag(2)
-                FinishPage(finish: finish)
-                    .tag(FirstRunTour.pageCount)
+                .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
             VStack(spacing: 18) {
                 PageDots(count: FirstRunTour.pageCount + 1, current: tour.carouselIndex ?? 0)
                 if tour.screen != .finish {
@@ -66,13 +78,6 @@ struct FirstRunView: View {
             }
             .padding(.horizontal, 28)
             .padding(.bottom, 16)
-        }
-        .overlay(alignment: .topTrailing) {
-            if tour.screen != .finish {
-                Button("Skip") { finish(false) }
-                    .buttonStyle(.matildeSecondary)
-                    .padding(.horizontal, 16)
-            }
         }
     }
 }
@@ -92,10 +97,10 @@ private struct WelcomeScreen: View {
                     .offset(y: appeared || reduceMotion ? 0 : 30)
                 VStack(spacing: 12) {
                     Text("Matilde")
-                        .font(Paper.body(46))
+                        .font(Font(MarkdownStyle.bodyFont(46)))
                         .foregroundStyle(Color(red: 0.965, green: 0.949, blue: 0.918))
                     Text("You write every word.\nMatilde reads along.")
-                        .font(Paper.body(21).italic())
+                        .font(Font(MarkdownStyle.bodyFont(21, italic: true)))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Color(red: 0.965, green: 0.949, blue: 0.918).opacity(0.72))
                 }
@@ -143,11 +148,12 @@ private struct TourPage<Vignette: View>: View {
                 .accessibilityHidden(true)
             VStack(spacing: 10) {
                 Text(title)
-                    .font(Font(MarkdownStyle.bodyFont(28, bold: true)))
+                    .font(Font(MarkdownStyle.bodyFont(26, bold: true)))
                     .foregroundStyle(Paper.ink)
+                    .multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
                 Text(text)
-                    .font(.system(size: 17))
+                    .font(.callout)
                     .foregroundStyle(Paper.muted)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -170,10 +176,10 @@ private struct FinishPage: View {
                 .foregroundStyle(Paper.accent)
                 .accessibilityHidden(true)
             Text("Ready when you are")
-                .font(Font(MarkdownStyle.bodyFont(28, bold: true)))
+                .font(Font(MarkdownStyle.bodyFont(26, bold: true)))
                 .foregroundStyle(Paper.ink)
             Text("Start a note now. You can turn on sync whenever you like.")
-                .font(.system(size: 17))
+                .font(.callout)
                 .foregroundStyle(Paper.muted)
                 .multilineTextAlignment(.center)
             Spacer()
@@ -217,6 +223,7 @@ private struct VignetteCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 10) { content }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
             .background(Paper.sidebar, in: RoundedRectangle(cornerRadius: 22))
             .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(Paper.muted.opacity(0.18)))
             .shadow(color: .black.opacity(0.06), radius: 16, y: 8)
@@ -232,11 +239,11 @@ private struct EditorVignette: View {
             HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "flag").font(.system(size: 12)).padding(.top, 3)
                 Text("Say thank you without rushing")
-                    .font(Paper.body(15).italic())
+                    .font(Font(MarkdownStyle.bodyFont(15, italic: true)))
             }
             .foregroundStyle(Paper.muted)
             Text("Dear Ines, the garden came back this spring, and I kept thinking of the afternoon you showed me where to plant the beans.")
-                .font(Paper.body(16))
+                .font(Font(MarkdownStyle.bodyFont(16)))
                 .foregroundStyle(Paper.ink)
                 .lineSpacing(4)
                 .padding(.top, 4)
@@ -261,33 +268,39 @@ private struct CommentVignette: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        // The note hugs its paragraph; Matilde's card floats over its lower edge like a margin
+        // comment on the Mac (lighter surface, hairline border, soft shadow, accent bar).
+        VStack(alignment: .trailing, spacing: -26) {
             VignetteCard {
                 Text(Self.passage)
-                    .font(Paper.body(16))
+                    .font(Font(MarkdownStyle.bodyFont(16)))
                     .foregroundStyle(Paper.ink)
                     .lineSpacing(4)
-                Spacer(minLength: 60)
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                Label("Matilde", systemImage: "sparkles")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Paper.accent)
-                Text("Is this the moment the letter turns? It could carry the ending.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Paper.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.bottom, 22)
             }
-            .padding(14)
-            .frame(width: 230, alignment: .leading)
-            .background(.background, in: RoundedRectangle(cornerRadius: 16))
-            .overlay(alignment: .leading) {
-                Rectangle().fill(Paper.commentRule).frame(width: 3).padding(.vertical, 12)
+            HStack(alignment: .top, spacing: 10) {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(Paper.commentRule)
+                    .frame(width: 3)
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Matilde", systemImage: "sparkles")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Paper.accent)
+                    Text("Is this the moment the letter turns? It could carry the ending.")
+                        .font(.subheadline)
+                        .foregroundStyle(Paper.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-            .shadow(color: .black.opacity(0.1), radius: 12, y: 6)
-            .offset(x: 10, y: 24)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(12)
+            .frame(width: 236, alignment: .leading)
+            .background(Paper.elevated, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Paper.ink.opacity(0.12), lineWidth: 1))
+            .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+            .padding(.trailing, -8)
         }
-        .padding(.bottom, 24)
     }
 }
 
@@ -297,26 +310,28 @@ private struct SyncVignette: View {
 
     var body: some View {
         VignetteCard {
-            HStack(alignment: .center) {
+            // Three equal columns on one centre line, the group centred in the card.
+            HStack(spacing: 0) {
                 Image(systemName: "laptopcomputer")
-                    .font(.system(size: 50, weight: .ultraLight))
-                Spacer()
+                    .font(.system(size: 44, weight: .ultraLight))
+                    .frame(maxWidth: .infinity)
                 VStack(spacing: 6) {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 18))
+                        .font(.system(size: 17))
                         .foregroundStyle(Paper.accent)
                         .scaleEffect(pulse ? 1.12 : 1)
                     Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 16))
+                        .font(.system(size: 15))
                         .foregroundStyle(Paper.muted)
                 }
-                Spacer()
+                .frame(maxWidth: .infinity)
                 Image(systemName: "iphone")
-                    .font(.system(size: 44, weight: .ultraLight))
+                    .font(.system(size: 40, weight: .ultraLight))
+                    .frame(maxWidth: .infinity)
             }
+            .frame(height: 64, alignment: .center)
             .foregroundStyle(Paper.ink)
-            .padding(.vertical, 18)
-            .padding(.horizontal, 8)
+            .padding(.top, 6)
             Text("End-to-end encrypted · Stored in the EU")
                 .font(.footnote)
                 .foregroundStyle(Paper.muted)

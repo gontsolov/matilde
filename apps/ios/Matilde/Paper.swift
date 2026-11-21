@@ -15,6 +15,8 @@ enum Paper {
     static let ink = adaptive(light: (0.24, 0.25, 0.22), dark: (0.87, 0.87, 0.86))
     static let muted = adaptive(light: (0.48, 0.48, 0.43), dark: (0.62, 0.625, 0.63))
     static let accent = adaptive(light: (0.48, 0.32, 0.23), dark: (0.69, 0.65, 0.60))
+    /// A card raised above the page (Matilde's comment in the tour): a touch lighter than `background`.
+    static let elevated = adaptive(light: (0.995, 0.99, 0.978), dark: (0.19, 0.192, 0.196))
     static let sidebar = adaptive(light: (0.955, 0.949, 0.933), dark: (0.105, 0.107, 0.11))
 
     /// Private comments: the Mac's highlighter yellow (WritingLayoutManager.commentHighlight).

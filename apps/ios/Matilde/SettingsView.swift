@@ -7,11 +7,16 @@ import MatildeKit
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(FirstRunTour.seenKey) private var tourSeen = false
+    @Environment(SyncController.self) private var sync
+    /// Owned here, on the stable NavigationStack, not by a row: a cover attached inside the Form
+    /// went away with its row when the sync phase changed the rows (signed out → code → key),
+    /// which closed the setup in the middle of the flow.
+    @State private var settingUpSync = false
 
     var body: some View {
         NavigationStack {
             Form {
-                SyncSection()
+                SyncSection(settingUp: $settingUpSync)
                 ConnectionsSection()
                 Section("About") {
                     LabeledContent("Version", value: Self.version)
@@ -25,6 +30,9 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .fullScreenCover(isPresented: $settingUpSync) {
+                SyncOnboardingView(phase: sync.setupPhase)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done", systemImage: "xmark", role: .close) { dismiss() }
@@ -45,7 +53,7 @@ struct SettingsView: View {
 /// then its status, the account, the signed-in devices, Sync Now and Sign Out. No forms here.
 private struct SyncSection: View {
     @Environment(SyncController.self) private var sync
-    @State private var settingUp = false
+    @Binding var settingUp: Bool
     @State private var signingOut = false
 
     var body: some View {
@@ -78,9 +86,6 @@ private struct SyncSection: View {
         }
         .onAppear { sync.loadDevices() }
         .onChange(of: sync.phase) { _, phase in if phase == .ready { sync.loadDevices() } }
-        .fullScreenCover(isPresented: $settingUp) {
-            SyncOnboardingView(phase: sync.setupPhase)
-        }
         .confirmationDialog("Sign out of sync on this iPhone?", isPresented: $signingOut, titleVisibility: .visible) {
             Button("Sign Out", role: .destructive) { sync.signOut() }
         } message: {
