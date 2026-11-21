@@ -10,7 +10,7 @@ struct MarkdownStyleTests {
 
     @Test func headingsAndTheirMarks() {
         let spans = MarkdownStyle.spans(in: "## Two\nBody")
-        #expect(spans.contains(MarkdownStyle.Span(kind: .heading(2), range: NSRange(location: 0, length: 7))))
+        #expect(spans.contains(MarkdownStyle.Span(kind: .heading(2), range: NSRange(location: 0, length: 6))))
         #expect(spans.contains(MarkdownStyle.Span(kind: .mark, range: NSRange(location: 0, length: 3))))
         #expect(!kinds("#Not a heading").contains(.heading(1)))
     }
