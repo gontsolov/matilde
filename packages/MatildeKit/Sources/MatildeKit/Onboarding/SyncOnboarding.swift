@@ -140,6 +140,59 @@ public enum OneTimeCodeInput {
     public static func activeBox(_ code: String) -> Int { min(sanitize(code).count, length - 1) }
 }
 
+/// Editing the code box by box, for a field that draws the six boxes itself and takes keys one at
+/// a time (the Mac setup sheet): a caret box, typing that advances, Backspace that steps back,
+/// arrow keys, and paste or AutoFill of a whole code ("123 456", "123-456") from any box.
+public struct OneTimeCodeEditor: Equatable, Sendable {
+    public private(set) var digits: [Character?]
+    /// The box that takes the next digit; it has the focus ring.
+    public private(set) var cursor = 0
+
+    public init(_ code: String = "") {
+        digits = Array(repeating: nil, count: OneTimeCodeInput.length)
+        insert(code)
+    }
+
+    private var last: Int { OneTimeCodeInput.length - 1 }
+
+    public var isComplete: Bool { digits.allSatisfy { $0 != nil } }
+    /// The digits typed so far, in order; the full code once `isComplete`.
+    public var code: String { String(digits.compactMap { $0 }) }
+
+    /// Typed, pasted or filled-in text. A whole code replaces every box; anything shorter fills
+    /// from the caret on. Spaces, dashes and other non-digits are dropped.
+    public mutating func insert(_ text: String) {
+        let clean = Array(OneTimeCodeInput.sanitize(text))
+        guard !clean.isEmpty else { return }
+        if clean.count == OneTimeCodeInput.length {
+            digits = clean.map { Optional($0) }
+            cursor = last
+            return
+        }
+        for digit in clean {
+            digits[cursor] = digit
+            if cursor == last { break }
+            cursor += 1
+        }
+    }
+
+    /// Clears the caret box, or, when it is already empty, steps back and clears that one.
+    public mutating func deleteBackward() {
+        if digits[cursor] != nil {
+            digits[cursor] = nil
+        } else if cursor > 0 {
+            cursor -= 1
+            digits[cursor] = nil
+        }
+    }
+
+    public mutating func deleteForward() { digits[cursor] = nil }
+    public mutating func moveLeft() { cursor = max(0, cursor - 1) }
+    public mutating func moveRight() { cursor = min(last, cursor + 1) }
+    public mutating func move(to box: Int) { cursor = min(max(0, box), last) }
+    public mutating func clear() { self = OneTimeCodeEditor() }
+}
+
 /// Seconds until another code may be requested.
 public struct ResendCooldown: Equatable, Sendable {
     public static let seconds: TimeInterval = 30

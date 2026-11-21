@@ -209,3 +209,59 @@ final class RecoveryKeyBackupTests: XCTestCase {
         XCTAssertEqual(backup.load(userId: "u2"), "MTLD-BBBB")
     }
 }
+
+final class OneTimeCodeEditorTests: XCTestCase {
+    func testTypingAdvancesAndCompletes() {
+        var editor = OneTimeCodeEditor()
+        for digit in "12345" { editor.insert(String(digit)) }
+        XCTAssertEqual(editor.cursor, 5)
+        XCTAssertFalse(editor.isComplete)
+        editor.insert("6")
+        XCTAssertTrue(editor.isComplete)
+        XCTAssertEqual(editor.code, "123456")
+        XCTAssertEqual(editor.cursor, 5)
+        editor.insert("a")
+        XCTAssertEqual(editor.code, "123456")
+    }
+
+    func testBackspaceClearsThenStepsBack() {
+        var editor = OneTimeCodeEditor("123")
+        XCTAssertEqual(editor.cursor, 3)
+        editor.deleteBackward()
+        XCTAssertEqual(editor.cursor, 2)
+        XCTAssertEqual(editor.code, "12")
+        var full = OneTimeCodeEditor("123456")
+        full.deleteBackward()
+        XCTAssertEqual(full.code, "12345")
+        XCTAssertEqual(full.cursor, 5)
+        var empty = OneTimeCodeEditor()
+        empty.deleteBackward()
+        XCTAssertEqual(empty.cursor, 0)
+    }
+
+    func testArrowsMoveAndTypingReplacesThatBox() {
+        var editor = OneTimeCodeEditor("123456")
+        editor.moveLeft(); editor.moveLeft()
+        XCTAssertEqual(editor.cursor, 3)
+        editor.insert("9")
+        XCTAssertEqual(editor.code, "123956")
+        XCTAssertEqual(editor.cursor, 4)
+        for _ in 0..<10 { editor.moveRight() }
+        XCTAssertEqual(editor.cursor, 5)
+        editor.move(to: -3)
+        XCTAssertEqual(editor.cursor, 0)
+    }
+
+    func testPasteReplacesFromAnyBox() {
+        var editor = OneTimeCodeEditor("98")
+        editor.insert(" 123-456 ")
+        XCTAssertTrue(editor.isComplete)
+        XCTAssertEqual(editor.code, "123456")
+        var partial = OneTimeCodeEditor("1")
+        partial.insert("2 3")
+        XCTAssertEqual(partial.code, "123")
+        XCTAssertEqual(partial.cursor, 3)
+        partial.clear()
+        XCTAssertEqual(partial, OneTimeCodeEditor())
+    }
+}
