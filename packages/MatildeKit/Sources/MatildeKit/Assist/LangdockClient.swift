@@ -1,19 +1,19 @@
 import Foundation
 
-struct LangdockConfiguration: Equatable {
-    var baseURL: String
-    var region: String
-    var model: String
+public struct LangdockConfiguration: Equatable {
+    public var baseURL: String
+    public var region: String
+    public var model: String
     /// Editable behaviour guidance; the fixed task and response format are added per request.
-    var guidance: String = WritingAssistPrompt.defaultGuidance
-    static var current: Self {
+    public var guidance: String = WritingAssistPrompt.defaultGuidance
+    public static var current: Self {
         let defaults = UserDefaults.standard
         return Self(baseURL: defaults.string(forKey: "langdock.baseURL") ?? "https://api.langdock.com",
                     region: defaults.string(forKey: "langdock.region") ?? "eu",
                     model: defaults.string(forKey: "langdock.model") ?? "",
                     guidance: WritingAssistPrompt.guidance(defaults))
     }
-    func endpoint(_ path: String) throws -> URL {
+    public func endpoint(_ path: String) throws -> URL {
         guard var url = URL(string: baseURL.trimmingCharacters(in: .whitespacesAndNewlines)),
               url.scheme == "https", url.host != nil, url.user == nil, url.password == nil,
               url.query == nil, url.fragment == nil, ["eu", "us"].contains(region) else {
@@ -22,18 +22,25 @@ struct LangdockConfiguration: Equatable {
         url.appendPathComponent("openai/\(region)/v1/\(path)")
         return url
     }
+
+    public init(baseURL: String, region: String, model: String, guidance: String = WritingAssistPrompt.defaultGuidance) {
+        self.baseURL = baseURL
+        self.region = region
+        self.model = model
+        self.guidance = guidance
+    }
 }
 
-enum ReviewError: LocalizedError {
+public enum ReviewError: LocalizedError {
     case message(String)
-    var errorDescription: String? { switch self { case .message(let text): return text } }
+    public var errorDescription: String? { switch self { case .message(let text): return text } }
 }
 
-struct ReviewInput: Codable, Equatable {
-    let title: String
-    let goal: String
-    let body: String
-    var transmitted: Self {
+public struct ReviewInput: Codable, Equatable {
+    public let title: String
+    public let goal: String
+    public let body: String
+    public var transmitted: Self {
         func scrub(_ text: String) -> String {
             var value = text.replacingOccurrences(of: #"!\[[^\]\n]*\]\([^\n]*?\)"#, with: "[Image omitted]", options: .regularExpression)
             value = value.replacingOccurrences(of: #"(?:file://[^\s)]+|/(?:Users|home|private|Volumes|var|tmp)/[^\s)]+)"#, with: "[Local path omitted]", options: .regularExpression)
@@ -41,22 +48,41 @@ struct ReviewInput: Codable, Equatable {
         }
         return Self(title: scrub(title), goal: scrub(goal), body: scrub(body))
     }
+
+    public init(title: String, goal: String, body: String) {
+        self.title = title
+        self.goal = goal
+        self.body = body
+    }
 }
 
-struct ReviewSuggestion: Codable, Equatable {
-    let quote: String
-    let prefix: String
-    let suffix: String
-    let explanation: String
-    let replacement: String?
+public struct ReviewSuggestion: Codable, Equatable {
+    public let quote: String
+    public let prefix: String
+    public let suffix: String
+    public let explanation: String
+    public let replacement: String?
+
+    public init(quote: String, prefix: String, suffix: String, explanation: String, replacement: String?) {
+        self.quote = quote
+        self.prefix = prefix
+        self.suffix = suffix
+        self.explanation = explanation
+        self.replacement = replacement
+    }
 }
 
-struct ReviewReply: Codable {
-    let answer: String
-    let replacement: String?
+public struct ReviewReply: Codable {
+    public let answer: String
+    public let replacement: String?
+
+    public init(answer: String, replacement: String?) {
+        self.answer = answer
+        self.replacement = replacement
+    }
 }
 
-protocol LangdockServing {
+public protocol LangdockServing {
     func streamReply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply
     func reply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String) async throws -> ReviewReply
     /// Chat reply laid out for prompt caching (see `ReplyContext`).
@@ -66,29 +92,32 @@ protocol LangdockServing {
 }
 
 extension LangdockServing {
-    func streamReply(_ conversation: ReplyConversation, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
+    public func streamReply(_ conversation: ReplyConversation, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
         try await streamReply(conversation.input, suggestion: conversation.suggestion, messages: conversation.history,
                               question: conversation.question, configuration: configuration, key: key, onText: onText)
     }
-    func streamReply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
+    public func streamReply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
         let answer = try await reply(input, suggestion: suggestion, messages: messages, question: question, configuration: configuration, key: key)
         await onText(answer.answer)
         return answer
     }
-    func reply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String,
+    public func reply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String,
                configuration: LangdockConfiguration, key: String) async throws -> ReviewReply {
         throw ReviewError.message("Replies are unavailable for this provider.")
     }
 }
 
+// The HTTPS client streams with URLSession.bytes, which Linux Foundation lacks; the request and
+// response types above stay platform-neutral so Linux tests still cover them.
+#if canImport(Darwin)
 /// No cookies, disk cache, redirects, or logging of credentials/writing.
 private final class LangdockRedirectBlocker: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
 }
 
-final class LangdockClient: NSObject, LangdockServing {
+public final class LangdockClient: NSObject, LangdockServing {
     private var session: URLSession!
-    override init() {
+    public override init() {
         super.init()
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 60
@@ -97,7 +126,7 @@ final class LangdockClient: NSObject, LangdockServing {
         config.urlCache = nil
         session = URLSession(configuration: config, delegate: LangdockRedirectBlocker(), delegateQueue: nil)
     }
-    init(session: URLSession) { super.init(); self.session = session }
+    public init(session: URLSession) { super.init(); self.session = session }
     deinit { session.invalidateAndCancel() }
 
     private func request(_ path: String, body: Data? = nil, configuration: LangdockConfiguration, key: String, onText: (@MainActor (String) -> Void)? = nil) async throws -> Data {
@@ -164,25 +193,25 @@ final class LangdockClient: NSObject, LangdockServing {
         throw ReviewError.message("Langdock is busy. Try again shortly.")
     }
 
-    func models(configuration: LangdockConfiguration, key: String) async throws -> [String] {
+    public func models(configuration: LangdockConfiguration, key: String) async throws -> [String] {
         struct Models: Decodable { struct Model: Decodable { let id: String }; let data: [Model] }
         let data = try await request("models", configuration: configuration, key: key)
         guard let response = try? JSONDecoder().decode(Models.self, from: data) else { throw ReviewError.message("Langdock returned an unreadable model list.") }
         return Array(Set(response.data.map(\.id))).sorted()
     }
 
-    func review(_ input: ReviewInput, configuration: LangdockConfiguration, key: String) async throws -> [ReviewSuggestion] {
+    public func review(_ input: ReviewInput, configuration: LangdockConfiguration, key: String) async throws -> [ReviewSuggestion] {
         guard !configuration.model.isEmpty else { throw ReviewError.message("Choose a Langdock model in Settings → Connections.") }
         guard input.body.utf8.count <= 100_000, input.title.utf8.count + input.goal.utf8.count <= 10_000 else {
             throw ReviewError.message("This draft is too long for a review. The current limit is 100 KB of writing and 10 KB of title and goal.")
         }
         struct Message: Encodable { let role: String; let content: String }
         struct Request: Encodable {
-            let model: String
-            let messages: [Message]
-            let response_format = ["type": "json_object"]
-            let max_completion_tokens = 4000
-            let stream = false
+            public let model: String
+            public let messages: [Message]
+            public let response_format = ["type": "json_object"]
+            public let max_completion_tokens = 4000
+            public let stream = false
         }
         let context = ReplyPrompt.encode(input.transmitted)
         let body = try Self.encoder.encode(Request(model: configuration.model, messages: [
@@ -191,20 +220,20 @@ final class LangdockClient: NSObject, LangdockServing {
         return try Self.decode(try await request("chat/completions", body: body, configuration: configuration, key: key))
     }
 
-    func reply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String,
+    public func reply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String,
                configuration: LangdockConfiguration, key: String) async throws -> ReviewReply {
         try await performReply(ReplyPrompt.prepare(input: input, suggestion: suggestion, context: nil, prior: messages, question: question),
                                configuration: configuration, key: key)
     }
-    func streamReply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
+    public func streamReply(_ input: ReviewInput, suggestion: ReviewSuggestion, messages: [ReviewMessage], question: String, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
         try await performReply(ReplyPrompt.prepare(input: input, suggestion: suggestion, context: nil, prior: messages, question: question),
                                configuration: configuration, key: key, onText: onText)
     }
-    func streamReply(_ conversation: ReplyConversation, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
+    public func streamReply(_ conversation: ReplyConversation, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
         try await performReply(conversation, configuration: configuration, key: key, onText: onText)
     }
     /// Sorted keys keep request bytes deterministic.
-    static var encoder: JSONEncoder {
+    public static var encoder: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return encoder
@@ -217,20 +246,20 @@ final class LangdockClient: NSObject, LangdockServing {
             throw ReviewError.message("Choose a model and keep the draft and reply within the review limits.")
         }
         struct Request: Encodable {
-            let model: String
-            let messages: [ReplyConversation.Message]
-            let response_format = ["type": "json_object"]
-            let max_completion_tokens = 4000
-            let stream: Bool
+            public let model: String
+            public let messages: [ReplyConversation.Message]
+            public let response_format = ["type": "json_object"]
+            public let max_completion_tokens = 4000
+            public let stream: Bool
         }
         let body = try Self.encoder.encode(Request(model: configuration.model,
             messages: conversation.messages(system: WritingAssistPrompt.reply(guidance: configuration.guidance)), stream: onText != nil))
         return try Self.decodeReply(try await request("chat/completions", body: body, configuration: configuration, key: key, onText: onText))
     }
-    static func decodeReply(_ data: Data) throws -> ReviewReply {
+    public static func decodeReply(_ data: Data) throws -> ReviewReply {
         struct Response: Decodable {
-            struct Choice: Decodable { struct Message: Decodable { let content: String?; let refusal: String? }; let message: Message; let finish_reason: String }
-            let choices: [Choice]
+            public struct Choice: Decodable { struct Message: Decodable { let content: String?; let refusal: String? }; let message: Message; let finish_reason: String }
+            public let choices: [Choice]
         }
         guard let response = try? JSONDecoder().decode(Response.self, from: data), let choice = response.choices.first,
               choice.finish_reason == "stop", choice.message.refusal == nil, let text = choice.message.content,
@@ -242,10 +271,10 @@ final class LangdockClient: NSObject, LangdockServing {
         return reply
     }
 
-    static func decode(_ data: Data) throws -> [ReviewSuggestion] {
+    public static func decode(_ data: Data) throws -> [ReviewSuggestion] {
         struct Response: Decodable {
-            struct Choice: Decodable { struct Message: Decodable { let content: String?; let refusal: String? }; let message: Message; let finish_reason: String }
-            let choices: [Choice]
+            public struct Choice: Decodable { struct Message: Decodable { let content: String?; let refusal: String? }; let message: Message; let finish_reason: String }
+            public let choices: [Choice]
         }
         struct Payload: Decodable { let comments: [ReviewSuggestion] }
         guard let response = try? JSONDecoder().decode(Response.self, from: data), let choice = response.choices.first,
@@ -258,3 +287,4 @@ final class LangdockClient: NSObject, LangdockServing {
         return payload.comments
     }
 }
+#endif

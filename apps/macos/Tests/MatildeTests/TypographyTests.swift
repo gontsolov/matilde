@@ -1,6 +1,7 @@
 import XCTest
 import AppKit
 @testable import Matilde
+import MatildeKit
 
 @MainActor
 final class TypographyTests: XCTestCase {

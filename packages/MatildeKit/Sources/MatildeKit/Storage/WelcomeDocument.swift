@@ -1,9 +1,9 @@
 import Foundation
 
-enum WelcomeDocument {
-    static let title = "Your next great piece starts here"
-    static let goal = "Find something worth saying."
-    static let text = """
+public enum WelcomeDocument {
+    public static let title = "Your next great piece starts here"
+    public static let goal = "Find something worth saying."
+    public static let text = """
     Welcome to Matilde. A little room to think clearly, follow an idea, and write something you're proud of.
 
     ## Try another direction
@@ -32,7 +32,7 @@ enum WelcomeDocument {
 }
 
 extension Workspace {
-    func welcomeDocument(explicit: Bool = false) throws -> Draft? {
+    public func welcomeDocument(explicit: Bool = false) throws -> Draft? {
         let drafts = try scan().drafts
         if explicit, let id = try state("welcomeDraft"), let existing = drafts.first(where: { $0.id == id }) {
             return existing

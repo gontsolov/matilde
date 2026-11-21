@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import MatildeKit
 
 /// The page scrolls as one surface: text and margin cards share the editor's scroll view.
 /// Cards stay a SwiftUI overlay aligned to their passages; this supplies the two pieces the

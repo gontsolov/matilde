@@ -1,5 +1,6 @@
 import XCTest
 @testable import Matilde
+import MatildeKit
 
 /// EDIT-22: the writer's own comments in the comment margin next to Ask Matilde threads, and
 /// comments carried onto new branches.

@@ -4,12 +4,12 @@ import Foundation
 /// snapshots and `.assets` image references intact. Existing files are never replaced.
 extension Workspace {
     /// Drafts shown as one sidebar row: the family members stored in the row's folder.
-    func movableNote(family: String, folder: String) throws -> [Draft] {
+    public func movableNote(family: String, folder: String) throws -> [Draft] {
         try allDrafts().filter { $0.family == family && $0.folder == folder }
             .filter { FileManager.default.fileExists(atPath: (try? url(for: $0.path).path) ?? "") }
     }
 
-    func validFolder(_ folder: String) throws -> URL {
+    public func validFolder(_ folder: String) throws -> URL {
         if folder.isEmpty { return root }
         guard !folder.split(separator: "/").contains(where: { $0.hasPrefix(".") }) else {
             throw WorkspaceError.message("Notes can only move into visible folders.")
@@ -24,7 +24,7 @@ extension Workspace {
 
     /// The first free `Title.md`, `Title 2.md`, … in `folder`, avoiding files on disk,
     /// metadata rows and paths already reserved by the same move.
-    func availablePath(title: String, folder: String, reserved: Set<String> = []) throws -> String {
+    public func availablePath(title: String, folder: String, reserved: Set<String> = []) throws -> String {
         let taken = Set(try allDrafts().map(\.path)).union(reserved)
         var name = title
         var number = 2
@@ -36,7 +36,7 @@ extension Workspace {
     }
 
     /// Relative `.assets/…` image references written by Matilde.
-    static func assetReferences(in text: String) -> [String] {
+    public static func assetReferences(in text: String) -> [String] {
         guard let expression = try? NSRegularExpression(pattern: #"!\[[^\]\n]*\]\(([^\s)]+)\)"#) else { return [] }
         let source = text as NSString
         var references: [String] = []
@@ -53,7 +53,7 @@ extension Workspace {
     /// Move `drafts` into `folder`. Returns the new path for each moved draft id.
     /// Referenced images are copied, not moved, because other drafts and snapshots may share them.
     @discardableResult
-    func move(_ drafts: [Draft], to folder: String,
+    public func move(_ drafts: [Draft], to folder: String,
               moveItem: (URL, URL) throws -> Void = { try FileManager.default.moveItem(at: $0, to: $1) }) throws -> [String: String] {
         let fm = FileManager.default
         _ = try validFolder(folder)

@@ -1,6 +1,7 @@
 import XCTest
 import AppKit
 @testable import Matilde
+import MatildeKit
 
 /// Comments stay on their passages: only deleting the whole passage, or the comment itself, hides them.
 @MainActor

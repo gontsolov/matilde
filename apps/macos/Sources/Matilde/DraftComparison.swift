@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import MatildeKit
 
 /// A second editor owns its buffer and position without changing workspace selection.
 @MainActor

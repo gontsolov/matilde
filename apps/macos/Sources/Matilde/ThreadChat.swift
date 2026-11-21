@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import MatildeKit
 
 /// "Stick to bottom" for a streaming thread: follow new text only while the reader is at (or a
 /// few points from) the end. Scrolling up stops following; scrolling back to the end resumes.

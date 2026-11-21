@@ -1,5 +1,6 @@
 import XCTest
-@testable import Matilde
+@testable import MatildeKit
+import MatildeKit
 
 final class NoteMoveTests: XCTestCase {
     var root: URL!

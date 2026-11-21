@@ -1,24 +1,30 @@
 import Foundation
 
 /// Accumulates OpenAI-compatible SSE deltas, retaining JSON validation for the final reply.
-struct LangdockReplyStream {
-    private(set) var done = false
+public struct LangdockReplyStream {
+    public private(set) var done = false
     private var content = ""
     private var finish: String?
     private var refused = false
 
-    mutating func consume(_ line: String) throws {
+    public mutating func consume(_ line: String) throws {
         guard !done, line.hasPrefix("data:") else { return }
         let payload = line.dropFirst(5).trimmingCharacters(in: .whitespacesAndNewlines)
         if payload == "[DONE]" { done = true; return }
         struct Chunk: Decodable {
-            struct Choice: Decodable {
-                struct Delta: Decodable { let content: String?; let refusal: String? }
-                let index: Int
-                let delta: Delta
-                let finish_reason: String?
+            public struct Choice: Decodable {
+                public struct Delta: Decodable { let content: String?; let refusal: String? }
+                public let index: Int
+                public let delta: Delta
+                public let finish_reason: String?
+
+                public init(index: Int, delta: Delta, finish_reason: String?) {
+                    self.index = index
+                    self.delta = delta
+                    self.finish_reason = finish_reason
+                }
             }
-            let choices: [Choice]
+            public let choices: [Choice]
         }
         guard let chunk = try? JSONDecoder().decode(Chunk.self, from: Data(payload.utf8)) else {
             throw ReviewError.message("Langdock returned an unreadable reply stream. Try again.")
@@ -33,7 +39,7 @@ struct LangdockReplyStream {
         }
     }
 
-    var answer: String {
+    public var answer: String {
         guard !refused,
               let start = content.range(of: #"\A\s*\{\s*"answer"\s*:\s*""#, options: .regularExpression) else { return "" }
         let tail = content[start.upperBound...]
@@ -56,7 +62,7 @@ struct LangdockReplyStream {
         return ""
     }
 
-    func completedResponse() throws -> Data {
+    public func completedResponse() throws -> Data {
         guard done, finish == "stop", !refused else {
             throw ReviewError.message("Langdock’s reply was interrupted. Try again.")
         }

@@ -13,36 +13,48 @@ import Foundation
 /// 5. user: the newest turn: question, focus passage and any draft edits since the previous turn
 ///
 /// Everything before the newest turn is frozen once sent, so consecutive turns share it exactly.
-struct ReplyContext: Codable, Equatable {
+public struct ReplyContext: Codable, Equatable {
     /// Exact content of the draft message.
-    var document: String
+    public var document: String
     /// Exact content of the thread-start message.
-    var thread: String
+    public var thread: String
     /// The scrubbed draft as the conversation last described it; the next update is relative to it.
-    var known: ReviewInput
+    public var known: ReviewInput
     /// Messages up to and including this one were folded into `thread` when the context was rebuilt.
-    var replayAfter: UUID? = nil
+    public var replayAfter: UUID? = nil
+
+    public init(document: String, thread: String, known: ReviewInput, replayAfter: UUID? = nil) {
+        self.document = document
+        self.thread = thread
+        self.known = known
+        self.replayAfter = replayAfter
+    }
 }
 
 /// Everything one chat request needs. `context` is committed to the comment only after success.
-struct ReplyConversation {
-    let context: ReplyContext
+public struct ReplyConversation {
+    public let context: ReplyContext
     /// Delivered messages replayed after the thread-start message.
-    let history: [ReviewMessage]
+    public let history: [ReviewMessage]
     /// Exact content of the newest user message, stored as its `prompt`.
-    let turn: String
+    public let turn: String
     // Plain values for providers that don't build their own prompt.
-    let input: ReviewInput
-    let suggestion: ReviewSuggestion
-    let question: String
+    public let input: ReviewInput
+    public let suggestion: ReviewSuggestion
+    public let question: String
 
-    struct Message: Codable, Equatable {
-        let role: String
-        let content: String
+    public struct Message: Codable, Equatable {
+        public let role: String
+        public let content: String
+
+        public init(role: String, content: String) {
+            self.role = role
+            self.content = content
+        }
     }
 
     /// The chat messages in cache order.
-    func messages(system: String) -> [Message] {
+    public func messages(system: String) -> [Message] {
         var result = [Message(role: "system", content: system),
                       Message(role: "user", content: context.document),
                       Message(role: "user", content: context.thread)]
@@ -54,54 +66,83 @@ struct ReplyConversation {
         result.append(Message(role: "user", content: turn))
         return result
     }
+
+    public init(context: ReplyContext, history: [ReviewMessage], turn: String, input: ReviewInput, suggestion: ReviewSuggestion, question: String) {
+        self.context = context
+        self.history = history
+        self.turn = turn
+        self.input = input
+        self.suggestion = suggestion
+        self.question = question
+    }
 }
 
-enum ReplyPrompt {
+public enum ReplyPrompt {
     /// Replayed turns plus the newest one may use this many bytes before the context is rebuilt
     /// from the current draft (one cache miss, then append-only again).
-    static let historyBudget = 120_000
+    public static let historyBudget = 120_000
     /// Larger body edits are sent as the full new body instead of a removed/inserted pair.
-    static let editBudget = 16_000
-    static let contextLength = 80
-    static let foldedMessages = 12
+    public static let editBudget = 16_000
+    public static let contextLength = 80
+    public static let foldedMessages = 12
 
     /// Sorted keys and fixed escaping: the same values always produce the same bytes.
-    static func encode<T: Encodable>(_ value: T) -> String {
+    public static func encode<T: Encodable>(_ value: T) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return String(decoding: (try? encoder.encode(value)) ?? Data("null".utf8), as: UTF8.self)
     }
 
-    static func scrub(_ text: String) -> String { ReviewInput(title: "", goal: "", body: text).transmitted.body }
+    public static func scrub(_ text: String) -> String { ReviewInput(title: "", goal: "", body: text).transmitted.body }
 
     private struct DocumentBlock: Encodable { let draft: ReviewInput }
     private struct ThreadBlock: Encodable {
         struct Comment: Encodable {
-            let started_by: String
-            let explanation: String?
-            let quote: String
-            let replacement: String?
+            public let started_by: String
+            public let explanation: String?
+            public let quote: String
+            public let replacement: String?
         }
         struct Earlier: Encodable { let role: String; let text: String }
         let comment: Comment
         let earlier_messages: [Earlier]?
     }
-    struct Focus: Encodable, Equatable {
-        let before: String
-        let passage: String
-        let after: String
+    public struct Focus: Encodable, Equatable {
+        public let before: String
+        public let passage: String
+        public let after: String
+
+        public init(before: String, passage: String, after: String) {
+            self.before = before
+            self.passage = passage
+            self.after = after
+        }
     }
-    struct BodyEdit: Encodable, Equatable {
-        let before: String
-        let removed: String
-        let inserted: String
-        let after: String
+    public struct BodyEdit: Encodable, Equatable {
+        public let before: String
+        public let removed: String
+        public let inserted: String
+        public let after: String
+
+        public init(before: String, removed: String, inserted: String, after: String) {
+            self.before = before
+            self.removed = removed
+            self.inserted = inserted
+            self.after = after
+        }
     }
-    struct DraftUpdate: Encodable, Equatable {
-        var title: String? = nil
-        var goal: String? = nil
-        var body_edit: BodyEdit? = nil
-        var body: String? = nil
+    public struct DraftUpdate: Encodable, Equatable {
+        public var title: String? = nil
+        public var goal: String? = nil
+        public var body_edit: BodyEdit? = nil
+        public var body: String? = nil
+
+        public init(title: String? = nil, goal: String? = nil, body_edit: BodyEdit? = nil, body: String? = nil) {
+            self.title = title
+            self.goal = goal
+            self.body_edit = body_edit
+            self.body = body
+        }
     }
     private struct Turn: Encodable {
         let draft_update: DraftUpdate?
@@ -110,17 +151,17 @@ enum ReplyPrompt {
     }
     private struct LegacyTurn: Encodable { let question: String }
 
-    static func legacyTurn(_ text: String) -> String { encode(LegacyTurn(question: scrub(text))) }
+    public static func legacyTurn(_ text: String) -> String { encode(LegacyTurn(question: scrub(text))) }
 
     /// Assistant replies are replayed in the shape they were requested in, answer first.
-    static func assistant(_ message: ReviewMessage) -> String {
+    public static func assistant(_ message: ReviewMessage) -> String {
         "{\"answer\":" + encode(scrub(message.text)) + ",\"replacement\":" + (message.replacement.map { encode(scrub($0)) } ?? "null") + "}"
     }
 
-    static func document(_ draft: ReviewInput) -> String { encode(DocumentBlock(draft: draft)) }
+    public static func document(_ draft: ReviewInput) -> String { encode(DocumentBlock(draft: draft)) }
 
     /// Prepare the next request of a thread. `prior` are its delivered messages, oldest first.
-    static func prepare(input: ReviewInput, suggestion: ReviewSuggestion, writerStarted: Bool = false,
+    public static func prepare(input: ReviewInput, suggestion: ReviewSuggestion, writerStarted: Bool = false,
                         initialReplacement: String? = nil, context: ReplyContext?, prior: [ReviewMessage],
                         question: String) -> ReplyConversation {
         let current = input.transmitted
@@ -160,7 +201,7 @@ enum ReplyPrompt {
     }
 
     /// What changed between two scrubbed drafts, or nil when nothing did.
-    static func update(from old: ReviewInput, to new: ReviewInput) -> DraftUpdate? {
+    public static func update(from old: ReviewInput, to new: ReviewInput) -> DraftUpdate? {
         var update = DraftUpdate()
         if old.title != new.title { update.title = new.title }
         if old.goal != new.goal { update.goal = new.goal }
@@ -186,7 +227,7 @@ enum ReplyPrompt {
 
 extension ReviewComment {
     /// The next chat request for this thread, given its delivered messages.
-    func replyConversation(input: ReviewInput, prior: [ReviewMessage], question: String) -> ReplyConversation {
+    public func replyConversation(input: ReviewInput, prior: [ReviewMessage], question: String) -> ReplyConversation {
         ReplyPrompt.prepare(input: input, suggestion: suggestion, writerStarted: userInitiated == true,
                             initialReplacement: rewriteMessageID == nil ? suggestion.replacement : initialReplacement,
                             context: replyContext, prior: prior, question: question)

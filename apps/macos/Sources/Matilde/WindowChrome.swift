@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import MatildeKit
 
 /// Geometry for the hidden title bar: one header row holds the traffic lights, the sidebar
 /// toggle and the document actions. All values are in the window's content coordinates,

@@ -1,5 +1,8 @@
+// The Langdock HTTPS client needs URLSession.bytes (Apple platforms only).
+#if canImport(Darwin)
 import XCTest
-@testable import Matilde
+@testable import MatildeKit
+import MatildeKit
 
 final class LangdockStreamTests: XCTestCase {
     private func event(_ content: String = "", finish: String? = nil, refusal: String? = nil) throws -> String {
@@ -60,3 +63,4 @@ final class LangdockStreamTests: XCTestCase {
         XCTAssertThrowsError(try oversized.consume(event(String(repeating: "x", count: 32_001))))
     }
 }
+#endif

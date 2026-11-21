@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import MatildeKit
 
 /// Only the document list claims this responder. Text fields and the writing
 /// view keep their native Command-Delete handling when they take focus.

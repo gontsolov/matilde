@@ -1,5 +1,5 @@
 import XCTest
-@testable import Matilde
+@testable import MatildeKit
 import MatildeKit
 
 /// SYNC-02: change tracking, tombstones, the outbox and the migration of existing data.

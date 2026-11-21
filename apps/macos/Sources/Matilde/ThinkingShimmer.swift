@@ -1,4 +1,5 @@
 import SwiftUI
+import MatildeKit
 
 /// A moving highlight confined to the letters, without changing text layout.
 struct ThinkingShimmer: View {

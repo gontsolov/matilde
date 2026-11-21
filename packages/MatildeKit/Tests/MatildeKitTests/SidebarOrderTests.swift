@@ -1,5 +1,6 @@
 import XCTest
-@testable import Matilde
+@testable import MatildeKit
+import MatildeKit
 
 final class SidebarOrderTests: XCTestCase {
     func draft(_ id: String, family: String? = nil, parent: String? = nil, edited: Double) -> Draft {

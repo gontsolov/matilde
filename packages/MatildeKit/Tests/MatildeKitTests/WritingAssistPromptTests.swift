@@ -1,5 +1,8 @@
+// The Langdock HTTPS client needs URLSession.bytes (Apple platforms only).
+#if canImport(Darwin)
 import XCTest
-@testable import Matilde
+@testable import MatildeKit
+import MatildeKit
 
 final class WritingAssistPromptTests: XCTestCase {
     private let input = ReviewInput(title: "Synthetic", goal: "Explain clearly", body: "A synthetic draft about tides.")
@@ -96,3 +99,4 @@ private final class PromptURLProtocol: URLProtocol {
     }
     override func stopLoading() { }
 }
+#endif

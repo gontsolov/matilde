@@ -1,6 +1,7 @@
 import XCTest
 import AppKit
 @testable import Matilde
+import MatildeKit
 
 final class SidebarKeyboardTests: XCTestCase {
     @MainActor

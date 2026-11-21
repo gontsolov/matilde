@@ -1,5 +1,6 @@
 import XCTest
 @testable import Matilde
+import MatildeKit
 
 final class StashTests: XCTestCase {
     var root: URL!

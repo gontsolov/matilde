@@ -1,5 +1,6 @@
 import SwiftUI
 import SceneKit
+import MatildeKit
 
 /// A snapshot textured onto a bending mesh. The editable new draft stays underneath.
 struct PageCurlView: NSViewRepresentable {

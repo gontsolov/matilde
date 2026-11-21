@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import CoreText
+import MatildeKit
 
 extension NSAttributedString.Key {
     static let inlineCode = NSAttributedString.Key("MatildeInlineCode")
