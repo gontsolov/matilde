@@ -64,8 +64,22 @@ final class SyncCenter: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         enabled = defaults.bool(forKey: Self.enabledKey)
-        let server: SyncServer = defaults.string(forKey: Self.serverKey) == SyncServer.staging.baseURL.absoluteString ? .staging : .production
+        let selection = SyncServerSelection.resolve(defaults: defaults, storedKey: Self.serverKey)
+        let server = selection.server
         self.server = server
+        if let replaced = selection.replaced {
+            // The stored server isn't available in this build or launch (e.g. staging in a release
+            // build): treat it like a server change and sign out of the old one, so accounts never mix.
+            let old = Self.makeSession(replaced), current = Self.makeSession(server), keyStore = KeychainAccountKeyStore()
+            Task {
+                if let userId = await old.current?.userId, await current.current?.userId != userId {
+                    try? keyStore.remove(userId: userId)
+                }
+                await old.signOut(serverSide: true)
+            }
+            NSLog("Matilde sync: server changed since the last launch; signed out of the previous one")
+        }
+        defaults.set(server.baseURL.absoluteString, forKey: Self.serverKey)
         session = Self.makeSession(server)
         installHandlers()
         let center = NotificationCenter.default

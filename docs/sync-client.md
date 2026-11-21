@@ -2,7 +2,7 @@
 
 The Mac side of cloud sync: the push/pull engine, the workspace mirror, the HTTPS transport and the Settings → Sync tab. It builds on the record model ([sync-model.md](sync-model.md), SYNC-02), the encryption ([sync-encryption.md](sync-encryption.md), SYNC-06) and the server protocol ([server/PROTOCOL.md](../server/PROTOCOL.md), SYNC-04/05). The server needs no change.
 
-Sync is **off by default**. Settings → Sync turns it on, picks the server (Matilde or Staging), signs in with an email code and sets up the account key.
+Sync is **off by default**. Settings → Sync turns it on, signs in with an email code and sets up the account key.
 
 ## Code
 
@@ -57,7 +57,13 @@ Each step is applied as it comes; an error keeps whatever was applied or acknowl
 
 ## Transport and sessions
 
-- `SyncServer.production` = `https://sync.matilde.page/v1/`, `.staging` = `https://sync-staging.matilde.page/v1/`. UserDefaults `sync.serverURL`.
+- `SyncServer.production` = `https://sync.matilde.page/v1/`, `.staging` = `https://sync-staging.matilde.page/v1/`. The server in use is stored in UserDefaults `sync.serverURL`.
+- Release builds (including `bash scripts/build-app.sh`, which builds `-c release`) always use production and show no Server picker. Staging is for testing only (`SyncServerSelection`):
+  - persistent: `defaults write app.matilde.local sync.server staging` (quit Matilde first; undo with `defaults delete app.matilde.local sync.server`);
+  - one launch: `open build/Matilde.app --args --sync-server staging` (`production` also accepted). The next launch without it goes back to production.
+  - Order: launch argument, then the `sync.server` default, then (debug builds only) the Settings picker's stored choice, else production. Unknown values mean production.
+  - Debug builds (`swift run`, `swift build`) also show a Server picker (Matilde / Staging) in Settings → Sync.
+- If the server chosen at launch differs from the stored one (e.g. staging stored by an earlier build, or the staging override was removed), it is a server change: the app signs out of the old server (revokes the session, forgets its tokens and, if it's a different account, its account key on this Mac), so accounts never mix. Signing in to staging again after that needs its recovery key.
 - Every request sends `X-Matilde-Build`: `CFBundleVersion` a.b.c as `a*10000 + b*100 + c` (0.1.19 → 119); development builds send 0. `426 upgrade_required` stops sync and shows "Update Matilde to keep syncing."
 - Tokens live only in the Keychain (service `app.matilde.local.sync.session`, account = server host, this device only). The access token is refreshed 60 s before expiry and once after a 401; refreshes are serialized and the rotated refresh token is stored before use. `invalid_refresh_token`, `refresh_token_reused`, `session_revoked` and `account_deleted` (or WebSocket close 4001/4002) end the session: tokens forgotten, sign-in shown.
 - Backoff 1–60 s with ±20 % jitter, or `Retry-After`.

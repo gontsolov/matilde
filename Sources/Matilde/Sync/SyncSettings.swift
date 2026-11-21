@@ -13,7 +13,7 @@ struct SyncSettingsView: View {
         Form {
             Section {
                 Toggle("Sync", isOn: Binding(get: { center.enabled }, set: { center.setEnabled($0) }))
-                if center.enabled {
+                if center.enabled && SyncServerSelection.showsPicker {
                     Picker("Server", selection: Binding(get: { center.server.isStaging }, set: { center.setServer($0 ? .staging : .production) })) {
                         Text("Matilde").tag(false)
                         Text("Staging").tag(true)

@@ -28,6 +28,68 @@ struct SyncServer: Equatable, Sendable {
     var isStaging: Bool { baseURL.host?.contains("staging") == true }
 }
 
+/// Which sync server this launch uses. Release builds only offer the real server; staging is
+/// for testing and is chosen with a launch argument (`--sync-server staging`) or a hidden
+/// default (`defaults write app.matilde.local sync.server staging`). Debug builds also show a
+/// Server picker in Settings → Sync, stored in `sync.serverURL`.
+enum SyncServerSelection {
+    /// Hidden UserDefaults key: `staging` or `production`. Also settable for one launch as `-sync.server staging`.
+    static let overrideKey = "sync.server"
+    static let launchArgument = "--sync-server"
+
+    static var isDebugBuild: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    /// Debug builds show the Server picker in Settings.
+    static var showsPicker: Bool { isDebugBuild }
+
+    struct Resolution: Equatable {
+        var server: SyncServer
+        /// The server stored from an earlier launch when it differs from `server`: sign out of
+        /// that one (its session belongs to another account store) before using `server`.
+        var replaced: SyncServer?
+    }
+
+    static func server(named name: String?) -> SyncServer? {
+        switch name?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "staging": return .staging
+        case "production", "matilde": return .production
+        default: return nil
+        }
+    }
+
+    static func server(storedURL: String?) -> SyncServer? {
+        switch storedURL {
+        case SyncServer.staging.baseURL.absoluteString: return .staging
+        case SyncServer.production.baseURL.absoluteString: return .production
+        default: return nil
+        }
+    }
+
+    /// The launch argument wins, then the hidden default; otherwise debug builds keep the
+    /// picker's stored choice and release builds always use production.
+    static func resolve(arguments: [String], override: String?, storedURL: String?, debug: Bool) -> Resolution {
+        var requested: SyncServer?
+        if let index = arguments.firstIndex(of: launchArgument), arguments.count > index + 1 {
+            requested = server(named: arguments[index + 1])
+        }
+        if requested == nil { requested = server(named: override) }
+        let stored = server(storedURL: storedURL)
+        let chosen = requested ?? (debug ? stored : nil) ?? .production
+        return Resolution(server: chosen, replaced: stored.flatMap { $0 == chosen ? nil : $0 })
+    }
+
+    static func resolve(defaults: UserDefaults, storedKey: String, arguments: [String] = CommandLine.arguments) -> Resolution {
+        resolve(arguments: arguments, override: defaults.string(forKey: overrideKey),
+                storedURL: defaults.string(forKey: storedKey), debug: isDebugBuild)
+    }
+}
+
 enum SyncBuild {
     /// `X-Matilde-Build`: the app version as one integer (0.1.19 → 119; 1.2.3 → 10203). 0 for
     /// development builds without a bundle version, which the server accepts unless it sets a minimum.
