@@ -4,7 +4,8 @@ import struct
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).parents[2]
+ROOT = Path(__file__).parents[2]  # apps/macos
+REPO = ROOT.parents[1]
 spec = importlib.util.spec_from_file_location("app_icons", ROOT / "scripts/app-icons.py")
 app_icons = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(app_icons)
@@ -67,7 +68,7 @@ class AppIconTests(unittest.TestCase):
 
     def test_bundling(self):
         self.assertIn('.copy("Resources/AppIcons")', (ROOT / "Package.swift").read_text())
-        self.assertTrue(re.search(r"AppIcons/\*\.png", (ROOT / ".github/workflows/ci.yml").read_text()))
+        self.assertTrue(re.search(r"AppIcons/\*\.png", (REPO / ".github/workflows/ci.yml").read_text()))
 
 
 if __name__ == "__main__":

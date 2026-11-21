@@ -3,14 +3,61 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Also package the DMG like a release (no signing, no publishing)'
+        required: false
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  # Decides which parts of the monorepo changed, so web-only or server-only changes skip the macOS build.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      macos: ${{ steps.filter.outputs.macos }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [[ "$EVENT" == workflow_dispatch ]]; then echo macos=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [[ "$EVENT" == pull_request ]]; then
+            range="$(git merge-base "$BASE_SHA" "$HEAD_SHA")...$HEAD_SHA"
+          elif [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # New branch or unknown history: build everything.
+            echo macos=true >> "$GITHUB_OUTPUT"; exit 0
+          else
+            range="$BEFORE...$AFTER"
+          fi
+          git diff --name-only "$range" > "$RUNNER_TEMP/changed.txt"
+          cat "$RUNNER_TEMP/changed.txt"
+          # The macOS app, shared Swift packages, the shared sync test vectors, and the workflows that build them.
+          if grep -qE '^(apps/macos/|packages/|docs/sync-vectors/|\.github/workflows/(ci|release)\.yml$)' "$RUNNER_TEMP/changed.txt"; then
+            echo macos=true >> "$GITHUB_OUTPUT"
+          else
+            echo macos=false >> "$GITHUB_OUTPUT"
+          fi
+
   macos:
+    needs: changes
+    if: needs.changes.outputs.macos == 'true'
     runs-on: macos-15
+    defaults:
+      run:
+        working-directory: apps/macos
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Test
@@ -33,3 +80,30 @@ jobs:
           test "$appicons" -eq "$expected"
           bash -n scripts/*.sh
           python3 -m unittest discover -s scripts/tests
+      # Manual dry run of the release packaging path: same scripts as the Release workflow,
+      # without the Sparkle key, signing or publishing.
+      - name: Package DMG (dry run)
+        if: github.event_name == 'workflow_dispatch' && inputs.package
+        run: |
+          bash scripts/package-release.sh
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/Matilde.app/Contents/Info.plist)
+          test "$(/usr/libexec/PlistBuddy -c 'Print SUFeedURL' build/Matilde.app/Contents/Info.plist)" = "https://github.com/gontsolov/matilde/releases/latest/download/appcast.xml"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' build/Matilde.app/Contents/Info.plist)" = app.matilde.local
+          test -f "build/releases/$VERSION/Matilde.dmg"
+          (cd "build/releases/$VERSION" && shasum -a 256 -c SHA256SUMS)
+          test -x .build/artifacts/sparkle/Sparkle/bin/generate_appcast
+          ls -l "build/releases/$VERSION"
+
+  # The single check to require on main: always reports, passes when the macOS job passed or was skipped.
+  required:
+    if: always()
+    needs: [changes, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          MACOS: ${{ needs.macos.result }}
+        run: |
+          echo "changes=$CHANGES macos=$MACOS"
+          [[ "$CHANGES" == success ]] || exit 1
+          [[ "$MACOS" == success || "$MACOS" == skipped ]] || exit 1

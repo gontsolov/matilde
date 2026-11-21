@@ -22,6 +22,10 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       INPUT_VERSION: ${{ inputs.version }}
       SIGN_WITH_APPLE: ${{ vars.APPLE_SIGNING_ENABLED }}
+    # The macOS app and its release scripts live in apps/macos.
+    defaults:
+      run:
+        working-directory: apps/macos
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,9 +65,9 @@ jobs:
         with:
           name: Matilde-${{ env.MATILDE_VERSION }}
           path: |
-            build/releases/${{ env.MATILDE_VERSION }}/Matilde.dmg
-            build/releases/${{ env.MATILDE_VERSION }}/appcast.xml
-            build/releases/${{ env.MATILDE_VERSION }}/SHA256SUMS
+            apps/macos/build/releases/${{ env.MATILDE_VERSION }}/Matilde.dmg
+            apps/macos/build/releases/${{ env.MATILDE_VERSION }}/appcast.xml
+            apps/macos/build/releases/${{ env.MATILDE_VERSION }}/SHA256SUMS
           if-no-files-found: error
       - name: Publish release
         run: bash scripts/publish-release.sh

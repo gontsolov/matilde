@@ -20,7 +20,7 @@ Open the DMG and drag Matilde into Applications. Early builds are not Apple-nota
 
 Matilde is built with SwiftUI, an AppKit Markdown editor, SceneKit and SQLite.
 
-Build the app with `bash scripts/build-app.sh`, then open `build/Matilde.app`. Requires an Apple silicon Mac with Xcode and Swift 6; CI builds on macOS 15.
+Build the app with `cd apps/macos && bash scripts/build-app.sh`, then open `apps/macos/build/Matilde.app`. Requires an Apple silicon Mac with Xcode and Swift 6; CI builds on macOS 15. Tests: `swift test --disable-sandbox` in `apps/macos`.
 
 On first launch, **Start writing** creates or reuses `Documents/Matilde`. **Choose another folder** selects a custom workspace. Matilde remembers your workspace and editing state afterward.
 
@@ -33,3 +33,15 @@ Features, saved ideas, fixes, and progress: [living roadmap and backlog](ROADMAP
 Canvas behavior and remaining work: [zoom out to a board of pinned drafts](docs/canvas-followup.md).
 
 Builds, GitHub Actions, update signing, and optional Apple notarization: [release flow](docs/releases.md).
+
+## Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `apps/macos/` | The macOS app: Swift package, sources, tests, icon sources, `Config/release.json`, release notes and the build/release scripts |
+| `apps/web/` | The matilde.page landing page (added in a follow-up) |
+| `server/` | The optional sync server (Cloudflare Worker); see [server/README.md](server/README.md) |
+| `docs/` | Product, architecture, sync and release documentation |
+| `scripts/` | Repo-wide scripts (shared sync test vectors) |
+
+An iOS app (`apps/ios/`) and shared Swift packages (`packages/`, e.g. the sync engine and encryption) are planned; they don't exist yet.
