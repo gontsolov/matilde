@@ -155,6 +155,7 @@ private struct NoteList: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .scrollEdgeEffectStyle(.soft, for: .vertical)
         .background(Paper.background)
         .scrollDismissesKeyboard(.immediately)
         // Pull down past the top to search: the overscroll grows the affordance, letting go past

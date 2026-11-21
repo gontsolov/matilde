@@ -28,6 +28,12 @@ struct NoteTextView: UIViewRepresentable {
         view.isScrollEnabled = true
         view.alwaysBounceVertical = true
         view.keyboardDismissMode = .interactive
+        // Edge to edge: the safe area (bars, home indicator) comes in as content inset, so text
+        // scrolls under the glass and fades out with the soft edge effect.
+        view.contentInsetAdjustmentBehavior = .always
+        view.automaticallyAdjustsScrollIndicatorInsets = true
+        view.topEdgeEffect.style = .soft
+        view.bottomEdgeEffect.style = .soft
         view.textContainerInset = UIEdgeInsets(top: 8, left: 22, bottom: 48, right: 22)
         view.textContainer.lineFragmentPadding = 0
         view.adjustsFontForContentSizeCategory = true
@@ -235,6 +241,24 @@ final class NoteUITextView: UITextView {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         observeKeyboard()
+    }
+
+    /// Registers this text view as the screen's content scroll view, so the navigation bar
+    /// tracks it (title, soft scroll edge) as it does a SwiftUI ScrollView. The nearest view
+    /// controllers up to the navigation controller's child all point at it.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil else { return }
+        var responder: UIResponder? = next
+        while let current = responder {
+            if let controller = current as? UIViewController {
+                if controller is UINavigationController { break }
+                controller.setContentScrollView(self, for: .top)
+                controller.setContentScrollView(self, for: .bottom)
+                if controller.parent is UINavigationController { break }
+            }
+            responder = current.next
+        }
     }
 
     private func observeKeyboard() {

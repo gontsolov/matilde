@@ -38,8 +38,13 @@ struct NoteEditorView: View {
     }
 
     var body: some View {
+        // The text view runs under the navigation bar, the home indicator and the keyboard
+        // (frame edge to edge); its insets keep the text clear of them and the bars' soft scroll
+        // edge fades the text out underneath instead of a hard cut (`NoteUITextView`).
         NoteTextView(model: model, highlights: highlights)
+            .ignoresSafeArea(.container, edges: .vertical)
             .ignoresSafeArea(.keyboard)
+            .scrollEdgeEffectStyle(.soft, for: .vertical)
             .background(Paper.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
