@@ -33,6 +33,8 @@ public enum SyncOnboardingCopy {
     public static let saveKeyTitle = "Keep your recovery key safe"
     public static let saveKeyText = "It’s the only way to unlock your notes on a new device. We can’t recover it for you."
     public static let savedConfirmation = "I’ve saved it somewhere safe"
+    public static let savedToICloud = "Also saved in your iCloud Keychain, so your other Apple devices can fill it in."
+    public static let filledFromICloud = "Filled in from your iCloud Keychain."
     public static let enterKeyTitle = "Unlock your notes"
     public static let enterKeyText = "Enter the recovery key you saved when you first turned on sync. Spaces and dashes are fine."
     public static let syncingTitle = "Bringing your notes over…"

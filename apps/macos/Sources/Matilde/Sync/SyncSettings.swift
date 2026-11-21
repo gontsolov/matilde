@@ -239,6 +239,9 @@ struct SyncSetupSheet: View {
                     Button("Save…") { RecoveryKeyExport.save(code: recovery, email: center.signedInEmail) }
                     Button("Print…") { RecoveryKeyExport.print(code: recovery, email: center.signedInEmail) }
                 }
+                if center.recoveryKeyInICloud {
+                    Text(SyncOnboardingCopy.savedToICloud).font(.footnote).foregroundStyle(.secondary)
+                }
                 Toggle(SyncOnboardingCopy.savedConfirmation, isOn: $saved)
             }
         case .enterKey:
@@ -249,6 +252,11 @@ struct SyncSetupSheet: View {
                     .font(.system(size: 16, weight: .medium, design: .monospaced))
                     .modifier(MacShake(shakes: shakes))
                     .onSubmit(unlock)
+                    .task {
+                        // A copy another device kept in iCloud Keychain fills the field.
+                        guard key.isEmpty, let stored = await center.storedRecoveryKey() else { return }
+                        key = RecoveryKeyInput.formatted(stored)
+                    }
                 if let message = RecoveryKeyInput.message(for: RecoveryKeyInput.state(of: key)) {
                     Text(message).foregroundStyle(.red).font(.callout)
                 } else if RecoveryKeyInput.state(of: key) == .valid {

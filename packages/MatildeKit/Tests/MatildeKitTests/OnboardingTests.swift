@@ -194,3 +194,18 @@ final class FirstRunAndSearchTests: XCTestCase {
         XCTAssertEqual(search.mode, .browsing)
     }
 }
+
+final class RecoveryKeyBackupTests: XCTestCase {
+    func testMemoryBackupKeepsOneKeyPerAccount() {
+        let backup = MemoryRecoveryKeyBackup()
+        XCTAssertNil(backup.load(userId: "u1"))
+        XCTAssertTrue(backup.save(code: "MTLD-AAAA", userId: "u1"))
+        backup.save(code: "MTLD-BBBB", userId: "u2")
+        XCTAssertEqual(backup.load(userId: "u1"), "MTLD-AAAA")
+        backup.save(code: "MTLD-CCCC", userId: "u1")
+        XCTAssertEqual(backup.load(userId: "u1"), "MTLD-CCCC")
+        backup.remove(userId: "u1")
+        XCTAssertNil(backup.load(userId: "u1"))
+        XCTAssertEqual(backup.load(userId: "u2"), "MTLD-BBBB")
+    }
+}

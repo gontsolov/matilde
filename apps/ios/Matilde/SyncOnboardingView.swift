@@ -404,6 +404,11 @@ private struct SaveKeyStep: View {
                 }
                 .controlSize(.large)
                 .tint(Paper.accent)
+                if sync.recoveryKeyInICloud {
+                    Label(SyncOnboardingCopy.savedToICloud, systemImage: "key.icloud")
+                        .font(.footnote)
+                        .foregroundStyle(Paper.muted)
+                }
                 Toggle(SyncOnboardingCopy.savedConfirmation, isOn: $saved)
                     .font(.system(size: 16))
                     .foregroundStyle(Paper.ink)
@@ -464,6 +469,7 @@ private struct EnterKeyStep: View {
     let failures: Int
     @State private var key = ""
     @State private var shakes: CGFloat = 0
+    @State private var filledFromICloud = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -487,7 +493,9 @@ private struct EnterKeyStep: View {
                     } else if case .incomplete(let remaining) = state {
                         Text("\(remaining) characters to go").foregroundStyle(Paper.muted)
                     } else if state == .valid {
-                        Label("Looks right", systemImage: "checkmark.circle").foregroundStyle(Paper.accent)
+                        Label(filledFromICloud ? SyncOnboardingCopy.filledFromICloud : "Looks right",
+                              systemImage: filledFromICloud ? "key.icloud" : "checkmark.circle")
+                            .foregroundStyle(Paper.accent)
                     }
                 }
                 .font(.callout)
@@ -504,6 +512,12 @@ private struct EnterKeyStep: View {
                 .buttonStyle(.matildeSecondary)
         }
         .onAppear { focused = true }
+        .task {
+            // A copy another device kept in iCloud Keychain fills the field; the user still taps Unlock.
+            guard key.isEmpty, let stored = await sync.storedRecoveryKey() else { return }
+            key = RecoveryKeyInput.formatted(stored)
+            filledFromICloud = true
+        }
         .onChange(of: key) { _, new in
             // Format into groups as the user types, unless that would fight a deletion.
             let formatted = RecoveryKeyInput.formatted(new)
