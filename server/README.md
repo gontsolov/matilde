@@ -136,11 +136,35 @@ If the old private key wasn't kept, just replace `TOKEN_SIGNING_KEY`: every devi
    npm run migrate:production && npm run deploy:production
    curl https://sync.matilde.page/v1/health
    ```
-8. **GitHub (for a later deploy workflow):**
+8. **GitHub (deploy workflow):**
    - Create a Cloudflare API token (My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template), limited to this account and the domain's zone, and add **Account → D1 → Edit**. The template already has Workers Scripts (includes Durable Objects), Workers R2 Storage, Workers Routes and Account Settings read. If deploying the custom domain reports a permission error, add **Zone → DNS → Edit**.
-   - Repository → Settings → Secrets and variables → Actions: add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (Dashboard → Workers & Pages → Account ID).
-   - Repository → Settings → Environments → New environment `production`: required reviewer = the owner, deployment branches = `main` only. Move the two secrets into this environment if only production deploys should see them.
-   - No deploy workflow exists yet; deploys are manual (`npm run deploy:*`) until one is added.
+   - Repository → Settings → Secrets and variables → Actions: add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (Dashboard → Workers & Pages → Account ID) as **repository** secrets, so both the staging and the production job can read them. (Done 2026-11-18.)
+   - Repository → Settings → Environments → `production`: required reviewer = the owner, deployment branches = `main` only. (Done 2026-11-18.) The `staging` environment is created automatically by the first run and needs no protection.
+
+## Deploying
+
+Deploys run from GitHub Actions (`.github/workflows/server.yml`):
+
+- **Pull requests** touching `server/**`: `npm ci`, `npm run typecheck`, `npm test`. No deploy.
+- **Push to `main`** touching `server/**` (or **Run workflow** on `main` in the Actions tab): the same checks, then
+  1. **staging**: `npm run migrate:staging` (D1 migrations, before the Worker), `npm run deploy:staging`, then `scripts/smoke-health.sh`, which fails the job unless `https://sync-staging.matilde.page/v1/health` returns 200 with `"ok":true`;
+  2. **production**: waits for the owner's approval (Actions → the run → **Review deployments** → `production` → Approve), then the same three steps against `https://sync.matilde.page`.
+
+Deploys never overlap: each environment has its own concurrency group and a running deploy is never cancelled. If several runs pile up, only the newest waiting one is kept, so approve the latest run. Rejecting (or not approving) the production step leaves production on its previous version; staging already has the new one.
+
+Migrations run before the new Worker is live, so every migration must work with the Worker version that is still running (additive changes only; see Operations).
+
+**Manual fallback** (e.g. Actions unavailable), from `server/` and logged in with `npx wrangler login`:
+
+```sh
+npm run check
+npm run migrate:staging && npm run deploy:staging
+bash scripts/smoke-health.sh https://sync-staging.matilde.page/v1/health
+npm run migrate:production && npm run deploy:production
+bash scripts/smoke-health.sh https://sync.matilde.page/v1/health
+```
+
+Secrets (`wrangler secret put`) are not part of the workflow; set them by hand as described under Secrets.
 
 ## Operations
 
