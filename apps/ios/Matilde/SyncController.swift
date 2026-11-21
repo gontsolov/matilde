@@ -37,6 +37,7 @@ final class SyncController {
     private(set) var syncing = false
     var message: String? = nil
     private(set) var busy = false
+    private(set) var devices: [SyncDeviceSummary] = []
 
     /// Saves pending edits before a sync reads the files (set by the library).
     @ObservationIgnored var prepare: (@MainActor () -> Void)?
@@ -162,6 +163,43 @@ final class SyncController {
         }
     }
 
+
+    // MARK: Onboarding (the guided "Sync your notes" flow)
+
+    /// The phase in the shared onboarding flow's terms.
+    var setupPhase: SyncSetupPhase {
+        switch phase {
+        case .signedOut: return .signedOut
+        case .awaitingCode(let email): return .awaitingCode(email: email)
+        case .checkingKey: return .checkingKey
+        case .needsRecoveryKey: return .needsRecoveryKey
+        case .showRecoveryKey(let code): return .showRecoveryKey(code: code)
+        case .ready: return .ready
+        case .updateRequired: return .updateRequired
+        }
+    }
+
+    /// The email this device signed in with, for Settings (kept in UserDefaults, cleared on sign-out).
+    var signedInEmail: String? { defaults.string(forKey: Self.emailKey) }
+    static let emailKey = "sync.email"
+
+    /// "I've saved it" on the new account's recovery key.
+    func acknowledgeRecoveryKey() {
+        guard case .showRecoveryKey = phase else { return }
+        phase = .ready
+        startEngine()
+    }
+
+    /// Refreshes `devices` from the server.
+    func loadDevices() {
+        guard phase == .ready else { return }
+        let transport = transport, ring = ring
+        Task {
+            guard let list = try? await transport.devices() else { return }
+            self.devices = list.map { SyncDeviceSummary($0, ring: ring) }
+        }
+    }
+
     // MARK: Sign-in and keys
 
     private func resume() async {
@@ -184,6 +222,7 @@ final class SyncController {
         perform {
             let response = try await SyncAuthClient(http: self.session.http).verifyEmail(email, code: code, deviceId: self.deviceId)
             try await self.session.signIn(response.tokens())
+            self.defaults.set(email, forKey: Self.emailKey)
             NSLog("Matilde sync: signed in")
             await self.setUpKey()
         }
@@ -259,6 +298,8 @@ final class SyncController {
         phase = .signedOut
         status = ""
         lastSynced = nil
+        devices = []
+        defaults.removeObject(forKey: Self.emailKey)
         if let userId { try? keyStore.remove(userId: userId) }
         Task { await session.signOut(serverSide: true) }
         NSLog("Matilde sync: signed out")
