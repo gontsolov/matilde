@@ -7,6 +7,7 @@ Shared Swift code for the Matilde apps (`apps/macos`, `apps/ios`). Foundation an
 | `Sources/MatildeKit/Records/` | Portable sync records: HLC, record ids, canonical fields, payloads per type ([sync model](../../docs/sync-model.md)) |
 | `Sources/MatildeKit/SyncCrypto/` | End-to-end encryption: account key ring, record/blob envelopes, recovery key, key slots, Keychain store ([sync encryption](../../docs/sync-encryption.md)) |
 | `Sources/MatildeKit/Sync/` | Sync client core: wire types, codec, merge rules, `SyncEngine`, HTTPS transport, `WorkspaceSyncStore` (mirror into files and tables) ([sync client](../../docs/sync-client.md)) |
+| `Sources/MatildeKit/Onboarding/` | Guided sync setup steps (`SyncOnboardingFlow`), email, code and recovery-key input checks, the recovery key file, shared wording (`SyncOnboardingCopy`), the iPhone first-run tour and pull-to-search state |
 | `Sources/MatildeKit/Storage/` | The workspace store: Markdown files, SQLite metadata (`Workspace`, `WorkspaceStore`), the record ledger, trash, sidebar order, note moves, stash storage, board placement |
 | `Sources/MatildeKit/Review/` | Review data: private comments (`UserComment`), Ask Matilde reviews and threads (`WritingReview`, `ReviewTracking`, `ThreadTimeline`); stored in SQLite, never in the Markdown |
 | `Sources/MatildeKit/Assist/` | Ask Matilde client: `LangdockClient`, reply streaming, prompts, `APIKeyStore` (Keychain), `WritingReviewModel` |

@@ -27,16 +27,21 @@ Running on a device or TestFlight needs a development team (`DEVELOPMENT_TEAM` i
 | Path | Contents |
 | --- | --- |
 | `Matilde/MatildeApp.swift` | App entry; wires the library to sync |
-| `Matilde/RootView.swift` | Notes list by folder (`NavigationSplitView`), search, pull to refresh, new note/folder, swipe to delete, sync status |
+| `Matilde/RootView.swift` | Notes list by folder (`NavigationSplitView`), pull down to search (IOS-14), new note/folder, swipe to delete, sync attention; hosts the splash, first-run tour and sync setup |
+| `Matilde/SyncOnboardingView.swift` | Guided sync setup, one step per screen (IOS-12); `SyncCallToAction` |
+| `Matilde/FirstRunView.swift` | Launch splash and first-run tour (IOS-13) |
+| `Matilde/Brand.swift` | Landing-page button colours, primary and secondary button styles, shake effect |
 | `Matilde/NoteLibrary.swift` | The notes on this phone: a MatildeKit `Workspace` in Application Support (IOS-04) |
 | `Matilde/SyncController.swift` | Sign-in, recovery key, sync runs on foreground, live channel and poll (IOS-03) |
 | `Matilde/NoteEditorModel.swift`, `NoteEditorView.swift`, `NoteTextView.swift` | Editor (IOS-05): title, goal, autosave, TextKit 2 text view with Markdown styling, keyboard bar, edit menu, highlights; share and Markdown export |
 | `Matilde/MarkdownStyle.swift` | Markdown spans and attributes (Newsreader, Mac heading steps) |
 | `Matilde/CommentStore.swift`, `CommentSheets.swift` | Private comments (IOS-06) |
 | `Matilde/ThreadSheet.swift` | Ask Matilde thread: explanation, timeline, streaming reply, Accept (IOS-08) |
-| `Matilde/SettingsView.swift` | Settings: Sync, Connections (Langdock key, region, model), About |
+| `Matilde/SettingsView.swift` | Settings: Sync (call to action, or status, account and devices), Connections (Langdock key, region, model), About (Show Welcome Again) |
 | `Matilde/Paper.swift` | Matilde's paper colours and Newsreader type (fonts shared with the Mac app) |
-| `Matilde/Assets.xcassets` | App icon from `scripts/app-icon.py` (IOS-11) |
-| `MatildeTests/` | Swift Testing tests |
+| `Matilde/Assets.xcassets` | App icon from `scripts/app-icon.py` (IOS-11); launch screen colour and logo (IOS-13) |
+| `MatildeTests/` | Swift Testing tests (the onboarding logic is tested in MatildeKit, `OnboardingTests`) |
 
 CI: the `ios` job in `.github/workflows/ci.yml` (macos-26) generates the project and runs the tests on the iPhone simulator.
+
+To see the first-run tour again: Settings → About → Show Welcome Again (or delete the app). To see the sync setup again: Settings → Sync → Sign Out, then Set Up Sync.
