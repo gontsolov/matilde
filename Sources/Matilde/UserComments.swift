@@ -163,7 +163,7 @@ enum CommentAnchor {
 }
 
 extension Workspace {
-    private func ensureUserComments() throws {
+    func ensureUserComments() throws {
         try db.execute("CREATE TABLE IF NOT EXISTS user_comments (id TEXT PRIMARY KEY, draft_id TEXT NOT NULL, body TEXT NOT NULL, location INTEGER NOT NULL, length INTEGER NOT NULL, quote TEXT NOT NULL, prefix TEXT NOT NULL, suffix TEXT NOT NULL, created REAL NOT NULL, modified REAL NOT NULL)")
         try db.execute("CREATE INDEX IF NOT EXISTS user_comments_draft ON user_comments (draft_id)")
         // Archived comments are kept but no longer shown (added after the first comment release).
@@ -266,6 +266,13 @@ final class UserCommentStore: ObservableObject {
         }
         persist(zip(loaded, anchored).filter { $0.0 != $0.1 }.map { $0.1 })
         comments = anchored
+    }
+
+    /// Sync changed the database: re-read this draft's comments unless one is being edited.
+    func reload() {
+        guard activeID == nil, let workspace, let draftID else { return }
+        self.workspace = nil
+        bind(workspace: workspace, draftID: draftID, body: body)
     }
 
     func changed(workspace: Workspace?, draftID: String?, body: String) {

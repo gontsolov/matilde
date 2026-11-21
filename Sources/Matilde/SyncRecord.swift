@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 // SYNC-02: the portable, sync-ready record model. Foundation (+ CryptoKit for hashing) only:
 // no AppKit, no networking. Contract: docs/sync-model.md; wire format: server/PROTOCOL.md.

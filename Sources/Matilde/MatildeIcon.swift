@@ -44,6 +44,7 @@ enum MatildeIcon: String, CaseIterable {
     // Settings tabs
     case typography = "typography"
     case key = "key"
+    case sync = "cloud"
     // Slash menu
     case heading = "heading"
     case bulletList = "list"

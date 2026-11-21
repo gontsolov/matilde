@@ -654,6 +654,22 @@ Manual Mac checklist (disposable workspace under `build/` or a copy, not the onl
 - Delete a private comment, quit: its row has `deleted = 1`. Trash a draft, quit: its draft and body rows are tombstones and a `type = 10` row appears.
 - Console.app (filter "Matilde sync"): only counts, never titles, paths or text.
 
+### 2026-11-18 — Client sync engine (SYNC-07)
+`Sources/Matilde/Sync/`, design in [sync-client.md](sync-client.md). Linux sandbox (Swift 6.0.3, swift-crypto in place of CryptoKit): the engine, codec, merge rules and HTTPS transport with `SyncEngineTests` (25, one macOS-only compression skip) and `SyncTransportTests` (8) passed; `WorkspaceSyncStore` with the real `Workspace` and SQLite and `WorkspaceSyncTests` (7) passed with the AppKit-only review types stubbed. Performance with the fake server (Linux debug build): 1000 drafts (2000 records) pushed in 0.19 s with 11 requests, pulled and applied on a second workspace in 0.20 s with 4 requests, no work on the main thread. `SyncCenter` and the Settings tab are AppKit and were only built by CI. CI on PR #29 (run 44421385889, macOS-15, head `10bb4fc`) passed: 335 Swift tests (one opt-in skip) including the 40 new ones and DEFLATE compression, app build, signature and packaging.
+
+Manual Mac checklist (disposable workspaces under `build/`, never the only copy of real writing; the staging server must be deployed):
+- Point the app at staging: quit Matilde, run `defaults write app.matilde.local sync.server staging`, launch `build/Matilde.app` (a `bash scripts/build-app.sh` build is a release build, so the Server picker is hidden; afterwards `defaults delete app.matilde.local sync.server`). Settings → Sync: off by default, no Server picker. Turn it on, enter an email, Send Code, enter the mailed code, Sign In.
+- First device: the recovery key appears once; Copy works; a wrong last group is refused, the right one in lowercase is accepted. Keychain Access shows "Matilde — sync encryption key" and a `app.matilde.local.sync.session` item, both this-device-only.
+- Second workspace on the same Mac (`--workspace build/sync-b`, a different macOS user, or a second Mac): sign in with the same email, enter the recovery key. A wrong key shows an error; the right one starts syncing and the first workspace's drafts appear.
+- Edit a draft on A; within ~10 s it changes on B. Rename a draft and move it to a folder; create a folder; branch a draft; set a goal: all arrive.
+- Move a draft to Trash on A: on B it goes to the macOS Trash, not deleted.
+- Conflict: disconnect B from the network (or quit A), edit the same paragraph on both, reconnect: one keeps the server text, a branch "Title — from <Mac name>" holds the other text; nothing is lost.
+- Paste an image on A: it shows on B. Add a private comment and an Ask Matilde thread with a reply on A: both appear on B; reading the thread on B clears its unread dot on A.
+- Offline: turn Wi-Fi off, edit on A (status says Offline), turn it back on: the edits arrive without Sync Now.
+- Typing stays smooth during a sync of a large workspace; quitting does not wait.
+- Sign Out on B: sign-in appears again; signing back in asks for the recovery key. Turn Sync off: no more network traffic (Little Snitch or `nettop`).
+- Console.app, filter "Matilde sync": only counts, status codes and error codes, never titles, paths, emails, codes or text.
+
 ### 0.1.20 release preparation — 2026-11-21
 Owner explicitly requested the release ("ship 0.1.20") after checking a main build on a copy of a real workspace on their Mac. Latest tag was `v0.1.19`, so this is 0.1.20. `git log v0.1.19..origin/main` contains the 0.1.19 publication record, #24 (SYNC-01), #25 (sync server, SYNC-04/05, `server/` only), #26 (AI-17), #27 (SYNC-06 crypto core, no UI) and #28 (SYNC-02). Nothing in the app connects to the sync server and there is no sync UI. CI on main head `cb8c73b` (run 44416165232, macOS-15) passed; the earlier CI run on #25's merge (44411985479) failed in Test and was superseded by the green runs after #26–#28. PR #29 (SYNC-07, draft) is not included. Version set to 0.1.20 with release notes. The owner's Mac check covered SYNC-01, SYNC-02 and AI-17, now Done in ROADMAP.
 

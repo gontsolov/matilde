@@ -136,7 +136,7 @@ SF_REPLACED = {
     "compare": ["rectangle.split.2x1"], "fit": ["arrow.up.left.and.arrow.down.right"],
     "activeDraft": ["pencil.tip"], "note": ["note.text"], "archive": ["archivebox"],
     "done": ["checkmark.circle.fill"], "send": ["arrow.up.circle.fill"], "stopReply": ["stop.circle.fill"],
-    "typography": ["textformat"], "key": ["key"], "heading": ["textformat.size"], "bulletList": ["list.bullet"],
+    "typography": ["textformat"], "key": ["key"], "sync": [], "heading": ["textformat.size"], "bulletList": ["list.bullet"],
     "numberedList": ["list.number"], "checkbox": ["checkmark.square"], "quote": ["text.quote"],
     "codeBlock": ["curlybraces"], "bold": ["bold"], "italic": ["italic"],
     "inlineCode": ["chevron.left.forwardslash.chevron.right"], "link": ["link"], "photo": ["photo"],

@@ -166,6 +166,12 @@ final class WritingReviewModel: ObservableObject {
         history[0].comments.append(comment)
         persist(history[0]); focusedCommentID = comment.id; focusRequest = UUID()
     }
+    /// Sync changed the database: re-read this draft's reviews and threads while nothing is running.
+    func reload() {
+        guard !isRunning, replyingTo == nil, let workspace, let draftID,
+              let loaded = try? workspace.reviewHistory(draftID: draftID) else { return }
+        history = loaded
+    }
     func changed(workspace: Workspace?, draftID: String?, input: ReviewInput) {
         guard self.workspace === workspace, self.draftID == draftID else { cancel(); return }
         invalidate(input)
