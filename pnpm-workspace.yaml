@@ -1,0 +1,10 @@
+packages:
+  - apps/web
+  - server
+
+# pnpm 10 skips dependencies' install scripts unless they're listed here.
+# esbuild (used by Astro, Vite and wrangler) and workerd (wrangler's local runtime)
+# fetch or check their platform binaries in postinstall.
+onlyBuiltDependencies:
+  - esbuild
+  - workerd

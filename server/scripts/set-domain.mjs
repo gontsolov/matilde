@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Replaces the placeholder domain in wrangler.jsonc: npm run set-domain -- example.org
+// Replaces the placeholder domain in wrangler.jsonc: pnpm run set-domain example.org
 import { readFileSync, writeFileSync } from "node:fs";
 
 const PLACEHOLDER = "matilde.example";
 const domain = process.argv[2];
 if (!domain || !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) {
-  console.error("usage: npm run set-domain -- <domain>   (e.g. matilde.app)");
+  console.error("usage: pnpm run set-domain <domain>   (e.g. matilde.app)");
   process.exit(1);
 }
 const path = new URL("../wrangler.jsonc", import.meta.url);

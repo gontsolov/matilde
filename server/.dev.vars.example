@@ -1,5 +1,5 @@
-# Copy to .dev.vars for `npm run dev` (never commit .dev.vars).
-# TOKEN_SIGNING_KEY: output of `npm run --silent gen-signing-key` (one line of JSON)
+# Copy to .dev.vars for `pnpm run dev` (never commit .dev.vars).
+# TOKEN_SIGNING_KEY: output of `pnpm run --silent gen-signing-key` (one line of JSON)
 TOKEN_SIGNING_KEY='{"kty":"OKP","crv":"Ed25519","d":"...","x":"...","kid":"dev"}'
 # CODE_PEPPER: any random string locally, e.g. `openssl rand -base64 32`
 CODE_PEPPER=dev-pepper-change-me

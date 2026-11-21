@@ -44,4 +44,6 @@ Builds, GitHub Actions, update signing, and optional Apple notarization: [releas
 | `docs/` | Product, architecture, sync and release documentation |
 | `scripts/` | Repo-wide scripts (shared sync test vectors) |
 
+`apps/web` and `server` form a pnpm workspace with one root `pnpm-lock.yaml`: run `corepack enable && pnpm install` once, then use `pnpm run …` inside either folder.
+
 An iOS app (`apps/ios/`) and shared Swift packages (`packages/`, e.g. the sync engine and encryption) are planned; they don't exist yet.

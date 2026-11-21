@@ -48,6 +48,7 @@ A monorepo. Paths in the sections below are relative to `apps/macos/` unless the
 | `docs/` | Product, architecture, sync and release documentation, verification log; `docs/sync-vectors/` are shared crypto test vectors for every client |
 | `scripts/` | Repo-wide scripts only (`sync-vectors.py`, which regenerates `docs/sync-vectors/`) |
 | `ROADMAP.md` | Backlog for the whole product |
+| `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml` | pnpm workspace for the JavaScript packages (`apps/web`, `server`): one root lockfile, pnpm version pinned in `packageManager`. Use `pnpm install` / `pnpm run` / `pnpm exec`, never npm; `corepack enable` once installs pnpm |
 
 CI (`.github/workflows/ci.yml`) runs the macOS job only when `apps/macos/`, `packages/`, `docs/sync-vectors/` or the CI/Release workflows change; its `required` job always reports and is the check to require. `server.yml` and the web workflow have their own path filters.
 
@@ -75,7 +76,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | `Sources/Matilde/SyncCrypto/` | End-to-end encryption for cloud sync (SYNC-06): account key ring, record/blob/field envelopes, recovery key, key slots, Keychain store; spec in `docs/sync-encryption.md` |
 | `Tests/MatildeTests/` | Workspace, Markdown, curl geometry, and native editor regression tests |
 | `Config/release.json` | Local version, stable bundle identifier, repository, update URL and public signing key |
-| `server/` | Cloud sync server (TypeScript Cloudflare Worker, Durable Objects, D1, R2); its own README, PROTOCOL.md and vitest suite (`cd server && npm ci && npm test`, runs on Linux) |
+| `server/` | Cloud sync server (TypeScript Cloudflare Worker, Durable Objects, D1, R2); its own README, PROTOCOL.md and vitest suite (`cd server && pnpm install && pnpm test`, runs on Linux) |
 | `scripts/` (plus `.github/workflows/` at the repo root) | App assembly, tests, signing, packaging, release validation and publication |
 
 ## Files, persistence, and data safety

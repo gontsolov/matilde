@@ -11,3 +11,4 @@ __pycache__/
 *.pyc
 *.p12
 *.p8
+node_modules/
