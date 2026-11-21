@@ -1,0 +1,66 @@
+---
+// A hand-drawn red felt-tip underline under a word, like an editor's mark on a proof: one stroke
+// with an uneven width, a slight wobble and a flick at the end. It draws itself in once it scrolls
+// into view; with Reduce Motion (or without JavaScript) it's simply there. Decorative only.
+//
+// The ink is a filled outline (uneven width needs a shape, not a stroke). A mask with a plain
+// stroke along the same centre line reveals it from left to right.
+const id = `pen-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<span class="pen-mark relative inline-block whitespace-nowrap">
+  <slot />
+  <svg
+    class="pen-stroke pointer-events-none absolute -bottom-[0.3em] -left-[0.14em] h-auto w-[calc(100%+0.4em)] overflow-visible"
+    viewBox="0 0 120 18"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <defs>
+      <filter id={`${id}-rough`} x="-5%" y="-40%" width="110%" height="180%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="7" />
+        <feDisplacementMap in="SourceGraphic" scale="1.3" />
+      </filter>
+      <mask id={`${id}-reveal`} maskUnits="userSpaceOnUse" x="-4" y="-4" width="130" height="26">
+        <path class="pen-reveal" pathLength="1" d="M3.0 11.0L4.9 11.1 10.5 11.5 16.1 11.4 21.7 10.9 27.3 10.6 32.9 10.6 38.5 10.5 44.1 10.2 49.7 9.5 55.3 8.8 60.9 8.4 66.5 8.5 72.1 8.7 77.7 8.6 83.3 8.3 88.9 8.3 94.5 8.6 100.1 9.2 106.3 8.9 112.4 7.0 116.5 5.0" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+      </mask>
+    </defs>
+    <path d="M2.9 12.2L4.7 12.8 6.6 13.2 8.5 13.6 10.4 13.8 12.4 13.8 14.3 13.8 16.2 13.7 18.1 13.6 20.0 13.5 21.9 13.4 23.7 13.3 25.5 13.2 27.3 13.0 29.2 12.9 31.0 12.8 32.9 12.8 34.7 12.9 36.6 13.1 38.5 13.2 40.5 13.3 42.4 13.3 44.4 13.1 46.3 12.9 48.2 12.5 50.1 12.2 51.9 11.9 53.7 11.7 55.6 11.5 57.3 11.4 59.1 11.2 60.9 11.1 62.7 10.9 64.5 10.7 66.4 10.7 68.3 10.7 70.1 10.8 72.0 11.0 73.9 11.2 75.9 11.3 77.8 11.2 79.7 11.2 81.5 11.0 83.4 10.9 85.2 10.9 87.0 11.0 88.8 11.1 90.6 11.3 92.4 11.5 94.2 11.4 96.1 11.3 98.0 11.2 100.0 11.1 102.2 10.9 104.4 10.6 106.5 10.2 108.6 9.6 110.7 8.8 112.8 7.8 114.8 6.7 116.8 5.5 Q117.7 5.0 116.2 4.5 L116.2 4.5 114.1 5.4 112.0 6.1 110.0 6.8 108.0 7.2 106.0 7.5 104.1 7.7 102.2 7.6 100.3 7.3 98.4 6.8 96.6 6.3 94.7 5.8 92.8 5.4 90.9 5.3 88.9 5.4 87.0 5.5 85.1 5.7 83.2 5.8 81.3 5.8 79.4 5.9 77.6 6.0 75.7 6.1 73.9 6.2 72.1 6.3 70.3 6.4 68.4 6.4 66.5 6.3 64.7 6.1 62.8 5.9 60.8 5.8 58.9 5.7 56.9 5.8 55.0 6.0 53.1 6.2 51.2 6.5 49.3 6.8 47.4 7.0 45.6 7.1 43.8 7.3 42.0 7.4 40.2 7.6 38.4 7.9 36.6 8.1 34.7 8.2 32.9 8.3 31.0 8.3 29.1 8.3 27.2 8.2 25.3 8.2 23.4 8.3 21.5 8.5 19.6 8.7 17.8 8.9 15.9 9.1 14.1 9.2 12.3 9.2 10.5 9.2 8.7 9.3 6.9 9.4 5.0 9.5 3.1 9.7 Q1.6 11.0 2.9 12.2Z" fill="currentColor" filter={`url(#${id}-rough)`} mask={`url(#${id}-reveal)`} />
+  </svg>
+</span>
+
+<style>
+  .pen-stroke {
+    color: var(--pen);
+  }
+  .pen-reveal {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+  /* Only hidden when the script below is there to draw it in. */
+  :global(html.pen-ready) .pen-mark:not(.is-drawn) .pen-reveal {
+    stroke-dashoffset: 1;
+  }
+  :global(html.pen-ready) .pen-mark.is-drawn .pen-reveal {
+    transition: stroke-dashoffset 0.7s cubic-bezier(0.6, 0.05, 0.25, 1) 0.15s;
+  }
+</style>
+
+<script>
+  const marks = document.querySelectorAll<HTMLElement>(".pen-mark");
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (marks.length && !still && "IntersectionObserver" in window) {
+    document.documentElement.classList.add("pen-ready");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add("is-drawn");
+          observer.unobserve(entry.target);
+        }
+      },
+      { rootMargin: "0px 0px -15% 0px" },
+    );
+    marks.forEach((mark) => observer.observe(mark));
+  }
+</script>

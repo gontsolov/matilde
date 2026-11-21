@@ -29,7 +29,11 @@ pnpm run preview    # the built site through the Worker (wrangler dev, http://lo
 
 ### Using a real screenshot
 
-The page shows an HTML/CSS mock-up of the editor (`src/components/EditorMockup.astro`). To use a
+The page shows an interactive HTML/CSS mock-up of the editor (`src/components/EditorMockup.astro`):
+a sidebar with four sample notes (a row of tabs below 1024 px), each with Matilde margin comments
+that open into a thread. Replies are scripted and cycle in order; nothing is generated or sent.
+The notes, comments and replies live in `src/lib/mockup-notes.ts`. Without JavaScript it's a static
+view of "Letter to Anna". The red pen underline under “yours” is `src/components/PenMark.astro`. To use a
 real screenshot instead, save it as `public/screenshot.png` (about 2400 px wide, light mode).
 `src/components/AppPreview.astro` picks it up automatically on the next build. Delete the file to
 go back to the mock-up.

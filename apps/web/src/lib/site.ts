@@ -8,3 +8,5 @@ export const SOURCE_URL = `https://github.com/${REPO}`;
 export const PLATFORM = "Apple silicon · macOS 14 or later";
 /** Where people can reach the owner, e.g. to delete a sync account. OWNER: confirm this address receives mail. */
 export const CONTACT_EMAIL = "hello@matilde.page";
+/** The footer's "Built by Filip" link. */
+export const AUTHOR_URL = "https://tsolov.zip";

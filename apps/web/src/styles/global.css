@@ -14,6 +14,7 @@
   --muted: #7a7a6e;      /* Paper.muted */
   --accent: #7a523b;     /* Paper.accent */
   --highlight: rgb(247 204 102 / 0.34); /* private comment highlighter */
+  --pen: #b9432c;        /* red pen for hand-drawn marks (PenMark) */
   --card: #f9f6ef;
   --rule: rgb(61 64 56 / 0.09);
   /* Download button: very dark warm gray, not black (off-white text ≈ 13:1). */
@@ -32,6 +33,7 @@
     --muted: #9e9fa1;
     --accent: #b0a699;
     --highlight: rgb(199 153 77 / 0.24);
+    --pen: #d9705a;
     --card: #262727;
     --rule: rgb(222 221 219 / 0.1);
     /* Dark mode inverts it: warm off-white with the same dark text (≈ 12:1). */
