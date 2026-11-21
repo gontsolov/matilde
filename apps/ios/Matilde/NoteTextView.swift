@@ -2,10 +2,10 @@ import SwiftUI
 import UIKit
 import MatildeKit
 
-/// A highlighted passage in the text: a private comment (the Mac's highlighter yellow) or an
-/// Ask Matilde thread (an accent underline).
+/// A highlighted passage in the text: a private comment (the Mac's highlighter yellow), an
+/// Ask Matilde thread (an accent underline), or the passage a comment or thread sheet is open on.
 struct TextHighlight: Equatable {
-    enum Kind: Equatable { case comment, thread, unreadThread }
+    enum Kind: Equatable { case comment, thread, unreadThread, focus }
     let kind: Kind
     let range: NSRange
 }
@@ -100,6 +100,8 @@ struct NoteTextView: UIViewRepresentable {
                     storage.addAttributes([.underlineStyle: NSUnderlineStyle.thick.rawValue,
                                            .underlineColor: UIColor(Paper.accent).withAlphaComponent(highlight.kind == .unreadThread ? 0.9 : 0.5)],
                                           range: highlight.range)
+                case .focus:
+                    storage.addAttribute(.backgroundColor, value: Paper.focusHighlight, range: highlight.range)
                 }
             }
             storage.endEditing()
@@ -110,13 +112,57 @@ struct NoteTextView: UIViewRepresentable {
             model.textChanged(view.text)
             // Leave text that is still being composed (marked text, e.g. Japanese input) alone.
             if view.markedTextRange == nil { restyle(view, highlights: highlights) }
+            (view as? NoteUITextView)?.ensureCaretVisibleSoon()
         }
 
+        /// The caret before the latest selection change, to tell which way it moved.
+        private var lastCaret = 0
+        private var adjustingSelection = false
+
         func textViewDidChangeSelection(_ view: UITextView) {
-            model.selection = view.selectedRange
+            guard !adjustingSelection else { return }
+            var range = view.selectedRange
+            // Keep the caret out of a heading's hidden `#` marks: typing there would land before
+            // or inside them. Moving left out of the heading's text goes on to the line above.
+            if range.length == 0, view.markedTextRange == nil,
+               let marker = MarkdownStyle.hiddenHeadingMarker(in: view.text, at: range.location),
+               range.location < NSMaxRange(marker) {
+                let backward = range.location < lastCaret && lastCaret == NSMaxRange(marker) && marker.location > 0
+                range = NSRange(location: backward ? marker.location - 1 : NSMaxRange(marker), length: 0)
+                adjustingSelection = true
+                view.selectedRange = range
+                adjustingSelection = false
+            }
+            lastCaret = range.location
+            model.selection = range
+            if range.length == 0 { (view as? NoteUITextView)?.ensureCaretVisibleSoon() }
         }
 
         func textViewDidEndEditing(_ view: UITextView) { model.flush() }
+
+        /// At the start of a heading's text (its `#` marks are hidden): Backspace removes the
+        /// marks, which turns the heading back into a paragraph, and Return opens a line above
+        /// the heading instead of splitting the marks from the text.
+        func textView(_ view: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            guard view.markedTextRange == nil, view.selectedRange.length == 0 else { return true }
+            let caret = view.selectedRange.location
+            guard let marker = MarkdownStyle.hiddenHeadingMarker(in: view.text, at: caret), caret == NSMaxRange(marker) else { return true }
+            let edit: (range: NSRange, text: String, caret: Int)
+            if text.isEmpty, range.length == 1, NSMaxRange(range) == caret {
+                edit = (marker, "", marker.location)
+            } else if text == "\n", range.length == 0, range.location == caret {
+                edit = (NSRange(location: marker.location, length: 0), "\n", caret + 1)
+            } else {
+                return true
+            }
+            guard let start = view.position(from: view.beginningOfDocument, offset: edit.range.location),
+                  let end = view.position(from: start, offset: edit.range.length),
+                  let textRange = view.textRange(from: start, to: end) else { return true }
+            view.replace(textRange, withText: edit.text)
+            view.selectedRange = NSRange(location: edit.caret, length: 0)
+            textViewDidChange(view)
+            return false
+        }
 
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
             (scrollView as? NoteUITextView)?.reportScroll()
@@ -214,8 +260,8 @@ enum FormattingBar {
     static let height: CGFloat = capsuleHeight + bottomGap + 4
 }
 
-/// The note's text view: hosts the scrolling header, keeps the caret clear of the keyboard and
-/// reports how far the title has scrolled.
+/// The note's text view: hosts the scrolling header, keeps the caret clear of the keyboard
+/// (following it as it moves) and reports how far the title has scrolled.
 final class NoteUITextView: UITextView {
     /// Room kept between the line being typed and the formatting bar.
     static let caretMargin: CGFloat = 72
@@ -231,7 +277,7 @@ final class NoteUITextView: UITextView {
     var onScroll: ((Double) -> Void)?
     private var headerHeight: CGFloat = 120
     private var titleBottom: CGFloat = 60
-    private var keyboardOverlap: CGFloat = 0
+    private var laidOutSize: CGSize = .zero
 
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
@@ -277,6 +323,10 @@ final class NoteUITextView: UITextView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        if bounds.size != laidOutSize {
+            laidOutSize = bounds.size
+            updateKeyboardInsets()
+        }
         guard let header else { return }
         header.frame = CGRect(x: 0, y: 0, width: bounds.width, height: headerHeight)
         let top = headerHeight + Self.headerGap
@@ -297,21 +347,103 @@ final class NoteUITextView: UITextView {
         onScroll?((progress * 50).rounded() / 50)
     }
 
-    /// The text view runs under the keyboard; the inset keeps the caret `caretMargin` above it.
+    // MARK: Keyboard and caret
+
+    /// The keyboard's frame in screen coordinates (zero while hidden). Its top includes the
+    /// formatting bar, the input accessory view.
+    private var keyboardFrame: CGRect = .zero
+
+    /// How much of the view the keyboard covers, from the bottom edge.
+    private var keyboardOverlapHeight: CGFloat {
+        guard keyboardFrame.height > 0, let screen = window?.windowScene?.screen else { return 0 }
+        let local = convert(keyboardFrame, from: screen.coordinateSpace)
+        return max(0, bounds.maxY - local.minY)
+    }
+
+    /// The text view runs under the keyboard. With `contentInsetAdjustmentBehavior = .always`
+    /// UIKit adds the safe area to `contentInset`, so the inset is the keyboard's overlap less the
+    /// safe area plus `caretMargin`: the last line can scroll that far above the formatting bar.
     @objc private func keyboardChanged(_ note: Notification) {
-        guard let end = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect, window != nil else { return }
-        let local = convert(end, from: nil)
+        guard let info = note.userInfo, let end = info[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
         let hiding = note.name == UIResponder.keyboardWillHideNotification
-        let overlap = hiding ? 0 : max(0, bounds.maxY - local.minY - safeAreaInsets.bottom)
-        guard overlap != keyboardOverlap else { return }
-        keyboardOverlap = overlap
-        contentInset.bottom = overlap > 0 ? overlap + Self.caretMargin : 0
-        verticalScrollIndicatorInsets.bottom = overlap
-        if overlap > 0, isFirstResponder {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.scrollRangeToVisible(self.selectedRange)
-            }
+        keyboardFrame = hiding ? .zero : end
+        guard window != nil else { return }
+        let duration = info[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+        let curve = info[UIResponder.keyboardAnimationCurveUserInfoKey] as? UInt ?? UInt(UIView.AnimationCurve.easeInOut.rawValue)
+        UIView.animate(withDuration: duration, delay: 0, options: [UIView.AnimationOptions(rawValue: curve << 16), .beginFromCurrentState, .allowUserInteraction]) {
+            self.updateKeyboardInsets()
+            if !hiding { self.ensureCaretVisible(animated: false) }
         }
+    }
+
+    private func updateKeyboardInsets() {
+        let overlap = keyboardOverlapHeight
+        let covered = max(0, overlap - safeAreaInsets.bottom)
+        let inset = overlap > 0 ? covered + Self.caretMargin : 0
+        if contentInset.bottom != inset { contentInset.bottom = inset }
+        // The indicator stops at the formatting bar (the safe area is added automatically).
+        if verticalScrollIndicatorInsets.bottom != covered { verticalScrollIndicatorInsets.bottom = covered }
+    }
+
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        updateKeyboardInsets()
+    }
+
+
+    /// Scrolls the caret into view after the text view has laid out the latest change.
+    func ensureCaretVisibleSoon() {
+        DispatchQueue.main.async { [weak self] in self?.ensureCaretVisible(animated: true) }
+    }
+
+    /// Keeps the caret between the top bar and `caretMargin` above the keyboard.
+    func ensureCaretVisible(animated: Bool) {
+        guard isFirstResponder, selectedRange.length == 0, let end = selectedTextRange?.end else { return }
+        layoutIfNeeded()
+        let caret = caretRect(for: end)
+        guard !caret.isNull, !caret.isInfinite, caret.height > 0 else { return }
+        let inset = adjustedContentInset
+        let top = contentOffset.y + inset.top
+        let bottom = contentOffset.y + bounds.height - inset.bottom
+        var y = contentOffset.y
+        if caret.maxY > bottom {
+            y += caret.maxY - bottom
+        } else if caret.minY < top {
+            y -= top - caret.minY + 8
+        } else {
+            return
+        }
+        let maxY = max(-inset.top, contentSize.height + inset.bottom - bounds.height)
+        y = min(max(y, -inset.top), maxY)
+        guard abs(y - contentOffset.y) > 0.5 else { return }
+        setContentOffset(CGPoint(x: contentOffset.x, y: y), animated: animated)
+    }
+
+    /// Scrolls `range` to the top third of the part of the screen a medium sheet leaves
+    /// uncovered, so the passage a comment or thread is about stays in view above the sheet.
+    func reveal(_ range: NSRange) {
+        guard NSMaxRange(range) <= (text as NSString).length,
+              let start = position(from: beginningOfDocument, offset: range.location),
+              let end = position(from: start, offset: range.length),
+              let textRange = textRange(from: start, to: end) else { return }
+        layoutIfNeeded()
+        let rect = firstRect(for: textRange)
+        guard !rect.isNull, !rect.isInfinite else { return }
+        let inset = adjustedContentInset
+        // A medium detent covers about the lower half of the screen.
+        let uncovered = max(0, bounds.height / 2 - inset.top)
+        let maxY = max(-inset.top, contentSize.height + inset.bottom - bounds.height)
+        let y = min(max(rect.minY - inset.top - uncovered / 3, -inset.top), maxY)
+        setContentOffset(CGPoint(x: contentOffset.x, y: y), animated: true)
+    }
+
+    /// A caret at the start of a heading's text sits right after its hidden `#` marks, whose
+    /// font is tiny; it takes the height of the heading's text instead.
+    override func caretRect(for position: UITextPosition) -> CGRect {
+        let rect = super.caretRect(for: position)
+        guard rect.height < 4, let next = self.position(from: position, offset: 1) else { return rect }
+        let fixed = super.caretRect(for: next)
+        guard abs(fixed.minY - rect.minY) < fixed.height + 4 else { return rect }
+        return CGRect(x: rect.minX, y: fixed.minY, width: rect.width, height: fixed.height)
     }
 }

@@ -11,8 +11,23 @@ struct MarkdownStyleTests {
     @Test func headingsAndTheirMarks() {
         let spans = MarkdownStyle.spans(in: "## Two\nBody")
         #expect(spans.contains(MarkdownStyle.Span(kind: .heading(2), range: NSRange(location: 0, length: 6))))
-        #expect(spans.contains(MarkdownStyle.Span(kind: .mark, range: NSRange(location: 0, length: 3))))
+        #expect(spans.contains(MarkdownStyle.Span(kind: .hiddenMark, range: NSRange(location: 0, length: 3))))
         #expect(!kinds("#Not a heading").contains(.heading(1)))
+    }
+
+    @Test func headingMarksShowOnlyWhileTheHeadingIsEmpty() {
+        #expect(MarkdownStyle.spans(in: "## ").contains(MarkdownStyle.Span(kind: .mark, range: NSRange(location: 0, length: 3))))
+        #expect(!kinds("##  ").contains(.hiddenMark))
+        #expect(MarkdownStyle.spans(in: "Body\n### Three").contains(MarkdownStyle.Span(kind: .hiddenMark, range: NSRange(location: 5, length: 4))))
+    }
+
+    @Test func hiddenHeadingMarkerForBackspace() {
+        let text = "Intro\n# One\n## \n```\n# code\n```"
+        #expect(MarkdownStyle.hiddenHeadingMarker(in: text, at: 8) == NSRange(location: 6, length: 2))
+        #expect(MarkdownStyle.hiddenHeadingMarker(in: text, at: 11) == NSRange(location: 6, length: 2))
+        #expect(MarkdownStyle.hiddenHeadingMarker(in: text, at: 2) == nil)
+        #expect(MarkdownStyle.hiddenHeadingMarker(in: text, at: 15) == nil)
+        #expect(MarkdownStyle.hiddenHeadingMarker(in: text, at: 22) == nil)
     }
 
     @Test func boldIsNotAlsoItalic() {

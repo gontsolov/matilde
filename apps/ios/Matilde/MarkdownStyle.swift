@@ -4,8 +4,9 @@ import CoreText
 
 /// IOS-05: how the editor dresses Markdown, close to the Mac editor (apps/macos
 /// MarkdownEditor.swift) but simpler: the Markdown stays visible and editable; syntax marks are
-/// faded rather than hidden, headings use Newsreader at the Mac's sizes, emphasis is bold or
-/// italic, code is monospaced and quotes are indented.
+/// faded rather than hidden, except a heading's `#` marks, which are hidden once the heading has
+/// text (the stored Markdown keeps them). Headings use Newsreader at the Mac's sizes, emphasis is
+/// bold or italic, code is monospaced and quotes are indented.
 ///
 /// `spans(in:)` is pure so tests can check it; `apply(to:)` turns spans into attributes.
 enum MarkdownStyle {
@@ -17,8 +18,11 @@ enum MarkdownStyle {
         case quote
         case listMarker
         case link
-        /// Syntax characters (`#`, `**`, `` ` ``, `>`, link brackets): drawn faded.
+        /// Syntax characters (`**`, `` ` ``, `>`, link brackets): drawn faded.
         case mark
+        /// A heading's `#` marks and their space once the heading has text: drawn at no width and
+        /// in no colour, so the heading starts at the margin. The characters stay in the text.
+        case hiddenMark
     }
 
     struct Span: Equatable {
@@ -55,7 +59,10 @@ enum MarkdownStyle {
             }
             if let match = first("^(#{1,6}) ", in: line) {
                 spans.append(Span(kind: .heading(match.range(at: 1).length), range: lineRange))
-                spans.append(Span(kind: .mark, range: NSRange(location: offset, length: match.range.length)))
+                let marker = NSRange(location: offset, length: match.range.length)
+                // "## " alone shows its marks, so a new heading can be seen while it is empty.
+                let empty = (line as NSString).substring(from: match.range.length).trimmingCharacters(in: .whitespaces).isEmpty
+                spans.append(Span(kind: empty ? .mark : .hiddenMark, range: marker))
             } else if let match = first("^> ?", in: line) {
                 spans.append(Span(kind: .quote, range: lineRange))
                 spans.append(Span(kind: .mark, range: NSRange(location: offset, length: match.range.length)))
@@ -154,9 +161,37 @@ enum MarkdownStyle {
                 storage.addAttributes([.foregroundColor: UIColor(Paper.accent), .underlineStyle: NSUnderlineStyle.single.rawValue], range: span.range)
             case .mark:
                 storage.addAttribute(.foregroundColor, value: muted.withAlphaComponent(0.55), range: span.range)
+            case .hiddenMark:
+                storage.addAttributes([.font: hiddenFont, .foregroundColor: UIColor.clear], range: span.range)
             }
         }
         storage.endEditing()
+    }
+
+    /// Small enough that hidden heading marks take no visible room or line height.
+    private static let hiddenFont = UIFont.systemFont(ofSize: 0.01)
+
+    /// The hidden heading marks (`## ` before a heading's text) on the line containing
+    /// `location`, or nil when that line has none (no heading, or a heading with no text yet).
+    /// Backspace at the end of this range removes it, and the caret is kept out of it.
+    static func hiddenHeadingMarker(in text: String, at location: Int) -> NSRange? {
+        let source = text as NSString
+        guard location >= 0, location <= source.length else { return nil }
+        var start = 0, end = 0, contentsEnd = 0
+        source.getLineStart(&start, end: &end, contentsEnd: &contentsEnd, for: NSRange(location: location, length: 0))
+        // A caret after a final newline sits on a new empty line, not the one before it.
+        if location == source.length, location > 0, contentsEnd < location { return nil }
+        let line = NSRange(location: start, length: contentsEnd - start)
+        guard let match = first("^(#{1,6}) ", in: source.substring(with: line)) else { return nil }
+        let marker = NSRange(location: start, length: match.range.length)
+        let rest = source.substring(with: NSRange(location: NSMaxRange(marker), length: NSMaxRange(line) - NSMaxRange(marker)))
+        guard !rest.trimmingCharacters(in: .whitespaces).isEmpty, !isFenced(source, before: start) else { return nil }
+        return marker
+    }
+
+    /// Whether `location` falls inside a fenced code block (an odd number of ``` lines before it).
+    private static func isFenced(_ source: NSString, before location: Int) -> Bool {
+        source.substring(to: location).components(separatedBy: .newlines).filter { $0.hasPrefix("```") }.count % 2 == 1
     }
 
     // MARK: Helpers

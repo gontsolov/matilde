@@ -66,7 +66,7 @@ struct CommentsSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .editorSheetPresentation()
     }
 }
 
@@ -168,7 +168,17 @@ struct CommentSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .editorSheetPresentation()
         .onAppear { focused = !isSaved }
+    }
+}
+
+extension View {
+    /// IOS-06: comment and thread sheets open at half height over the note, with a grabber, and
+    /// leave the note usable behind them so the passage stays in view (`NoteUITextView.reveal`).
+    func editorSheetPresentation() -> some View {
+        presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .presentationBackgroundInteraction(.enabled(upThrough: .medium))
     }
 }

@@ -166,6 +166,25 @@ final class NoteEditorModel {
         }
     }
 
+    /// The passage the open comment or thread sheet is about, highlighted while it is open.
+    var sheetPassage: NSRange? {
+        let range: NSRange?
+        switch sheet {
+        case .comment(let comment): range = comment.attached ? comment.range : nil
+        case .thread(let runID, let commentID):
+            range = review.history.first { $0.id == runID }?.comments.first { $0.id == commentID }?.range
+        case .comments, nil: range = nil
+        }
+        guard let range, range.length > 0, NSMaxRange(range) <= (text as NSString).length else { return nil }
+        return range
+    }
+
+    /// A comment or thread sheet opened: scroll its passage above the sheet.
+    func revealSheetPassage() {
+        guard let range = sheetPassage else { return }
+        (textView as? NoteUITextView)?.reveal(range)
+    }
+
     func select(_ range: NSRange) {
         guard let textView, NSMaxRange(range) <= (textView.text as NSString).length else { return }
         textView.becomeFirstResponder()

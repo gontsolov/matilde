@@ -2,12 +2,13 @@ import SwiftUI
 import UIKit
 import MatildeKit
 
-/// The launch splash: the launch screen's colour and logo (Assets: LaunchBackground, LaunchLogo),
-/// held for a moment and faded out so the app doesn't pop in.
+/// The launch splash: the launch screen's logo (Assets: LaunchLogo) on the app's paper, the same
+/// colour as the launch screen (Assets: LaunchBackground, kept equal to `Paper.background`), held
+/// for a moment and faded out so the app doesn't pop in.
 struct SplashView: View {
     var body: some View {
         ZStack {
-            Color("LaunchBackground").ignoresSafeArea()
+            Paper.background.ignoresSafeArea()
             Image("LaunchLogo")
                 .accessibilityHidden(true)
         }
@@ -89,7 +90,8 @@ private struct WelcomeScreen: View {
 
     var body: some View {
         ZStack {
-            Color("LaunchBackground").ignoresSafeArea()
+            // The welcome keeps its own dark stage; the launch screen now uses the paper colour.
+            Color(red: 0.169, green: 0.153, blue: 0.141).ignoresSafeArea()
             VStack(spacing: 0) {
                 Spacer()
                 Image("LaunchLogo")
