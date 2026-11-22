@@ -18,12 +18,12 @@ if [[ -f "release-notes/$MATILDE_VERSION.md" ]]; then
     printf '\n' >> build/release-notes.md
     cat "release-notes/$MATILDE_VERSION.md" >> build/release-notes.md
 fi
-if [[ "${SIGN_WITH_APPLE:-}" != true ]]; then
+if [[ "${NOTARIZE_RELEASE:-}" != true ]]; then
     cat >> build/release-notes.md <<'NOTES'
 
 ## First launch
 
-This early release is not Apple-notarized or Developer ID signed. macOS may block its first launch. If you trust this build, follow [Apple's instructions for opening an app from an unknown developer](https://support.apple.com/guide/mac-help/mh40616/mac). Managed Macs may not allow it.
+This early release is not Apple-notarized. macOS may block its first launch. If you trust this build, follow [Apple's instructions for opening an app from an unknown developer](https://support.apple.com/guide/mac-help/mh40616/mac). Managed Macs may not allow it.
 NOTES
 fi
 if [[ "${RELEASE_EXISTS:-false}" != true ]]; then

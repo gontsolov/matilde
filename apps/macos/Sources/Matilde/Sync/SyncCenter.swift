@@ -55,7 +55,9 @@ final class SyncCenter: ObservableObject {
     var remoteChanges: (@MainActor () -> Void)?
 
     private let defaults: UserDefaults
-    private let keyStore = KeychainAccountKeyStore()
+    /// Account keys and sync tokens live in the app's one Keychain item (`CredentialVault`), read
+    /// the first time sync needs them, never just because the app launched.
+    private let keyStore = VaultAccountKeyStore(vault: .shared)
     /// The Matilde key's copy in iCloud Keychain (owner decision 2026-11-21), read when adding a device.
     private let recoveryBackup: RecoveryKeyBackup = ICloudRecoveryKeyBackup()
     private var session: SyncSession
@@ -74,6 +76,7 @@ final class SyncCenter: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        KeychainNote.install()
         enabled = defaults.bool(forKey: Self.enabledKey)
         let selection = SyncServerSelection.resolve(defaults: defaults, storedKey: Self.serverKey)
         let server = selection.server
@@ -81,8 +84,10 @@ final class SyncCenter: ObservableObject {
         if let replaced = selection.replaced {
             // The stored server isn't available in this build or launch (e.g. staging in a release
             // build): treat it like a server change and sign out of the old one, so accounts never mix.
-            let old = Self.makeSession(replaced), current = Self.makeSession(server), keyStore = KeychainAccountKeyStore()
+            let old = Self.makeSession(replaced), current = Self.makeSession(server), keyStore = VaultAccountKeyStore(vault: .shared)
             Task {
+                // Open the Keychain here, on the main thread, so the app can say what's coming first.
+                try? CredentialVault.shared.load()
                 if let userId = await old.current?.userId, await current.current?.userId != userId {
                     try? keyStore.remove(userId: userId)
                 }
@@ -104,7 +109,7 @@ final class SyncCenter: ObservableObject {
     }
 
     private static func makeSession(_ server: SyncServer) -> SyncSession {
-        SyncSession(http: SyncHTTP(server: server), store: KeychainSyncTokenStore(server: server))
+        SyncSession(http: SyncHTTP(server: server), store: VaultSyncTokenStore(server: server, vault: .shared))
     }
 
     private func installHandlers() {
@@ -232,6 +237,13 @@ final class SyncCenter: ObservableObject {
 
     private func resume() async {
         guard enabled else { return }
+        // The first Keychain read of this app session, on the main thread so the note about the
+        // macOS dialog (KeychainNote) can come first. Refused: stay signed out rather than ask again.
+        do { try CredentialVault.shared.load() } catch {
+            NSLog("Matilde sync: Keychain not available (%@)", String(describing: error))
+            phase = .signedOut
+            return
+        }
         if await session.current == nil { phase = .signedOut; return }
         await setUpKey()
     }
@@ -249,6 +261,8 @@ final class SyncCenter: ObservableObject {
         guard case .awaitingCode(let email) = phase else { return }
         let code = code.trimmingCharacters(in: .whitespacesAndNewlines)
         perform {
+            // Open the Keychain before the code is used up, so a refusal doesn't waste it.
+            try CredentialVault.shared.load()
             let response = try await SyncAuthClient(http: self.session.http).verifyEmail(email, code: code, deviceId: self.deviceId)
             try await self.session.signIn(response.tokens())
             self.defaults.set(email, forKey: Self.emailKey)
@@ -530,6 +544,7 @@ final class SyncCenter: ObservableObject {
             default: return error.needsUpgrade ? "Update Matilde to keep syncing." : "Something went wrong. Try again."
             }
         case is URLError: return "You’re offline."
+        case is CredentialVaultError: return "Matilde couldn’t use your keychain. Try again and choose Always Allow."
         default: return "Something went wrong. Try again."
         }
     }

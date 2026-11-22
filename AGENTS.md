@@ -177,8 +177,9 @@ The build script assembles `build/Matilde.app`, bundles fonts, interface icons, 
 - Sparkle verifies signed updates before extraction and uses native install/relaunch UI. Automatic installation and system-profile submission are disabled. Preserve save-on-quit behavior.
 - Keep the existing bundle identifier `app.matilde.local` and signing identity stable unless a deliberate migration is requested.
 - Sparkle private key is in the local login Keychain under account `app.matilde.local` and configured in GitHub Actions as `SPARKLE_PRIVATE_KEY`. Its initial transfer was owner-authorized and completed. Never regenerate it per release, print/export it into logs, or commit it. The public key in configuration is safe to commit.
-- Current distribution uses ad-hoc code signing, **not Developer ID signing or Apple notarization**. Sparkle authentication does not remove first-launch Gatekeeper restrictions. Do not claim fully secure or notarized distribution.
-- The optional Apple certificate/notarization workflow exists but has not been verified with real credentials. An App Store submission is not needed for Developer ID direct distribution.
+- Releases are ad-hoc signed unless the `APPLE_CERTIFICATE_P12` secret holds an Apple-issued certificate (Apple Development for now, see `docs/releases.md`, "Release signing"); then they carry a team-based designated requirement so keychain access survives updates. Self-signed certificates don't help. Releases are **not notarized** either way; Sparkle authentication does not remove first-launch Gatekeeper restrictions. Do not claim fully secure or notarized distribution.
+- Notarization (`APPLE_NOTARIZE=true`, Developer ID) has not been verified with real credentials. An App Store submission is not needed for Developer ID direct distribution.
+- The Mac app keeps its secrets in one keychain item (`CredentialVault`), read only when sync or Ask Matilde needs it. Don't add separate keychain items for new secrets.
 - Signed archive/feed verification and a real Sparkle install/relaunch from an artificially older disposable app copy have passed. First launch of a quarantined download on a clean Mac remains unverified.
 - Do not edit a generated appcast after signing. If raising the minimum macOS version, preserve compatible older feed entries. Keep Actions pinned and signing secrets out of untrusted PR workflows.
 

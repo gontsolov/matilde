@@ -76,6 +76,9 @@ struct MatildeApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var model: AppModel?
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        KeychainNote.install()
+    }
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         AppIconChoice.stored().apply()
