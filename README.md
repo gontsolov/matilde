@@ -38,13 +38,29 @@ Matilde is a quiet writing app for the Mac. It reads along like a thoughtful edi
 
 Matilde is a side project by [Filip](https://tsolov.zip). I built it because I believe AI can really help you write better, but not by writing for you. Most AI writing tools hand you a finished paragraph, and the result sounds like everyone else's. A good editor does something different: they challenge you, ask the awkward question and help you arrive at the conclusion yourself. That's what I wanted Matilde to be: a place for your own words, with a reader that makes them sharper.
 
-## Your writing stays yours
+## Sync between your Mac and iPhone
 
-- **On your Mac first.** Your writing is plain files in a folder on your Mac. Sync is optional and off until you turn it on.
-- **Locked before it leaves.** When you sync, your notes are encrypted on your Mac before they're sent. The key stays with you, so no one else can read your writing.
-- **Kept in the EU.** Synced notes are stored in the EU.
+Sync is optional and off until you turn it on. Sign in with your email (no password), and your notes stay in step between your Mac and, soon, your iPhone.
 
-Ask Matilde is the one exception: it's off until you connect your own Langdock account, and then the page you're on is sent to Langdock whenever Matilde reads it. More on [how privacy works](https://matilde.page/privacy).
+- **Locked before it leaves.** Your notes are encrypted on your Mac before they're sent (end-to-end encryption). The key stays with you, so no one else can read your writing. The one exception is an AI tool you choose to connect (below).
+- **Kept in the EU.** Synced notes are stored in the EU. The server sees your email address and how much you sync, never what you write.
+- **Still plain files.** Sync works on top of your Markdown folder; nothing about your files changes.
+
+## Works with your AI tools
+
+If you like, connect an AI tool that supports MCP, such as Claude, ChatGPT or Cursor, to your synced notes through Matilde's MCP server:
+
+```
+https://mcp.matilde.page/mcp
+```
+
+The tool can then list, search and read your notes, leave comments in the margin (marked with its name), create notes and, only if you allow it, edit them. It can also send feedback about Matilde. You connect it on a Matilde page in your browser: sign in with your email, enter your Matilde key (it stays in your browser), choose what the tool may do and for how long (1 to 90 days). Disconnect it any time in Matilde's **Settings → Sync → Connected AI tools** on your Mac or iPhone.
+
+It's off until you connect a tool, and it's a trade-off worth knowing: while a tool is connected, the Matilde server decrypts your notes in memory to answer it, and whatever the tool reads goes to the company behind it. Setup for each tool and the full details: [docs/mcp.md](docs/mcp.md) and [how privacy works](https://matilde.page/privacy#ai-tools).
+
+## Ask Matilde and privacy
+
+Your writing lives in plain files on your Mac first. Ask Matilde is off until you connect your own Langdock account; after that, the page you're on is sent to Langdock whenever Matilde reads it, outside sync's encryption. More on [how privacy works](https://matilde.page/privacy).
 
 ## Install
 
