@@ -1,0 +1,6 @@
+# matilde.page welcomes search engines, AI assistants and AI crawlers.
+# A short guide for language models: https://matilde.page/llms.txt
+User-agent: *
+Allow: /
+
+Sitemap: https://matilde.page/sitemap.xml

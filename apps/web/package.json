@@ -12,7 +12,8 @@
     "check": "astro check && tsc --noEmit -p worker",
     "test": "vitest run",
     "deploy": "astro build && wrangler deploy",
-    "upload:preview": "wrangler versions upload"
+    "upload:preview": "wrangler versions upload",
+    "og-image": "node scripts/og-image.mjs"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
@@ -20,6 +21,9 @@
     "@fontsource-variable/newsreader": "^5.3.0",
     "@tailwindcss/vite": "^4.3.5",
     "astro": "^7.4.13",
+    "node-html-markdown": "^2.0.0",
+    "node-html-parser": "^9.0.7",
+    "playwright": "^1.65.1",
     "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3",
     "vitest": "^4.1.12",

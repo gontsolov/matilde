@@ -1,0 +1,46 @@
+# Matilde
+
+> Matilde is a quiet, free writing app for the Mac (macOS 14 or later, Apple silicon). You write every word; Matilde reads along like a thoughtful editor, asks questions and leaves notes in the margin. It won't write your paragraphs. Notes are plain Markdown files in a folder on your Mac. Optional sync between devices is end-to-end encrypted, so no one else can read your notes. Matilde is open source.
+
+Key facts:
+
+- Platform: macOS 14 or later on Apple silicon. An iPhone app is coming soon. Free to download.
+- Writing: plain Markdown files in a folder you choose, rendered live as you type. Branch a draft to try another version and keep both; compare drafts side by side or lay them out on a board. Your own comments sit in the margin next to Matilde's and never touch the text.
+- Ask Matilde: optional and off until the person adds their own Langdock API key. When Matilde reads a page, that draft (title, goal and text, without images) is sent to Langdock and the chosen AI model. Suggested rewrites apply only when accepted.
+- Sync: optional, off until turned on, in beta. Sign-in by email and a six-digit code, no password. Notes are encrypted on the person's devices (AES-256-GCM) before they leave, and stored in Cloudflare's EU locations. The server sees the email address and how much is synced, never what is written. A 12-word Matilde key unlocks synced notes on a new device.
+- AI tools (MCP): people who sync can connect an AI tool that supports remote MCP with OAuth to their synced notes at https://mcp.matilde.page/mcp. They choose what it may do (read, comment, create notes, and edit only if they allow it) and for how long (1, 7, 30 or 90 days). While a tool is connected, the Matilde server decrypts notes in memory to answer it.
+
+## Download
+
+- [Download Matilde for Mac](https://matilde.page/download): the latest DMG. Open it and drag Matilde into Applications. Builds are not Apple-notarized yet, so macOS may ask to confirm the first launch.
+- [Latest release on GitHub](https://github.com/gontsolov/matilde/releases/latest): release notes, DMG and checksums.
+- [Installing and updating](https://github.com/gontsolov/matilde/blob/main/docs/releases.md#download-and-update): updates arrive through Matilde → Check for Updates.
+
+## Privacy and encryption
+
+- [How privacy works](https://matilde.page/privacy.md): what stays on the Mac, what the sync server can and can't see, where data is stored, the Matilde key, deleting an account, Ask Matilde, connected AI tools and feedback ([HTML](https://matilde.page/privacy)).
+- [Sync encryption design](https://github.com/gontsolov/matilde/blob/main/docs/sync-encryption.md): key ring, envelopes, recovery key and key slots.
+
+## Cloud sync
+
+- [Sync on the home page](https://matilde.page/index.md): the short version: on your Mac first, locked before it leaves, kept in the EU.
+- [Sync client](https://github.com/gontsolov/matilde/blob/main/docs/sync-client.md) and [sync model](https://github.com/gontsolov/matilde/blob/main/docs/sync-model.md): how the apps sync, for developers.
+
+## AI tools (MCP server)
+
+- [MCP server](https://mcp.matilde.page/mcp): remote MCP endpoint (Streamable HTTP, OAuth 2.1 with PKCE). Works with Langdock, Claude (claude.ai, Claude Desktop, Claude Code), ChatGPT (developer mode), Cursor, VS Code and other clients that support remote MCP with OAuth.
+- [Setup and details](https://github.com/gontsolov/matilde/blob/main/docs/mcp.md): per-tool setup, scopes (notes:read, notes:comment, notes:create, notes:edit, feedback), tools (list_notes, search_notes, read_note, add_comment, create_note, edit_note, leave_feedback) and the privacy trade-off.
+- [AI tools on the privacy page](https://matilde.page/privacy#ai-tools)
+
+## Feedback
+
+- In the app: Help → Send Feedback…
+- [Email feedback@matilde.page](mailto:feedback@matilde.page)
+- [GitHub issues](https://github.com/gontsolov/matilde/issues)
+
+## Optional
+
+- [Matilde on GitHub](https://github.com/gontsolov/matilde): source code for the Mac app, the website and the sync server.
+- [Home page as Markdown](https://matilde.page/index.md)
+- [Everything in one file](https://matilde.page/llms-full.txt): this file followed by the home and privacy pages as Markdown.
+- [Contact](mailto:hello@matilde.page): for account questions, for example deleting a sync account.
