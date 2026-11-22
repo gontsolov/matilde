@@ -4,6 +4,7 @@ import AppPreview from "../components/AppPreview.astro";
 import DownloadButton from "../components/DownloadButton.astro";
 import FloatingDownload from "../components/FloatingDownload.astro";
 import PenMark from "../components/PenMark.astro";
+import { releases, versionLabel } from "../lib/changelog";
 import { DOWNLOAD_URL, RELEASES_URL, SOURCE_URL } from "../lib/site";
 
 const points = [
@@ -55,6 +56,8 @@ const jsonLd = {
   publisher: { "@type": "Organization", name: "Matilde", url: site.href, logo: new URL("/icon.png", site).href },
   sameAs: [SOURCE_URL],
 };
+// The newest entry of the shared changelog (changelog/ at the repo root), for the "What's new" link.
+const latest = (await releases())[0];
 ---
 
 <Base title="Matilde: a quiet writing app for the Mac" description={description} markdown="/index.md" jsonLd={jsonLd}>
@@ -164,6 +167,16 @@ const jsonLd = {
         </div>
       </div>
     </section>
+    {
+      latest && (
+        <section class="mx-auto mt-20 max-w-2xl px-6 text-center font-sans text-[14px] text-muted">
+          <a href="/changelog" class="group hover:text-ink">
+            <span class="text-accent underline decoration-accent/40 underline-offset-4 group-hover:decoration-accent">What's new</span>{" "}
+            in {versionLabel(latest)}: {latest.data.title}
+          </a>
+        </section>
+      )
+    }
   </main>
   <FloatingDownload watch="hero-download" />
 </Base>

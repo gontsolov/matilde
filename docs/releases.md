@@ -13,9 +13,11 @@ The stable feed is `https://matilde.page/appcast.xml` (from the release after 0.
 
 ## Publish a version
 
-1. Merge changes into `main` and check CI.
+1. Write the release notes in `changelog/X.md` (format and voice in [changelog/README.md](../changelog/README.md)) and merge them into `main` with the release prep; check CI.
 2. Open GitHub Actions → **Release** → **Run workflow**, select `main`, and enter a version such as `0.1.1`. Alternatively, push a `v0.1.1` tag on a commit already in `main`.
 3. The workflow validates version ordering, tests, builds arm64, packages the DMG, signs the archive and feed, uploads all assets to a draft release, then publishes it as latest.
+
+The release fails before building when `changelog/X.md` is missing or invalid (`scripts/release-version.py` calls `scripts/changelog.py`). The same file is the single source for every place people read about the release: matilde.page/changelog, the What's New window in the Mac app (bundled into `Contents/Resources/Changelog`, shown once after an update and from Help → What's New in Matilde…), What's New in the iPhone app's Settings, Sparkle's update dialog (`sign-release.sh` renders `Matilde.html` and generate_appcast embeds it as the feed item's description, with matilde.page/changelog as the full notes link; `verify-appcast.py` requires it) and the GitHub release body (`publish-release.sh` appends `changelog.py markdown X`). Check an entry locally with `python3 apps/macos/scripts/changelog.py check X`.
 
 The single release concurrency group prevents overlapping publications. Versions must increase numerically and use three numeric components. Published versions cannot be overwritten. A failed draft release can be retried from the same commit. `apps/macos/Config/release.json` controls local build version, stable bundle identity, update URL, repository, and public signing key. The release version overrides the local default through `MATILDE_VERSION`; keep the default current when beginning a new development cycle.
 
@@ -47,7 +49,7 @@ The workflow then imports the certificate into a temporary keychain, signs Spark
 
 ## Local verification
 
-From `apps/macos/` (the macOS app's package root; release notes are in `apps/macos/release-notes/`):
+From `apps/macos/` (the macOS app's package root; release notes are in `changelog/` at the repo root):
 
 ```sh
 cd apps/macos

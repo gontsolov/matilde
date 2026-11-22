@@ -1,0 +1,33 @@
+---
+import Base from "../layouts/Base.astro";
+import ChangelogEditor from "../components/ChangelogEditor.astro";
+import DownloadButton from "../components/DownloadButton.astro";
+---
+
+<Base
+  title="What's new · Matilde"
+  description="What changed in each version of Matilde, the quiet writing app for the Mac, in plain words."
+  markdown="/changelog.md"
+>
+  <main>
+    <section class="mx-auto flex max-w-5xl flex-col items-start px-6 pt-14 text-left sm:items-center sm:pt-20 sm:text-center">
+      <a href="/" class="inline-flex items-center gap-3 font-sans text-[14px] text-muted hover:text-ink">
+        <img src="/icon.png" alt="" width="28" height="28" class="size-7" />
+        Matilde
+      </a>
+      <h1 class="mt-10 text-[40px] font-medium leading-[1.08] tracking-[-0.015em] sm:text-[52px]">What's new</h1>
+      <p class="mt-5 max-w-[38rem] text-[18px] leading-[1.55] text-ink/85 sm:text-[19px]">
+        Every version of Matilde, newest first, in plain words. Each release is a note of its own.
+      </p>
+    </section>
+
+    <section class="mx-auto mt-12 max-w-[78rem] px-4 sm:mt-16 sm:px-6">
+      <ChangelogEditor />
+    </section>
+
+    <section class="mx-auto mt-16 flex max-w-2xl flex-col items-center px-6 text-center" data-md-skip>
+      <p class="font-sans text-[14.5px] text-muted">Matilde offers each new version as it comes out. New here?</p>
+      <div class="mt-5"><DownloadButton /></div>
+    </section>
+  </main>
+</Base>

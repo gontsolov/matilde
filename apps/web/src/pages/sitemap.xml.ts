@@ -1,7 +1,7 @@
 // The site's pages for search engines and crawlers. Add new pages here (the 404 page stays out).
 import type { APIRoute } from "astro";
 
-const pages = ["/", "/privacy"];
+const pages = ["/", "/changelog", "/privacy"];
 
 export const GET: APIRoute = ({ site }) => {
   const urls = pages.map((path) => `  <url><loc>${new URL(path, site).href}</loc></url>`).join("\n");

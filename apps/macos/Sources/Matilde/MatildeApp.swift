@@ -15,6 +15,7 @@ struct MatildeApp: App {
                 .modifier(AppAppearanceModifier())
                 .scrollIndicators(.hidden)
                 .onAppear { delegate.model = model; NSApp.activate(ignoringOtherApps: true) }
+                .modifier(AnnounceWhatsNew())
         }
         .defaultSize(width: 1180, height: 820)
         .windowStyle(.hiddenTitleBar)
@@ -64,12 +65,14 @@ struct MatildeApp: App {
             }
             CommandGroup(replacing: .help) {
                 Button("Welcome to Matilde") { model.showWelcomeDocument() }.disabled(model.workspace == nil)
+                WhatsNewButton { Text("What's New in Matilde…") }
                 Divider()
                 FeedbackButton { Text(FeedbackCopy.menuTitle) }
             }
         }
         Settings { AppSettingsView().scrollIndicators(.hidden) }
         FeedbackWindow()
+        WhatsNewWindow()
     }
 }
 

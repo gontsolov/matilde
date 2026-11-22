@@ -28,6 +28,7 @@ struct SettingsView: View {
                 }
                 Section("About") {
                     LabeledContent("Version", value: Self.version)
+                    NavigationLink("What's New") { WhatsNewView() }
                     Link("matilde.page", destination: URL(string: "https://matilde.page")!)
                     Button("Show Welcome Again") {
                         // RootView plays the tour once this sheet has closed.

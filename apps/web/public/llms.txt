@@ -16,6 +16,10 @@ Key facts:
 - [Latest release on GitHub](https://github.com/gontsolov/matilde/releases/latest): release notes, DMG and checksums.
 - [Installing and updating](https://github.com/gontsolov/matilde/blob/main/docs/releases.md#download-and-update): updates arrive through Matilde → Check for Updates.
 
+## What's new
+
+- [What's new](https://matilde.page/changelog.md): what changed in each version, newest first, in plain words ([HTML](https://matilde.page/changelog)).
+
 ## Privacy and encryption
 
 - [How privacy works](https://matilde.page/privacy.md): what stays on the Mac, what the sync server can and can't see, where data is stored, the Matilde key, deleting an account, Ask Matilde, connected AI tools and feedback ([HTML](https://matilde.page/privacy)).
@@ -42,5 +46,5 @@ Key facts:
 
 - [Matilde on GitHub](https://github.com/gontsolov/matilde): source code for the Mac app, the website and the sync server.
 - [Home page as Markdown](https://matilde.page/index.md)
-- [Everything in one file](https://matilde.page/llms-full.txt): this file followed by the home and privacy pages as Markdown.
+- [Everything in one file](https://matilde.page/llms-full.txt): this file followed by the home, privacy and What's new pages as Markdown.
 - [Contact](mailto:hello@matilde.page): for account questions, for example deleting a sync account.

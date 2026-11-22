@@ -1,6 +1,6 @@
 // After the build, writes a Markdown copy of each page for AI agents and LLMs, from the same HTML
-// people get: dist/index.md, dist/privacy.md, and dist/llms-full.txt (public/llms.txt followed by
-// both pages). Only <main> is converted; the interactive editor mock-up, decorative and hidden
+// people get: dist/index.md, dist/privacy.md, dist/changelog.md and dist/llms-full.txt (public/llms.txt
+// followed by every page). Only <main> is converted; the interactive editor mock-up, decorative and hidden
 // parts and the floating Download button are left out.
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,7 @@ const SITE = "https://matilde.page";
 const PAGES = [
   { html: "index.html", md: "index.md", url: `${SITE}/` },
   { html: "privacy.html", md: "privacy.md", url: `${SITE}/privacy` },
+  { html: "changelog.html", md: "changelog.md", url: `${SITE}/changelog` },
 ];
 const SKIP = ["[data-mockup]", "[data-md-skip]", "[aria-hidden=true]", "script", "style", "svg", "img"];
 

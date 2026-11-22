@@ -14,10 +14,10 @@ Intel Macs can continue using Matilde 0.1.8.
 
 Matilde checks for new versions and offers to install them. You can also use **Matilde → Check for Updates…**. Updates and the update feed are verified using Matilde's signing key.
 NOTES
-if [[ -f "release-notes/$MATILDE_VERSION.md" ]]; then
-    printf '\n' >> build/release-notes.md
-    cat "release-notes/$MATILDE_VERSION.md" >> build/release-notes.md
-fi
+# The friendly changelog entry (changelog/<version>.md at the repo root), the same text the
+# website, the apps and the update dialog show. release-version.py already required it.
+printf '\n' >> build/release-notes.md
+python3 scripts/changelog.py markdown "$MATILDE_VERSION" >> build/release-notes.md
 if [[ "${SIGN_WITH_APPLE:-}" != true ]]; then
     cat >> build/release-notes.md <<'NOTES'
 
