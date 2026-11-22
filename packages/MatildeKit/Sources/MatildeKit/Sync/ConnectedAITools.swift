@@ -1,6 +1,6 @@
 import Foundation
 
-/// An AI tool (claude.ai, ChatGPT, Cursor, …) the user connected to their notes through the MCP
+/// An AI tool (Langdock, claude.ai, ChatGPT, Cursor, …) the user connected to their notes through the MCP
 /// server (docs/mcp.md), as `GET /v1/connections` lists it. Settings → Sync shows these under
 /// "Connected AI tools" with Revoke, on the Mac and the iPhone.
 public struct ConnectedAITool: Decodable, Sendable, Identifiable, Equatable {

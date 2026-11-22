@@ -156,7 +156,7 @@ If the old private key wasn't kept, just replace `TOKEN_SIGNING_KEY`: every devi
 
 ## MCP server for AI tools
 
-The same Worker also serves `mcp.matilde.page` (staging `mcp-staging.matilde.page`): an opt-in remote MCP server with OAuth 2.1 that lets a person connect claude.ai, ChatGPT, Cursor and similar tools to their notes. Design, security model, owner setup and how to connect each tool: [docs/mcp.md](../docs/mcp.md). It needs no new Cloudflare resources (OAuth state lives in D1, table `mcp_oauth_kv`); the custom domain is created by `wrangler deploy`. After editing `src/mcp/web/connect.js` run `pnpm run gen:mcp-assets`.
+The same Worker also serves `mcp.matilde.page` (staging `mcp-staging.matilde.page`): an opt-in remote MCP server with OAuth 2.1 that lets a person connect Langdock, claude.ai, ChatGPT, Cursor and similar tools to their notes. Design, security model, owner setup and how to connect each tool: [docs/mcp.md](../docs/mcp.md). It needs no new Cloudflare resources (OAuth state lives in D1, table `mcp_oauth_kv`); the custom domain is created by `wrangler deploy`. After editing `src/mcp/web/connect.js` run `pnpm run gen:mcp-assets`.
 
 ## Deploying
 

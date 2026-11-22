@@ -48,7 +48,7 @@ Sync is optional and off until you turn it on. Sign in with your email (no passw
 
 ## Works with your AI tools
 
-If you like, connect an AI tool that supports MCP, such as Claude, ChatGPT or Cursor, to your synced notes through Matilde's MCP server:
+If you like, connect an AI tool that supports MCP, such as Langdock, Claude, ChatGPT or Cursor, to your synced notes through Matilde's MCP server:
 
 ```
 https://mcp.matilde.page/mcp
