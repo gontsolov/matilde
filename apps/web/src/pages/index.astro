@@ -2,6 +2,7 @@
 import Base from "../layouts/Base.astro";
 import AppPreview from "../components/AppPreview.astro";
 import DownloadButton from "../components/DownloadButton.astro";
+import FloatingDownload from "../components/FloatingDownload.astro";
 import PenMark from "../components/PenMark.astro";
 
 const points = [
@@ -45,7 +46,7 @@ const privacy = [
         and leaves notes in the margin. It won't write your paragraphs or make your decisions. The thinking stays yours.
       </p>
       <div class="mt-9">
-        <DownloadButton />
+        <DownloadButton id="hero-download" />
       </div>
     </section>
 
@@ -121,4 +122,5 @@ const privacy = [
       </div>
     </section>
   </main>
+  <FloatingDownload watch="hero-download" />
 </Base>

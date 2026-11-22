@@ -20,9 +20,10 @@ pnpm run preview    # the built site through the Worker (wrangler dev, http://lo
 ```
 
 - Copy lives in `src/pages/index.astro` and `src/pages/privacy.astro`.
-- Links, platform line and contact address are in `src/lib/site.ts`.
+- Links and contact address are in `src/lib/site.ts`.
 - The page shows no version number, so the build doesn't call GitHub; the button always links to
-  the latest release's `Matilde.dmg`.
+  the latest release's `Matilde.dmg`. Once the hero button scrolls out of view, a floating copy
+  (`src/components/FloatingDownload.astro`) appears at the bottom centre; it hides while the footer is visible.
 - Colours are the app's Paper palette, light and dark, in `src/styles/global.css`. The Download
   button is a dark warm gray (`--button`) in light mode and a warm off-white in dark mode.
 - Newsreader is self-hosted through Fontsource; small UI text uses the system sans.
