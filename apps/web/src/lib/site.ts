@@ -1,7 +1,10 @@
 // Facts the pages share. Keep them in step with the app (apps/macos) and the sync server (server/).
 export const REPO = "gontsolov/matilde";
-/** Stable link to the newest DMG; the Release workflow always uploads it as Matilde.dmg. */
-export const DOWNLOAD_URL = `https://github.com/${REPO}/releases/latest/download/Matilde.dmg`;
+/**
+ * The Download buttons' link. The Worker (worker/index.ts) adds one anonymous count and redirects
+ * to the newest release's Matilde.dmg (the Release workflow always uploads it under that name).
+ */
+export const DOWNLOAD_URL = "/download";
 export const RELEASES_URL = `https://github.com/${REPO}/releases/latest`;
 export const SOURCE_URL = `https://github.com/${REPO}`;
 /** Where people can reach the owner, e.g. to delete a sync account. OWNER: confirm this address receives mail. */

@@ -1,5 +1,6 @@
 packages:
   - apps/web
+  - apps/stats
   - server
 
 # pnpm 10 skips dependencies' install scripts unless they're listed here.

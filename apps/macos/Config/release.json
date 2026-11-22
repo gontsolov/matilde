@@ -2,6 +2,6 @@
   "version": "0.3.2",
   "bundleIdentifier": "app.matilde.local",
   "repository": "gontsolov/matilde",
-  "feedURL": "https://github.com/gontsolov/matilde/releases/latest/download/appcast.xml",
+  "feedURL": "https://matilde.page/appcast.xml",
   "sparklePublicKey": "WWMmX7HNyCTGfT0qAVf2bhJkJLf/Yj1JsDgCRdj2jXw="
 }

@@ -33,6 +33,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run check
+      - run: pnpm test
       - run: pnpm run build
 
   # A preview version of the Worker for each pull request. It doesn't touch matilde.page.
@@ -116,3 +117,8 @@ jobs:
           echo "https://matilde.page/ -> $code"; [ "$code" = 200 ]
           www=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' https://www.matilde.page/)
           echo "https://www.matilde.page/ -> $www"; [[ "$www" == 301* ]]
+          # Counted redirects (HEAD isn't counted, so the smoke test adds nothing to the stats).
+          dl=$(curl -sI -o /dev/null -w '%{http_code} %{redirect_url}' https://matilde.page/download)
+          echo "https://matilde.page/download -> $dl"; [[ "$dl" == "302 https://github.com/gontsolov/matilde/releases/latest/download/Matilde.dmg" ]]
+          feed=$(curl -sI -o /dev/null -w '%{http_code} %{redirect_url}' https://matilde.page/appcast.xml)
+          echo "https://matilde.page/appcast.xml -> $feed"; [[ "$feed" == "302 https://github.com/gontsolov/matilde/releases/latest/download/appcast.xml" ]]
