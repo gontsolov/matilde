@@ -301,7 +301,10 @@ public actor SyncSession {
 
     public let http: SyncHTTP
     public let store: SyncTokenStore
+    /// Read from the store on first use, not at init, so creating a session never touches the
+    /// Keychain (an app with sync off never reads it).
     private var tokens: SyncTokens?
+    private var loaded = false
     private var refreshing: Task<SyncTokens, Error>?
     private let now: @Sendable () -> Date
     /// Called once when the server ends the session (revoked, reused refresh token, account deleted).
@@ -311,28 +314,41 @@ public actor SyncSession {
         self.http = http
         self.store = store
         self.now = now
+    }
+
+    /// One attempt per session: a refused Keychain read isn't retried by every sync trigger.
+    private func loadIfNeeded() {
+        guard !loaded else { return }
+        loaded = true
         tokens = try? store.load()
     }
 
     public func setSignedOutHandler(_ handler: @escaping @Sendable () -> Void) { onSignedOut = handler }
 
-    public var current: SyncTokens? { tokens }
+    public var current: SyncTokens? {
+        loadIfNeeded()
+        return tokens
+    }
 
     public func signIn(_ tokens: SyncTokens) throws {
         try store.save(tokens)
+        loaded = true
         self.tokens = tokens
     }
 
     /// Forget the tokens locally; `serverSide` also revokes the session (best effort).
     public func signOut(serverSide: Bool) async {
+        if serverSide { loadIfNeeded() }
         if serverSide, let token = tokens?.accessToken {
             _ = try? await http.send(http.request("POST", "auth/logout", token: token))
         }
+        loaded = true
         tokens = nil
         try? store.remove()
     }
 
     public func accessToken(forceRefresh: Bool = false) async throws -> String {
+        loadIfNeeded()
         guard let tokens else { throw SyncSessionError.signedOut }
         if !forceRefresh, tokens.accessExpiry.timeIntervalSince(now()) > Self.refreshMargin { return tokens.accessToken }
         return try await refresh(from: tokens).accessToken
@@ -361,6 +377,7 @@ public actor SyncSession {
     }
 
     public func endSession() async {
+        loaded = true
         tokens = nil
         try? store.remove()
         onSignedOut?()

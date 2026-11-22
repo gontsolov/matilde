@@ -31,19 +31,46 @@ The local key is stored in the login Keychain under the Sparkle account `app.mat
 
 Actions use pinned official action commits, and pull-request CI has read-only permissions and no signing secrets. The release workflow accepts main-branch history only. Do not give untrusted collaborators write access to release workflow code: repository writers who can change it can potentially use its signing secret. Review workflow changes and protect main before adding collaborators.
 
-## Apple signing (optional, not configured)
+## Release signing
 
-Current builds use an ad-hoc code signature and are **not Apple-notarized**. Sparkle signatures authenticate later updates; they do not replace Apple's first-launch checks. macOS may block the initial download, and managed Macs may disallow it entirely. Follow [Apple's instructions](https://support.apple.com/guide/mac-help/mh40616/mac) if you choose to open a trusted build.
+### Why ad-hoc releases ask for the keychain password
 
-A Developer ID certificate is for direct downloads too; it does not require an App Store submission. To add notarization later, set repository variable `APPLE_SIGNING_ENABLED=true`, variable `CODE_SIGN_IDENTITY` to the Developer ID Application identity, and secrets:
+Matilde's secrets (sync session, sync account key, Langdock key) are items in the login keychain. macOS lets an app read such an item without asking only if the app meets the item's access list and its partition list. Both are tied to the app's code signature:
 
-- `APPLE_CERTIFICATE_P12` (base64-encoded exported certificate and key)
-- `APPLE_CERTIFICATE_PASSWORD`
+- An ad-hoc signature has no certificate. Its designated requirement is the build's own hash (`cdhash H"…"`) and its keychain partition is `cdhash:…`. Every release has a new hash, so after every update macOS treats Matilde as a new app and asks again. "Always Allow" only covers that one build.
+- A **self-signed** certificate doesn't help. securityd gives a `teamid:` partition only to App Store builds and to Apple-issued Apple Development, Mac Distribution and Developer ID certificates; any other certificate falls back to `cdhash:` like ad-hoc.
+- An **Apple-issued** certificate gives a stable `teamid:<TEAM>` partition. `scripts/build-app.sh` also signs the app with an explicit designated requirement, `identifier "app.matilde.local" and anchor apple generic and certificate leaf[subject.OU] = "<TEAM>"`, which every later release signed by the same team meets (Apple Development now, Developer ID later). After one last "Always Allow", updates don't ask.
+
+Since DIST-10 the Mac app also keeps all its secrets in one keychain item (`app.matilde.local.vault`, label "Matilde", `CredentialVault` in MatildeKit), reads it only when sync or Ask Matilde needs it (not at launch), and shows a short note before macOS asks. The first time it runs, it moves the older items into the vault (one prompt per older item, once) and deletes them. While releases stay ad-hoc, there is one prompt per update, for one item.
+
+### Stable signing with an Apple Development certificate
+
+A free Apple ID is enough; no paid membership. On a Mac with Xcode:
+
+1. Xcode → Settings → Accounts → add the Apple ID (it gets a "Personal Team").
+2. Select the team → Manage Certificates… → + → Apple Development.
+3. Keychain Access → login → My Certificates → right-click "Apple Development: …" → Export as `.p12` with a password.
+4. From the repo: `bash apps/macos/scripts/setup-release-signing.sh ~/Desktop/Certificates.p12`. It checks the file in a throwaway keychain, shows the team and expiry, and after confirmation stores the secrets `APPLE_CERTIFICATE_P12` and `APPLE_CERTIFICATE_PASSWORD` with `gh secret set`. Run it without an argument for these steps.
+
+The Release workflow signs with the certificate whenever `APPLE_CERTIFICATE_P12` is set (`CODE_SIGN_IDENTITY` is optional; the certificate's SHA-1 is used otherwise), prints the designated requirement, and fails if the certificate has no Apple team. Without the secret, releases stay ad-hoc.
+
+Caveats:
+
+- Apple Development certificates are meant for development. Signing downloads with one works for the keychain but is outside its intended use; Developer ID is the proper certificate for distribution (DIST-02).
+- Releases are still **not notarized**. Gatekeeper's first-launch behaviour is the same as for ad-hoc builds.
+- The signature includes the certificate's name (the Apple ID's name) and team ID; anyone can see them with `codesign -dv`.
+- The certificate expires after about a year. Make a new one the same way and run the setup script again; the team ID stays the same, so the requirement still matches and updates don't ask.
+- Sparkle accepts the change: updates are authenticated by the EdDSA signature, and a new code-signing identity is allowed as long as the new app's signature is valid.
+
+### Notarization (Developer ID, later)
+
+A Developer ID certificate is for direct downloads too; it does not require an App Store submission. It needs the paid Apple Developer Program. Put the Developer ID Application certificate in `APPLE_CERTIFICATE_P12`/`APPLE_CERTIFICATE_PASSWORD`, set repository variable `APPLE_NOTARIZE=true` (the older `APPLE_SIGNING_ENABLED=true` still works), and add the secrets:
+
 - `APPLE_ID`
 - `APPLE_TEAM_ID`
 - `APPLE_APP_PASSWORD` (app-specific password for notarization)
 
-The workflow then imports the certificate into a temporary keychain, signs Sparkle's nested helpers and app with Hardened Runtime, notarizes and staples the app and DMG, and deletes the temporary keychain. That path needs verification with a real Developer ID before claiming notarized distribution.
+The workflow then signs with Hardened Runtime, notarizes and staples the app and DMG, and leaves out the "not notarized" first-launch note. Switching from Apple Development to Developer ID under the same team keeps the same designated requirement, so it needs no keychain prompt. That path needs verification with a real Developer ID before claiming notarized distribution.
 
 ## Local verification
 
