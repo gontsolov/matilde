@@ -296,7 +296,7 @@ describe("MCP over OAuth", () => {
     expect(html).toContain('value="notes:edit">');
     expect(html).toContain('value="notes:read" checked>');
     expect(html).toContain("client.example");
-    expect(html).toContain("isn't verified");
+    expect(html).not.toContain("isn't verified");
   });
 
   it("serves the consent page's own icon, font, style and script under a strict CSP", async () => {

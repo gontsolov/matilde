@@ -55,7 +55,7 @@ The MCP server is part of the existing sync Worker (`matilde-sync` / `matilde-sy
 
 ## Consent flow
 
-`GET /authorize` (after the library has validated client, redirect URI and PKCE) renders the consent page. It shows the client's name (escaped; marked "not verified" for self-registered clients, with the verified domain for CIMD clients), where access will be sent (redirect host, with a warning for apps on this computer), the scopes as checkboxes and the duration. The page is served with `frame-ancestors 'none'`, a strict CSP (`script-src 'self'`), no third-party resources.
+`GET /authorize` (after the library has validated client, redirect URI and PKCE) renders the consent page. It shows the client's name (escaped; with the verified domain for CIMD clients), where access will be sent (redirect host, with a warning for apps on this computer), the scopes as switches and the duration. The page is served with `frame-ancestors 'none'`, a strict CSP (`script-src 'self'`), no third-party resources.
 
 1. **Email.** The user types their Matilde account email; `POST /connect/code` sends a sign-in code through the existing email-code pipeline (same rate limits, same mail, same hashed storage).
 2. **Code.** `POST /connect/verify` checks it (5 attempts, 10 minutes). It never creates an account or a device session. On success it returns a short-lived login token (random, stored hashed in `mcp_logins`, 15 minutes, single use) plus the account's `userId`, `keyId`, `keyCheck` and key slots, i.e. what `GET /v1/keys` returns to a device.

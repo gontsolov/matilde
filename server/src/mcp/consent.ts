@@ -138,7 +138,7 @@ export function consentPage(info: ConsentDescription, handle: string, headers: H
   const name = escape(info.clientName);
   const verified = info.clientDomain
     ? `<p class="lede">Verified domain: <strong>${escape(info.clientDomain)}</strong></p>`
-    : `<p class="lede">“${name}” is the name the tool gave itself and isn't verified. Continue only if you started this from that tool.</p>`;
+    : "";
   const loopback = info.redirectIsLoopback
     ? `<p class="lede warn">This connection goes to an app on this computer. Any program running here could receive it, whatever name it gives.</p>`
     : "";
