@@ -76,12 +76,32 @@ const privacy = [
           }
         </dl>
         <p class="mt-6 text-[15.5px] leading-[1.6] text-muted">
-          Ask Matilde is the one exception. It's off until you connect your own Langdock account. After that, the
-          page you're on is sent to Langdock whenever Matilde reads it, and that part isn't covered by sync's
-          encryption.
+          There are two exceptions, both off until you turn them on. Ask Matilde works through your own Langdock
+          account: the page you're on is sent to Langdock whenever Matilde reads it. And an AI tool you connect
+          (below) reads your notes through the Matilde server, which decrypts them for that tool while it's connected.
+          Neither is covered by sync's encryption.
         </p>
         <p class="mt-6 font-sans text-[14px]">
           <a href="/privacy" class="text-accent underline decoration-accent/40 underline-offset-4 hover:decoration-accent">How privacy works →</a>
+        </p>
+      </div>
+    </section>
+    <section class="mx-auto mt-24 max-w-2xl px-6" aria-labelledby="ai-tools-heading">
+      <div class="border-t border-rule pt-14">
+        <h2 id="ai-tools-heading" class="text-[28px] font-medium tracking-[-0.01em]">
+          Works with your AI tools, if you want.
+        </h2>
+        <p class="mt-4 text-[17.5px] leading-[1.6] text-ink/85">
+          Connect Claude, ChatGPT, Cursor or another tool that speaks MCP to your synced notes, at{" "}
+          <code class="font-sans text-[15.5px]">mcp.matilde.page/mcp</code>. Ask it to find a passage you half remember,
+          pull together your notes on a topic or leave a comment in the margin. You choose what each tool may do (reading,
+          comments, new notes, and editing only if you tick it) and for how long, and you can disconnect it any time in
+          Settings.
+        </p>
+        <p class="mt-4 text-[15.5px] leading-[1.6] text-muted">
+          It's off until you connect a tool. While one is connected, the Matilde server decrypts your notes to answer
+          it, and what the tool reads goes to the company behind it.{" "}
+          <a href="/privacy#ai-tools" class="text-accent underline decoration-accent/40 underline-offset-4 hover:decoration-accent">The details</a>.
         </p>
       </div>
     </section>
