@@ -19,6 +19,22 @@ export interface Env {
   MIN_CLIENT_BUILD: string;
   /** Sign-in codes sent per day across all users before refusing more. */
   GLOBAL_DAILY_CODE_CAP: string;
+  /** Feedback messages per network (/24 or /48) per hour. Default 5. */
+  FEEDBACK_PER_IP_HOUR?: string;
+  /** Feedback messages per day across all users before refusing more. Default 200. */
+  GLOBAL_DAILY_FEEDBACK_CAP?: string;
+  /** Linear team that receives feedback issues. Feedback is stored but not delivered while unset. */
+  LINEAR_TEAM_ID?: string;
+  /** Optional Linear label ids per feedback kind; unset ones are skipped. */
+  LINEAR_LABEL_BUG?: string;
+  LINEAR_LABEL_IDEA?: string;
+  LINEAR_LABEL_OTHER?: string;
+  /** Optional Linear label id added to every feedback issue, on top of the kind label. */
+  LINEAR_LABEL_FEEDBACK?: string;
+  /** Optional Linear project id for feedback issues (issueCreate projectId). */
+  LINEAR_PROJECT_ID?: string;
+  /** Optional workflow state id for new feedback issues, meant for the team's Triage state. */
+  LINEAR_STATE_ID?: string;
 
   // Secrets (wrangler secret put)
   /** Ed25519 private JWK (JSON) with a "kid"; signs access tokens. */
@@ -29,6 +45,8 @@ export interface Env {
   CODE_PEPPER: string;
   /** Only when MAIL_PROVIDER = "resend" (fallback; not set in the default config). */
   RESEND_API_KEY?: string;
+  /** Linear personal API key; creates feedback issues. See docs/feedback.md. */
+  LINEAR_API_KEY?: string;
 }
 
 type MatildeEnv = Env;

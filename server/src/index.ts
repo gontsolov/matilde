@@ -1,5 +1,6 @@
 import { createApp } from "./app";
 import type { Env } from "./env";
+import { retryFeedback } from "./feedback/service";
 import { cleanupDirectory } from "./maintenance";
 
 export { UserSync } from "./sync/UserSync";
@@ -10,5 +11,6 @@ export default {
   fetch: app.fetch,
   async scheduled(_controller, env, ctx) {
     ctx.waitUntil(cleanupDirectory(env));
+    ctx.waitUntil(retryFeedback(env).then(() => undefined));
   },
 } satisfies ExportedHandler<Env>;
