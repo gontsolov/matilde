@@ -1,6 +1,6 @@
 ---
 import "../styles/global.css";
-import { AUTHOR_URL, PLATFORM } from "../lib/site";
+import { AUTHOR_URL, SOURCE_URL } from "../lib/site";
 
 interface Props {
   title: string;
@@ -34,7 +34,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
         <a href="/" class="hover:text-ink">Matilde</a>
         <a href="/privacy" class="hover:text-ink">Privacy</a>
-        <span>{PLATFORM}</span>
+        <a href={SOURCE_URL} rel="noopener" class="hover:text-ink">GitHub</a>
         <a href={AUTHOR_URL} rel="noopener" class="hover:text-ink">Built by Filip</a>
       </div>
     </footer>
