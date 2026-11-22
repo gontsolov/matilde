@@ -24,9 +24,9 @@ final class SyncCenter: ObservableObject {
         case signedOut
         case awaitingCode(email: String)
         case checkingKey
-        /// Another device made the account key; this Mac needs the recovery key.
+        /// Another device made the account key; this Mac needs the Matilde key.
         case needsRecoveryKey
-        /// A new account key was made here; show its recovery key once.
+        /// A new account key was made here; show its Matilde key once.
         case showRecoveryKey(code: String)
         case ready
         case updateRequired
@@ -41,8 +41,11 @@ final class SyncCenter: ObservableObject {
     @Published var message: String?
     @Published private(set) var busy = false
     @Published private(set) var devices: [SyncDeviceSummary] = []
-    /// Whether the new recovery key was also stored in iCloud Keychain (shown on the save-key step).
+    /// Whether the new Matilde key was also stored in iCloud Keychain (shown on the save-key step).
     @Published private(set) var recoveryKeyInICloud = false
+    /// The format of the Matilde key the account's recovery slot expects (from the slot's
+    /// `params` hint), so the Enter step shows 12 word slots or the long `MTLD-` field first.
+    @Published private(set) var recoveryKeyFormat: SyncRecoveryKey.Format = .words
 
     /// Saves pending edits before a sync reads the files (set by `AppModel`).
     var prepare: (@MainActor () -> Void)?
@@ -51,7 +54,7 @@ final class SyncCenter: ObservableObject {
 
     private let defaults: UserDefaults
     private let keyStore = KeychainAccountKeyStore()
-    /// The recovery key's copy in iCloud Keychain (owner decision 2026-11-21), read when adding a device.
+    /// The Matilde key's copy in iCloud Keychain (owner decision 2026-11-21), read when adding a device.
     private let recoveryBackup: RecoveryKeyBackup = ICloudRecoveryKeyBackup()
     private var session: SyncSession
     private var ring: AccountKeyRing?
@@ -168,14 +171,14 @@ final class SyncCenter: ObservableObject {
     var signedInEmail: String? { defaults.string(forKey: Self.emailKey) }
     static let emailKey = "sync.email"
 
-    /// "I've saved it" on the new account's recovery key.
+    /// "I've saved my Matilde key" on the new account's key.
     func acknowledgeRecoveryKey() {
         guard case .showRecoveryKey = phase else { return }
         phase = .ready
         startEngine()
     }
 
-    /// The recovery key from iCloud Keychain, when another device stored it there; fills in the
+    /// The Matilde key from iCloud Keychain, when another device stored it there; fills in the
     /// unlock step.
     func storedRecoveryKey() async -> String? {
         guard let userId = await session.current?.userId else { return nil }
@@ -226,7 +229,7 @@ final class SyncCenter: ObservableObject {
     private var transport: HTTPSyncTransport { HTTPSyncTransport(session: session, deviceId: deviceId) }
 
     /// Loads the account key from the Keychain and checks it against the server, or makes the
-    /// first one, or asks for the recovery key.
+    /// first one, or asks for the Matilde key.
     private func setUpKey() async {
         guard let userId = await session.current?.userId else { phase = .signedOut; return }
         phase = .checkingKey
@@ -258,6 +261,7 @@ final class SyncCenter: ObservableObject {
                 phase = .ready
                 startEngine()
             } else {
+                recoveryKeyFormat = keys.recoveryKeyFormat ?? .words
                 phase = .needsRecoveryKey
             }
         } catch {
@@ -282,14 +286,6 @@ final class SyncCenter: ObservableObject {
         }
     }
 
-    /// The user typed the last group of the recovery key shown once.
-    func confirmRecoveryKey(lastGroup: String) -> Bool {
-        guard case .showRecoveryKey(let code) = phase, let key = try? SyncRecoveryKey(code: code),
-              key.confirms(lastGroup: lastGroup) else { return false }
-        phase = .ready
-        startEngine()
-        return true
-    }
 
     func signOut() {
         let session = session
@@ -445,7 +441,7 @@ final class SyncCenter: ObservableObject {
             self.ring = fresh
             await engine.updateRing(fresh)
         } catch {
-            // The key moved to a new epoch this device can't unwrap: ask for the recovery key.
+            // The key moved to a new epoch this device can't unwrap: ask for the Matilde key.
             NSLog("Matilde sync: account key changed (%@)", String(describing: type(of: error)))
             stopEngine()
             self.ring = nil
@@ -491,8 +487,8 @@ final class SyncCenter: ObservableObject {
 
     static func message(for error: Error) -> String {
         switch error {
-        case SyncCryptoError.recoveryCodeTypo, SyncCryptoError.invalidRecoveryCode: return "That recovery key doesn’t look right."
-        case SyncCryptoError.authenticationFailed: return "That recovery key doesn’t match this account."
+        case SyncCryptoError.recoveryCodeTypo, SyncCryptoError.invalidRecoveryCode: return "That Matilde key doesn’t look right."
+        case SyncCryptoError.authenticationFailed: return "That Matilde key doesn’t match this account."
         case let error as SyncServerError:
             switch error.code {
             case "invalid_code": return "That code didn’t work. Request a new one."

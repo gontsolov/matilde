@@ -11,7 +11,7 @@ Only CryptoKit is used (AES-256-GCM, HKDF-SHA256, HMAC-SHA256, SHA-256); no thir
 | Account key (AK) | 256 random bits, one per *epoch* (`keyId` 1, 2, …) | Device Keychain (`app.matilde.local.sync.account-key`, account = userId, `AfterFirstUnlockThisDeviceOnly`); on the server only inside key slots |
 | Record key | `HKDF-SHA256(AK, salt, "matilde/v1/record")`, fresh 32-byte salt per encryption | Derived, never stored |
 | Blob key | 256 random bits per file | Inside the encrypted asset record that references the blob |
-| Recovery key | 256 random bits, shown once as a code | Only on paper / in the user's password manager |
+| Matilde key (recovery key) | 128 random bits shown once as 12 words (accounts from 0.3 on); older accounts: 256 random bits as an `MTLD-` code | Only on paper / in the user's password manager, and optionally the user's iCloud Keychain |
 
 Per-record salts give every encryption its own AES-GCM key, so random 12-byte nonces can't collide in practice. Blob keys are independent of AK, so a rotation never re-uploads images.
 
@@ -61,26 +61,45 @@ AAD = fields("matilde/v1/slot", userId, slotId, kind, keyId)
 
 | `kind` | secret | plaintext |
 | --- | --- | --- |
-| `recovery` | recovery key | the current AK (32 bytes) |
+| `recovery` | the Matilde key's slot secret (below) | the current AK (32 bytes) |
 | `previous-keys` | the current AK | older epochs still in use: `keyId(2) | key(32)` each; present only between a rotation and the end of re-encryption |
 
 `PUT /v1/keys` replaces the key check and all slots at once, with `expectedKeyId` as compare-and-swap (`null` when no key exists). The server's 1024-character cap on `wrappedKey` allows 20 previous epochs; rotating again before re-encryption finishes beyond that is refused.
 
-## Recovery key
+## Matilde key (recovery key)
 
-`MTLD-XXXX-XXXX-…`: 13 groups of 4 Crockford Base32 characters (`0-9 A-Z` without `I L O U`) carrying 260 bits: the 256-bit key and 4 check bits (top bits of SHA-256(key)). Parsing ignores case, spaces and dashes, accepts the code with or without `MTLD`, and reads O as 0 and I/L as 1. The check bits catch about 15 of 16 typos locally; any other wrong code fails when the slot doesn't unwrap. `lastGroup`/`confirms(lastGroup:)` support the "type the last group" confirmation.
+The UI calls it "Your Matilde key"; code and protocol keep the name recovery key (`SyncRecoveryKey`, slot kind `recovery`).
+
+### 12 words (new accounts and regenerated keys)
+
+- 128 bits of entropy from the system CSPRNG, written as 12 words from the BIP39 English list (2048 words): entropy plus a 4-bit checksum (first bits of SHA-256(entropy)) split into 12 × 11 bits, exactly as BIP39. The checksum catches about 15 of 16 typos and most swapped words locally; anything else fails when the slot doesn't unwrap.
+- Slot secret = `HKDF-SHA256(ikm: entropy, salt: "matilde/matilde-key/v1", info: "matilde/matilde-key/v1/slot-secret", 32 bytes)`. This 256-bit secret takes the place of the legacy 256-bit key in the existing slot wrap (`KEK = HKDF-SHA256(secret, random salt, "matilde/v1/slot/recovery")`, AES-256-GCM), which is unchanged. BIP39's PBKDF2 seed derivation isn't used: the entropy is already uniformly random, so a slow KDF adds nothing, and the words aren't a wallet seed.
+- 128 bits matches the security of AES-128 and is far beyond online or offline guessing; the server only ever sees the AES-GCM-wrapped account key.
+- Parsing (`SyncRecoveryKey(code:)`, `MatildeKeyPhrase`): any case, separated by spaces, newlines, commas or numbering ("1. word"); a word may be shortened to a unique prefix of at least 4 letters (BIP39 words are unique in their first 4). Wrong count or a word not in the list → `invalidRecoveryCode`; bad checksum → `recoveryCodeTypo`. The canonical code is the 12 full words, lowercase, separated by single spaces; that's what Copy, the saved file and the iCloud Keychain copy hold.
+- The recovery slot's `params` is `"matilde-key/words-v1"` for a words key and absent for a legacy key. It's an unauthenticated hint for the UI (which entry form to show first, exposed as `SyncKeysResponse.recoveryKeyFormat`); unwrapping never depends on it. The server stores `params` as an opaque string, so it needs no change.
+- Wordlist: `packages/MatildeKit/Wordlists/bip39-english.txt` from bitcoin/bips (BIP39, the reference implementation trezor/python-mnemonic is MIT-licensed), pinned by SHA-256 in a test; `Wordlists/generate.py` writes `MatildeKeyWords.swift`. Test vectors (BIP39's own plus the slot-secret derivation) are in `docs/sync-vectors/v1.json` under `matildeKeys`.
+
+### Legacy `MTLD-` codes (accounts made before 0.3)
+
+`MTLD-XXXX-XXXX-…`: 13 groups of 4 Crockford Base32 characters (`0-9 A-Z` without `I L O U`) carrying 260 bits: the 256-bit key and 4 check bits (top bits of SHA-256(key)). Parsing ignores case, spaces and dashes, accepts the code with or without `MTLD`, and reads O as 0 and I/L as 1. The check bits catch about 15 of 16 typos locally; any other wrong code fails when the slot doesn't unwrap. These codes keep working everywhere: the format is detected on entry (`SyncRecoveryKey.format(of:)`: the `MTLD` prefix or digits mixed with letters mean legacy, list words mean words), and the legacy slot secret is the 256-bit key itself, as before. The "type the last group" confirmation is gone; the user ticks "I've saved my Matilde key" instead.
+
+### Compatibility
+
+- No protocol, envelope or server change: only the secret fed into the existing recovery slot differs, plus the `params` hint.
+- An existing account keeps its `MTLD-` code until the key is regenerated (`regenerateRecoveryKey(ring:)` now makes words and sets `params`), which switches the account to words; the old code stops working once the server stores the new slot, as before.
+- Older apps can't read a words key; a device on 0.2.x has to update before joining an account made with words.
 
 ## Flows (`SyncKeyEnrollment`, pure: no network, no Keychain)
 
 - **Turn on sync, first device:** `create(userId:)` → `PUT /v1/keys` with `expectedKeyId: null`. Only after `200` store the ring in the Keychain and show the recovery key once. On `409 key_conflict` another device won: fetch `GET /v1/keys` and recover.
 - **New device / lost Keychain item:** `GET /v1/keys` → `recover(userId:keys:recoveryCode:)` → verifies the key check, unwraps `previous-keys` if present → store the ring.
 - **Device with a Keychain copy:** `ring(userId:current:keys:)` checks it against the server's `keyId` and key check and adds older epochs.
-- **New recovery code** (lost or leaked): `regenerateRecoveryKey(ring:)`; the old code stops working once the server stores it. No data re-encryption.
+- **New Matilde key** (lost or leaked): `regenerateRecoveryKey(ring:)` makes a 12-word key; the old code stops working once the server stores it. No data re-encryption.
 - **Full rotation:** `rotate(ring:recoveryKey:)` makes epoch `n+1`, moves older epochs into `previous-keys`, and re-wraps under the existing recovery key (re-entered by the user) or a new one. Then rekey every record and finally `dropPreviousKeys(ring:ids:keys:)`, which keeps the recovery slot as stored.
 
 ## Deviations from the plan (v10) and open items
 
 - Key check binds the epoch: `HMAC(AK, fields("matilde/v1/key-check", keyId))` instead of `HMAC(AK, "check")`.
 - Older epochs after a rotation travel in a `previous-keys` slot wrapped by the new AK, so a new device can read records not yet re-encrypted; the plan only said "keep the old key locally".
-- The recovery code uses Crockford Base32 with 4 check bits for local typo detection (still 13 groups).
-- Not built yet: the optional passphrase slot (needs an Argon2id C target, not in CryptoKit), the iCloud Keychain item (needs DIST-02's keychain access group), recovery-kit printing and regenerating or rotating from the UI, and "Reset encryption". SYNC-07 wired the keys into the sync transport and added the first-device flow (show the recovery key once, copy, confirm the last group) and recovery on a new device; see [sync-client.md](sync-client.md). The server needs no change for any of this: `kind` and `params` are opaque.
+- The legacy recovery code uses Crockford Base32 with 4 check bits for local typo detection (13 groups). New keys are 12 BIP39 words with an HKDF-derived slot secret (see above).
+- Not built yet: the optional passphrase slot (needs an Argon2id C target, not in CryptoKit), the iCloud Keychain item (needs DIST-02's keychain access group), recovery-kit printing and regenerating or rotating from the UI, and "Reset encryption". SYNC-07 wired the keys into the sync transport and added the first-device flow (show the Matilde key once, copy, tick "I've saved my Matilde key") and recovery on a new device; see [sync-client.md](sync-client.md). The server needs no change for any of this: `kind` and `params` are opaque.

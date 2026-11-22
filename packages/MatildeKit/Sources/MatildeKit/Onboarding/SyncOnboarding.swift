@@ -6,9 +6,9 @@ public enum SyncSetupPhase: Equatable, Sendable {
     case signedOut
     case awaitingCode(email: String)
     case checkingKey
-    /// Another device made the account key; this one needs the recovery key.
+    /// Another device made the account key; this one needs the Matilde key.
     case needsRecoveryKey
-    /// A new account key was made here; its recovery key is shown once.
+    /// A new account key was made here; its Matilde key is shown once.
     case showRecoveryKey(code: String)
     case ready
     case updateRequired
@@ -42,7 +42,7 @@ public struct SyncOnboardingFlow: Equatable, Sendable {
     public let startedAt: Date
 
     /// Starts at the intro when signed out, else where setup stands (e.g. reopened while a
-    /// recovery key is still needed).
+    /// Matilde key is still needed).
     public init(phase: SyncSetupPhase, startedAt: Date = Date()) {
         self.startedAt = startedAt
         step = .intro
@@ -54,7 +54,7 @@ public struct SyncOnboardingFlow: Equatable, Sendable {
         if step == .intro { step = .email }
     }
 
-    /// The server turned down the code, or the recovery key didn't open the account.
+    /// The server turned down the code, or the Matilde key didn't open the account.
     public mutating func failed() {
         switch step {
         case .code, .enterKey, .email: failures += 1
@@ -209,24 +209,43 @@ public struct ResendCooldown: Equatable, Sendable {
     public func canResend(at date: Date = Date()) -> Bool { remaining(at: date) == 0 }
 }
 
-/// Typing or pasting a recovery key (`SyncRecoveryKey`): accepts any case, spaces, dashes and the
-/// `MTLD` prefix, checks as you type and formats into groups of four.
+/// Typing or pasting a Matilde key (`SyncRecoveryKey`) in either format, checked as you type.
+///
+/// Words (new accounts): any case, separated by spaces, newlines, commas or numbering; a word may
+/// be shortened to its first four letters. Legacy `MTLD-` keys (accounts from 0.2.x): any case,
+/// spaces, dashes and the prefix are fine, look-alikes O, I, L read as 0 and 1, formatted into
+/// groups of four.
 public enum RecoveryKeyInput {
+    /// Characters in a legacy key.
     public static let characterCount = SyncRecoveryKey.groupCount * 4
 
     public enum State: Equatable, Sendable {
         case empty
+        /// A legacy key with characters still to type.
         case incomplete(remaining: Int)
         case invalidCharacter(Character)
         case tooLong
-        /// Complete, but the check digit doesn't match: a typo somewhere.
+        /// A Matilde key with words still to type (or the last word still being typed).
+        case incompleteWords(remaining: Int)
+        /// A word that isn't in the Matilde key's list.
+        case unknownWord(String)
+        /// More than 12 words.
+        case tooManyWords
+        /// Complete, but the checksum doesn't match: a typo or two words swapped.
         case typo
         case valid
     }
 
-    /// The key's own characters: uppercased, without separators or the prefix, look-alikes
-    /// (O, I, L) read as 0 and 1 like `SyncRecoveryKey(code:)` does.
+    public static func format(of input: String) -> SyncRecoveryKey.Format? { SyncRecoveryKey.format(of: input) }
+
+    /// The key in canonical form, ready for `SyncRecoveryKey(code:)`: the words in full, lowercased
+    /// and separated by single spaces (shortened words expanded, unknown ones kept as typed), or a
+    /// legacy key's own characters, uppercased without separators or the prefix, look-alikes read
+    /// as 0 and 1.
     public static func normalize(_ input: String) -> String {
+        if format(of: input) == .words {
+            return MatildeKeyPhrase.letterRuns(input).map { MatildeKeyPhrase.resolve($0) ?? $0 }.joined(separator: " ")
+        }
         var characters = input.uppercased().filter { !$0.isWhitespace && !"-–—_.".contains($0) }
         // L isn't in the key alphabet, so a leading "MTLD" is always the prefix.
         if characters.hasPrefix(SyncRecoveryKey.prefix) { characters.removeFirst(SyncRecoveryKey.prefix.count) }
@@ -236,7 +255,33 @@ public enum RecoveryKeyInput {
     }
 
     public static func state(of input: String) -> State {
-        let characters = normalize(input)
+        switch format(of: input) {
+        case nil: return .empty
+        case .words: return wordsState(MatildeKeyPhrase.letterRuns(input), typing: input.last.map { $0.isLetter } ?? false)
+        case .legacy: return legacyState(normalize(input))
+        }
+    }
+
+    /// `typing` is true while the last word may still grow (no separator after it yet).
+    static func wordsState(_ words: [String], typing: Bool) -> State {
+        let count = SyncRecoveryKey.wordCount
+        if words.isEmpty { return .empty }
+        if words.count > count { return .tooManyWords }
+        for (index, word) in words.enumerated() where MatildeKeyPhrase.resolve(word) == nil {
+            let last = index == words.count - 1
+            if last, typing || words.count < count, MatildeKeyPhrase.isPrefix(word) { return .incompleteWords(remaining: count - index) }
+            return .unknownWord(word)
+        }
+        if words.count < count { return .incompleteWords(remaining: count - words.count) }
+        do {
+            _ = try MatildeKeyPhrase.entropy(from: words.joined(separator: " "))
+            return .valid
+        } catch {
+            return .typo
+        }
+    }
+
+    static func legacyState(_ characters: String) -> State {
         if characters.isEmpty { return .empty }
         if let bad = characters.first(where: { !SyncRecoveryKey.alphabet.contains($0) }) { return .invalidCharacter(bad) }
         if characters.count > characterCount { return .tooLong }
@@ -249,12 +294,14 @@ public enum RecoveryKeyInput {
         }
     }
 
-    /// Groups of four joined by dashes, for showing what was typed ("7KQ2-M9XA-3…").
+    /// What was typed, tidied for showing: words separated by single spaces, or a legacy key in
+    /// groups of four joined by dashes ("7KQ2-M9XA-3…").
     public static func formatted(_ input: String) -> String {
-        groups(normalize(input)).joined(separator: "-")
+        if format(of: input) == .words { return MatildeKeyPhrase.letterRuns(input).joined(separator: " ") }
+        return groups(input).joined(separator: "-")
     }
 
-    /// A key (with or without prefix and dashes) split into its groups of four, for display.
+    /// A legacy key (with or without prefix and dashes) split into its groups of four, for display.
     public static func groups(_ code: String) -> [String] {
         let characters = Array(normalize(code))
         return stride(from: 0, to: characters.count, by: 4).map { String(characters[$0..<min($0 + 4, characters.count)]) }
@@ -263,27 +310,106 @@ public enum RecoveryKeyInput {
     /// A short message for the state, or nil when there's nothing to say yet.
     public static func message(for state: State) -> String? {
         switch state {
-        case .empty, .incomplete, .valid: return nil
-        case .invalidCharacter(let character): return "“\(character)” isn’t part of a recovery key."
-        case .tooLong: return "That’s longer than a recovery key."
-        case .typo: return "One of the characters isn’t right. Check the key and try again."
+        case .empty, .incomplete, .incompleteWords, .valid: return nil
+        case .invalidCharacter(let character): return "“\(character)” isn’t part of a Matilde key."
+        case .tooLong: return "That’s longer than a Matilde key."
+        case .unknownWord(let word): return "“\(word)” isn’t one of the Matilde key words. Check the spelling."
+        case .tooManyWords: return "A Matilde key has 12 words."
+        case .typo: return "One of the words or characters isn’t right, or two are swapped. Check the key and try again."
         }
     }
 }
 
-/// The text file offered by "Save to Files" for a new recovery key.
+/// Entering a Matilde key word by word: 12 slots, each with autocomplete from the list and a flag
+/// for a word that isn't in it. Pasting or filling in the whole key (in any form, numbered or not)
+/// into any slot fills every slot; several words fill from that slot on.
+public struct MatildeKeyWordsEditor: Equatable, Sendable {
+    public private(set) var words: [String]
+
+    public init(_ text: String = "") {
+        words = Array(repeating: "", count: SyncRecoveryKey.wordCount)
+        if !text.isEmpty { set(text, at: 0) }
+    }
+
+    private var count: Int { SyncRecoveryKey.wordCount }
+
+    /// The text of slot `slot` changed to `text`. Returns the slot to move the focus to: the next
+    /// one after a separator or a pasted run of words, else `slot`.
+    @discardableResult public mutating func set(_ text: String, at slot: Int) -> Int {
+        guard (0..<count).contains(slot) else { return slot }
+        let runs = MatildeKeyPhrase.letterRuns(text)
+        if runs.count >= count {
+            words = Array(runs.prefix(count))
+            return count - 1
+        }
+        if runs.count <= 1 {
+            words[slot] = runs.first ?? ""
+            // A space or return after a word moves on.
+            if let run = runs.first, let last = text.last, !last.isLetter, MatildeKeyPhrase.resolve(run) != nil {
+                words[slot] = MatildeKeyPhrase.resolve(run)!
+                return min(slot + 1, count - 1)
+            }
+            return slot
+        }
+        var position = slot
+        for run in runs where position < count {
+            words[position] = run
+            position += 1
+        }
+        return min(position, count - 1)
+    }
+
+    /// Accepts an autocomplete suggestion for a slot; returns the next slot.
+    public mutating func complete(_ slot: Int, with word: String) -> Int {
+        guard (0..<count).contains(slot) else { return slot }
+        words[slot] = word
+        return min(slot + 1, count - 1)
+    }
+
+    public mutating func clear() { self = MatildeKeyWordsEditor() }
+
+    /// Whether a slot's word should be flagged: filled, not a word (or the start of one) from the list.
+    public func isUnknown(_ slot: Int) -> Bool {
+        let word = words[slot]
+        return !word.isEmpty && MatildeKeyPhrase.resolve(word) == nil && !MatildeKeyPhrase.isPrefix(word)
+    }
+
+    /// Suggestions for a slot's partial word.
+    public func suggestions(_ slot: Int, limit: Int = 4) -> [String] {
+        let word = words[slot]
+        guard !word.isEmpty, MatildeKeyPhrase.wordlist.contains(word) == false else { return [] }
+        return MatildeKeyPhrase.completions(for: word, limit: limit)
+    }
+
+    /// The words joined by spaces, for `RecoveryKeyInput` and `SyncRecoveryKey(code:)`.
+    public var phrase: String {
+        words.map { MatildeKeyPhrase.resolve($0) ?? $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    public var state: RecoveryKeyInput.State {
+        let filled = words.filter { !$0.isEmpty }
+        if filled.isEmpty { return .empty }
+        return RecoveryKeyInput.wordsState(filled, typing: false)
+    }
+}
+
+/// The text file offered by Save for a new Matilde key.
 public enum RecoveryKeyDocument {
-    public static let fileName = "Matilde Recovery Key.txt"
+    public static let fileName = "Matilde Key.txt"
 
     public static func text(code: String, email: String?, date: Date = Date()) -> String {
-        var lines = [
-            "Matilde recovery key",
-            "",
-            code,
+        let words = SyncRecoveryKey.format(of: code) == .words ? MatildeKeyPhrase.letterRuns(code) : []
+        var lines = ["Your Matilde key", ""]
+        if words.isEmpty {
+            lines.append(code)
+        } else {
+            lines.append(contentsOf: words.enumerated().map { ($0.offset < 9 ? " " : "") + "\($0.offset + 1). \($0.element)" })
+        }
+        lines.append(contentsOf: [
             "",
             "You need this key to add another device to your Matilde sync account.",
             "Keep it somewhere safe, such as a password manager. Nobody else can read your notes without it, not even us."
-        ]
+        ])
         if let email { lines.append(contentsOf: ["", "Account: \(email)"]) }
         lines.append("Saved: \(date.formatted(date: .long, time: .omitted))")
         return lines.joined(separator: "\n") + "\n"

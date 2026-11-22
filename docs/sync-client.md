@@ -74,11 +74,11 @@ Each step is applied as it comes; an error keeps whatever was applied or acknowl
 
 On sign-in the app fetches `GET /v1/keys`:
 
-- No key yet: makes the account key and a recovery key, `PUT /v1/keys` (on `409 key_conflict` another device won: recover instead), stores the ring in the Keychain, shows the recovery key once with Copy, and asks for its last four characters.
+- No key yet: makes the account key and a Matilde key (12 words), `PUT /v1/keys` (on `409 key_conflict` another device won: recover instead), stores the ring in the Keychain, shows the Matilde key once on a card with Copy, Save… and Print…, and waits for "I've saved my Matilde key" to be ticked.
 - A key exists and the Keychain has it: checked against `keyCheck`, older epochs read from the `previous-keys` slot.
-- Otherwise: asks for the recovery key.
+- Otherwise: asks for the Matilde key: 12 word fields with suggestions and a flag for words not in the list (pasting fills all of them), or the old `MTLD-` key behind "I have a key that starts with MTLD". The form shown first follows the recovery slot's `params` hint.
 
-After the key is ready, the device name (computer name) is sent encrypted (`PATCH /v1/devices/{sessionId}`), best effort. Sign out revokes the session and removes the account key from this Mac's Keychain; signing in again needs the recovery key.
+After the key is ready, the device name (computer name) is sent encrypted (`PATCH /v1/devices/{sessionId}`), best effort. Sign out revokes the session and removes the account key from this Mac's Keychain; signing in again needs the Matilde key.
 
 ## Triggers
 

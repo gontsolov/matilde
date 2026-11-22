@@ -94,7 +94,7 @@ final class OnboardingInputTests: XCTestCase {
     }
 
     func testRecoveryKeyAcceptsAnyPasteForm() throws {
-        let key = SyncRecoveryKey.generate()
+        let key = SyncRecoveryKey.generateLegacy()
         let code = key.code
         let bare = String(code.dropFirst(5)).replacingOccurrences(of: "-", with: "")
         XCTAssertEqual(RecoveryKeyInput.state(of: code), .valid)
@@ -108,7 +108,7 @@ final class OnboardingInputTests: XCTestCase {
     }
 
     func testRecoveryKeyStates() {
-        let bare = String(SyncRecoveryKey.generate().code.dropFirst(5)).replacingOccurrences(of: "-", with: "")
+        let bare = String(SyncRecoveryKey.generateLegacy().code.dropFirst(5)).replacingOccurrences(of: "-", with: "")
         XCTAssertEqual(RecoveryKeyInput.state(of: ""), .empty)
         XCTAssertEqual(RecoveryKeyInput.state(of: "MTLD-"), .empty)
         XCTAssertEqual(RecoveryKeyInput.state(of: String(bare.prefix(10))), .incomplete(remaining: 42))
@@ -130,6 +130,15 @@ final class OnboardingInputTests: XCTestCase {
         let text = RecoveryKeyDocument.text(code: "MTLD-AAAA", email: "a@b.eu", date: Date(timeIntervalSince1970: 0))
         XCTAssertTrue(text.contains("MTLD-AAAA"))
         XCTAssertTrue(text.contains("a@b.eu"))
+        XCTAssertTrue(text.hasPrefix("Your Matilde key"))
+        XCTAssertEqual(RecoveryKeyDocument.fileName, "Matilde Key.txt")
+        let words = SyncRecoveryKey.generate()
+        let numbered = RecoveryKeyDocument.text(code: words.code, email: nil)
+        XCTAssertTrue(numbered.contains(" 1. \(words.words[0])\n"))
+        XCTAssertTrue(numbered.contains("12. \(words.words[11])\n"))
+        // The numbered list pastes back as the same key.
+        let list = numbered.split(separator: "\n").filter { $0.contains(". ") && $0.first(where: { !$0.isWhitespace })?.isNumber == true }.joined(separator: "\n")
+        XCTAssertEqual(try SyncRecoveryKey(code: list), words)
     }
 }
 

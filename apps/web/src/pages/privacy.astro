@@ -18,7 +18,7 @@ const cantSee = [
   "Your titles, your writing and your goals.",
   "Your folder names, images, stash and comments.",
   "Your conversations with Matilde.",
-  "Your recovery key, or the key that unlocks your notes.",
+  "Your Matilde key, or the key that unlocks your notes.",
 ];
 ---
 
@@ -57,7 +57,7 @@ const cantSee = [
     <p class="mt-3 text-[17.5px]">
       Before anything leaves your Mac, it's encrypted with a key that only your devices have (end-to-end encryption,
       AES-256-GCM). The key is kept in your Mac's Keychain. Our server stores your encrypted notes and copies of the
-      key that are locked with your recovery key, which the server never gets. So we can't read your writing, and
+      key that are locked with your Matilde key, which the server never gets. So we can't read your writing, and
       neither could anyone who broke into the server.
     </p>
 
@@ -89,13 +89,14 @@ const cantSee = [
       may pass through a data centre near you. Sign-in emails are sent by Cloudflare too.
     </p>
 
-    <h2 class="mt-12 text-[24px] font-semibold">Your recovery key</h2>
+    <h2 class="mt-12 text-[24px] font-semibold">Your Matilde key</h2>
     <p class="mt-3 text-[17.5px]">
-      When you turn on sync, Matilde shows you a recovery key once. Write it down or keep it in your password manager.
+      When you turn on sync, Matilde shows you your Matilde key once: 12 words. Write them down or keep them in your
+      password manager.
       You'll need it to set up a new Mac, or if your Mac loses its copy of the key.
     </p>
     <p class="mt-3 text-[17.5px]">
-      This is the trade-off for privacy: if you lose all your devices and the recovery key, nobody can unlock your
+      This is the trade-off for privacy: if you lose all your devices and your Matilde key, nobody can unlock your
       synced notes, not even us. The files on your Mac are unaffected, because they're never locked.
     </p>
 

@@ -21,20 +21,22 @@ final class SyncKeyRecoveryTests: XCTestCase {
 
     // MARK: Recovery code
 
+    // Legacy `MTLD-` keys (accounts from 0.2.x); the 12-word format is in MatildeKeyTests.
+
     func testRecoveryCodeFormat() throws {
-        let recovery = SyncRecoveryKey.generate()
+        let recovery = SyncRecoveryKey.generateLegacy()
         let code = recovery.code
         let groups = code.split(separator: "-")
         XCTAssertEqual(groups.count, 14)
         XCTAssertEqual(groups.first, "MTLD")
         XCTAssertTrue(groups.dropFirst().allSatisfy { $0.count == 4 })
         XCTAssertTrue(groups.dropFirst().joined().allSatisfy { "0123456789ABCDEFGHJKMNPQRSTVWXYZ".contains($0) })
-        XCTAssertEqual(recovery.lastGroup, String(groups.last!))
-        XCTAssertNotEqual(SyncRecoveryKey.generate().code, code)
+        XCTAssertEqual(recovery.format, .legacy)
+        XCTAssertNotEqual(SyncRecoveryKey.generateLegacy().code, code)
     }
 
     func testRecoveryCodeParsingIsForgiving() throws {
-        let recovery = SyncRecoveryKey.generate()
+        let recovery = SyncRecoveryKey.generateLegacy()
         let code = recovery.code
         let bare = code.replacingOccurrences(of: "-", with: "")
         let variants = [
@@ -50,7 +52,7 @@ final class SyncKeyRecoveryTests: XCTestCase {
     }
 
     func testRecoveryCodeTyposAreCaught() throws {
-        let code = SyncRecoveryKey.generate().code
+        let code = SyncRecoveryKey.generateLegacy().code
         XCTAssertThrowsError(try SyncRecoveryKey(code: String(code.dropLast()))) { XCTAssertEqual($0 as? SyncCryptoError, .invalidRecoveryCode) }
         XCTAssertThrowsError(try SyncRecoveryKey(code: code + "A")) { XCTAssertEqual($0 as? SyncCryptoError, .invalidRecoveryCode) }
         XCTAssertThrowsError(try SyncRecoveryKey(code: code.replacingOccurrences(of: "MTLD-", with: "MTLD-U"))) { _ in }
@@ -73,15 +75,6 @@ final class SyncKeyRecoveryTests: XCTestCase {
             chars[index] = original
         }
         XCTAssertGreaterThanOrEqual(Double(caught) / Double(total), 0.6)
-    }
-
-    func testLastGroupConfirmation() throws {
-        let recovery = SyncRecoveryKey.generate()
-        XCTAssertTrue(recovery.confirms(lastGroup: recovery.lastGroup))
-        XCTAssertTrue(recovery.confirms(lastGroup: " \(recovery.lastGroup.lowercased()) "))
-        XCTAssertFalse(recovery.confirms(lastGroup: ""))
-        let wrong = recovery.lastGroup.first == "7" ? "8" + recovery.lastGroup.dropFirst() : "7" + recovery.lastGroup.dropFirst()
-        XCTAssertFalse(recovery.confirms(lastGroup: wrong))
     }
 
     // MARK: Enrollment and recovery
