@@ -1,6 +1,6 @@
 # Matilde for AI tools (remote MCP server, AI-18)
 
-A remote [Model Context Protocol](https://modelcontextprotocol.io) server that lets an AI tool the user chooses (claude.ai, Claude Desktop, ChatGPT, Cursor, …) read, search and change that user's synced notes, and leave feedback about Matilde. It is **opt-in, per connection, scoped, expiring and revocable**. Nothing changes for anyone who never connects a tool.
+A remote [Model Context Protocol](https://modelcontextprotocol.io) server that lets an AI tool the user chooses (Langdock, claude.ai, Claude Desktop, ChatGPT, Cursor, …) read, search and change that user's synced notes, and leave feedback about Matilde. It is **opt-in, per connection, scoped, expiring and revocable**. Nothing changes for anyone who never connects a tool.
 
 - **Production:** `https://mcp.matilde.page/mcp`
 - **Staging:** `https://mcp-staging.matilde.page/mcp`
@@ -23,7 +23,7 @@ How Matilde keeps that as small as possible, so your notes stay yours:
 Honest limits (also on the privacy page):
 
 - **While a connection is active, the server can decrypt every note.** Read-only, comment-only and similar scopes are enforced by server policy, not by cryptography: the ring the server holds decrypts everything for every key epoch it was given. A compromised server with a live token could read the notes.
-- **The AI tool sees what it reads.** Note text a tool fetches goes to that tool's provider (Anthropic, OpenAI, Cursor, …) under *their* terms. Matilde can't control or delete it.
+- **The AI tool sees what it reads.** Note text a tool fetches goes to that tool's provider (Langdock, Anthropic, OpenAI, Cursor, …) under *their* terms. Matilde can't control or delete it.
 - **Revoking stops future access, not past reads.** To be sure even a copied ring is useless, rotate the account key (or regenerate the Matilde key and rotate) after revoking.
 - **Feedback-only connections** need no account and no key; they can only send feedback.
 
@@ -123,6 +123,7 @@ Nothing to create in Cloudflare: the deploy adds the custom domains and the CI m
 
 Use `https://mcp.matilde.page/mcp` (staging: `https://mcp-staging.matilde.page/mcp`). Each tool opens the Matilde consent page in the browser; sign in with your email code, type your Matilde key, pick what the tool may do and for how long.
 
+- **Langdock:** add a remote MCP server with the URL above and sign in when Langdock opens the Matilde consent page (the owner connected this way on staging).
 - **claude.ai** (Pro, Max, Team, Enterprise): Settings → Connectors → Add custom connector → paste the URL → Connect. Then enable "Matilde" in a chat's tools menu.
 - **Claude Desktop:** Settings → Connectors → Add custom connector → paste the URL (remote connectors added on claude.ai show up in Desktop too).
 - **ChatGPT** (Plus/Pro/Business with developer mode): Settings → Apps & Connectors → Advanced → Developer mode on → Create → MCP server URL → Authentication: OAuth → Create, then enable it in a chat.
