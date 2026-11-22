@@ -48,13 +48,13 @@ jobs:
           git diff --name-only "$range" > "$RUNNER_TEMP/changed.txt"
           cat "$RUNNER_TEMP/changed.txt"
           # The macOS app, shared Swift packages, the shared sync test vectors, and the workflows that build them.
-          if grep -qE '^(apps/macos/|packages/|docs/sync-vectors/|\.github/workflows/(ci|release)\.yml$)' "$RUNNER_TEMP/changed.txt"; then
+          if grep -qE '^(apps/macos/|changelog/|packages/|docs/sync-vectors/|\.github/workflows/(ci|release)\.yml$)' "$RUNNER_TEMP/changed.txt"; then
             echo macos=true >> "$GITHUB_OUTPUT"
           else
             echo macos=false >> "$GITHUB_OUTPUT"
           fi
           # The iOS app: its own sources, the shared packages it builds on, and this workflow.
-          if grep -qE '^(apps/ios/|packages/|docs/sync-vectors/|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed.txt"; then
+          if grep -qE '^(apps/ios/|changelog/|packages/|docs/sync-vectors/|\.github/workflows/ci\.yml$)' "$RUNNER_TEMP/changed.txt"; then
             echo ios=true >> "$GITHUB_OUTPUT"
           else
             echo ios=false >> "$GITHUB_OUTPUT"

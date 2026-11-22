@@ -24,6 +24,11 @@ pnpm run preview    # the built site through the Worker (wrangler dev, http://lo
 ```
 
 - Copy lives in `src/pages/index.astro` and `src/pages/privacy.astro`.
+- `/changelog` (`src/pages/changelog.astro`, `src/components/ChangelogEditor.astro`) renders the repo's
+  `changelog/*.md` through an Astro content collection (`src/content.config.ts`, helpers in `src/lib/changelog.ts`).
+  It reuses the editor mock-up: each release is a note in the sidebar and opens in the editor pane. Rows are
+  `#vX.Y.Z` links and the open release is picked with CSS `:target`, so it works without JavaScript; below
+  1024 px the releases stack. Edit the notes in `changelog/`, not here.
 - Links and contact address are in `src/lib/site.ts`.
 - The page shows no version number, so the build doesn't call GitHub; the button links to `/download`,
   which the Worker redirects to the latest release's `Matilde.dmg`. Once the hero button scrolls out of view, a floating copy
@@ -42,8 +47,8 @@ pnpm run preview    # the built site through the Worker (wrangler dev, http://lo
   `image` and `imageAlt` to use its own picture.
 - **For LLMs and agents.** `public/llms.txt` is a hand-written guide in the [llms.txt](https://llmstxt.org)
   format; keep its facts in step with the pages and `docs/`. After each build, `integrations/markdown.mjs`
-  converts each page's `<main>` into `dist/index.md` and `dist/privacy.md` (linked from the pages with
-  `rel="alternate"`) and writes `dist/llms-full.txt` (llms.txt followed by both pages). Add new pages to its
+  converts each page's `<main>` into `dist/index.md`, `dist/privacy.md` and `dist/changelog.md` (linked from the pages with
+  `rel="alternate"`) and writes `dist/llms-full.txt` (llms.txt followed by the pages). Add new pages to its
   `PAGES` list and to `src/pages/sitemap.xml.ts`.
 - `public/robots.txt` allows every crawler, AI crawlers included, and points to `/sitemap.xml`. The home page
   carries schema.org `SoftwareApplication` JSON-LD (in `src/pages/index.astro`).

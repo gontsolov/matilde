@@ -3,7 +3,11 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import changelog  # noqa: E402
 
 
 def parse_version(value):
@@ -20,6 +24,9 @@ def main():
     ref = os.environ.get("GITHUB_REF", "")
     version = ref.removeprefix("refs/tags/v") if ref.startswith("refs/tags/v") else os.environ.get("INPUT_VERSION", "")
     proposed = parse_version(version)
+    # Every release ships a friendly changelog entry (changelog/<version>.md); fail before building.
+    changelog.entries()
+    changelog.require(version)
     subprocess.run(["git", "merge-base", "--is-ancestor", "HEAD", "origin/main"], check=True)
     releases = json.loads(subprocess.check_output([
         "gh", "release", "list", "--limit", "1000", "--json", "tagName,isDraft,isPrerelease"

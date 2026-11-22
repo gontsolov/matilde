@@ -48,12 +48,13 @@ A monorepo. Paths in the sections below are relative to `apps/macos/` unless the
 
 | Path | Contents |
 | --- | --- |
-| `apps/macos/` | The macOS app: `Package.swift`/`Package.resolved`, `Sources/`, `Tests/`, `assets/` (icon sources), `Config/release.json`, `release-notes/`, and its build, packaging and release scripts in `scripts/` (with `scripts/tests/`) |
+| `apps/macos/` | The macOS app: `Package.swift`/`Package.resolved`, `Sources/`, `Tests/`, `assets/` (icon sources), `Config/release.json`, and its build, packaging and release scripts in `scripts/` (with `scripts/tests/`) |
 | `apps/web/` | Landing page (matilde.page): Astro site on a Cloudflare Worker, see `apps/web/README.md` |
 | `apps/stats/` | stats.matilde.page: the owner's private dashboard of anonymous usage counts (Cloudflare Worker behind Cloudflare Access), see `docs/stats.md` |
 | `apps/ios/` | The iOS app: SwiftUI, iOS 26, iPhone first; notes library, editor, comments, Ask Matilde threads and sync on MatildeKit; XcodeGen `project.yml` (the `.xcodeproj` is generated, not committed), see `apps/ios/README.md` |
 | `packages/MatildeKit/` | Shared Swift package used by the macOS and iOS apps: sync records, sync engine, HTTPS transport and end-to-end encryption, plus `MatildeKitTesting` (fake sync server). Builds and tests on Linux too (swift-crypto stands in for CryptoKit); see `packages/MatildeKit/README.md` |
 | `server/` | Cloud sync server (Cloudflare Worker), deployed by `.github/workflows/server.yml` |
+| `changelog/` | Release notes, one Markdown file per version (`X.md`), the single source for matilde.page/changelog, the Mac and iPhone What's New screens, Sparkle's update dialog and the GitHub release; format and voice in `changelog/README.md`. A release fails without its entry |
 | `docs/` | Product, architecture, sync and release documentation, verification log; `docs/sync-vectors/` are shared crypto test vectors for every client |
 | `scripts/` | Repo-wide scripts only (`sync-vectors.py`, which regenerates `docs/sync-vectors/`) |
 | `ROADMAP.md` | Backlog for the whole product |

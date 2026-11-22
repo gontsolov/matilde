@@ -34,6 +34,10 @@ targets:
         buildPhase: resources
       - path: ../macos/Sources/Matilde/Resources/Fonts/Newsreader-Italic.ttf
         buildPhase: resources
+      # The release notes (one source of truth, also matilde.page/changelog), read by What's New.
+      - path: ../../changelog
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: MatildeKit
         product: MatildeKit

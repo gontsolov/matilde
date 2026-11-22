@@ -23,6 +23,7 @@ assert len(base64.b64decode(enclosure.get(ns + "edSignature", ""), validate=True
 assert "<!-- sparkle-signatures:" in path.read_text(), "Missing signed-feed signature"
 assert item.findtext(ns + "minimumSystemVersion") == "14.0"
 assert item.findtext(ns + "hardwareRequirements") == "arm64", "Update must exclude Intel Macs"
+assert (item.findtext("description") or "").strip(), "Missing release notes (changelog entry) in the feed item"
 feed = path.read_bytes()
 marker = feed.rfind(b"<!-- sparkle-signatures:\n")
 block = re.fullmatch(rb"<!-- sparkle-signatures:\nedSignature: ([A-Za-z0-9+/=]+)\nlength: ([0-9]+)\n-->\n?", feed[marker:])

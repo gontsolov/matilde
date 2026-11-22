@@ -26,6 +26,11 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/Matilde.icns"
 python3 scripts/write-info.py "$APP/Contents/Info.plist"
+# The friendly changelog (changelog/*.md at the repo root) for Help → What's New in Matilde, so it
+# works offline. Validated first; the app reads the same files the website does.
+python3 scripts/changelog.py check
+mkdir -p "$APP/Contents/Resources/Changelog"
+cp ../../changelog/[0-9]*.md "$APP/Contents/Resources/Changelog/"
 SIGN_FLAGS=(--force --sign "$SIGN_IDENTITY")
 if [[ "$SIGN_IDENTITY" != '-' ]]; then SIGN_FLAGS+=(--options runtime --timestamp); fi
 FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
