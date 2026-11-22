@@ -265,7 +265,7 @@ function init() {
     busy(button, true);
     error(errorId, "");
     try {
-      const body = { handle, scopes: scopes(), days: Number($("days").value) };
+      const body = { handle, scopes: scopes(), days: Number(document.querySelector("input[name=days]:checked").value) };
       if (needsKey()) Object.assign(body, await wrapForGrant(state.keys.userId, state.ring));
       const { redirectTo } = await post("/connect/approve", body, state.login);
       state.ring = null;
@@ -276,6 +276,42 @@ function init() {
       busy(button, false);
     }
   }
+
+  // The one-time code: six boxes drawn over one real input, like the Mac and iPhone sync setup.
+  const otp = $("otp");
+  const codeInput = $("code");
+  const boxes = [...otp.querySelectorAll(".otp-boxes span")];
+  const renderCode = () => {
+    const digits = codeInput.value;
+    boxes.forEach((box, i) => {
+      box.textContent = digits[i] || "";
+      box.classList.toggle("active", i === Math.min(digits.length, boxes.length - 1));
+    });
+  };
+  codeInput.addEventListener("input", () => {
+    const clean = (codeInput.value.match(/[0-9]/g) || []).join("").slice(0, boxes.length);
+    if (clean !== codeInput.value) codeInput.value = clean;
+    renderCode();
+    if (clean.length === boxes.length && !$("code-continue").disabled) $("form-code").requestSubmit();
+  });
+  codeInput.addEventListener("focus", () => otp.classList.add("focused"));
+  codeInput.addEventListener("blur", () => otp.classList.remove("focused"));
+  const shake = () => {
+    otp.classList.remove("shake");
+    void otp.offsetWidth;
+    otp.classList.add("shake");
+    codeInput.value = "";
+    renderCode();
+    codeInput.focus();
+  };
+  renderCode();
+  $("code-back").addEventListener("click", () => {
+    codeInput.value = "";
+    renderCode();
+    error("code-error", "");
+    show("email");
+    $("email").focus();
+  });
 
   $("form-scopes").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -307,7 +343,7 @@ function init() {
     busy(button, true);
     error("code-error", "");
     try {
-      const data = await post("/connect/verify", { handle, email: state.email, code: $("code").value.replace(/\s/g, "") });
+      const data = await post("/connect/verify", { handle, email: state.email, code: codeInput.value.replace(/\s/g, "") });
       state.login = data.login;
       state.keys = data;
       show("key");
@@ -315,6 +351,7 @@ function init() {
       words();
     } catch (e) {
       error("code-error", e.message);
+      shake();
     }
     busy(button, false);
   });
@@ -352,7 +389,9 @@ function init() {
         const { redirectTo } = await post("/connect/deny", { handle });
         window.location.assign(redirectTo);
       } catch (e) {
-        el.closest("section").querySelector(".error").textContent = e.message;
+        const message = el.closest("section").querySelector(".error");
+        message.textContent = e.message;
+        message.hidden = false;
       }
     });
   }

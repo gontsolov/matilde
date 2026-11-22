@@ -48,8 +48,10 @@
     "LINEAR_PROJECT_ID": "",
     "LINEAR_STATE_ID": "",
     // MCP server for AI tools (docs/mcp.md): "1" = on. Served for requests to MCP_ORIGIN.
+    // In dev: sync on http://localhost:8787, MCP on http://127.0.0.1:8787 (the OAuth library
+    // accepts http only on a loopback host, so not mcp.localhost).
     "MCP_ENABLED": "1",
-    "MCP_ORIGIN": "http://mcp.localhost:8787"
+    "MCP_ORIGIN": "http://127.0.0.1:8787"
   },
   "d1_databases": [
     { "binding": "DB", "database_name": "matilde-directory-dev", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
@@ -144,9 +146,9 @@
         // Dropped automatically for one retry if Linear rejects them.
         "LINEAR_PROJECT_ID": "8ad01f26-33e2-4aad-bae4-a8ceff068ab4",
         "LINEAR_STATE_ID": "d782f669-93e4-4718-a532-be3cbdd1f130",
-        // MCP server for AI tools (docs/mcp.md). Off until the owner has tried it on staging:
-        // set "1" and approve the production deploy.
-        "MCP_ENABLED": "0",
+        // MCP server for AI tools (docs/mcp.md). On since the owner tried it on staging (2026-11-22);
+        // "0" turns it off again (the MCP host then answers 404).
+        "MCP_ENABLED": "1",
         "MCP_ORIGIN": "https://mcp.matilde.page"
       },
       "d1_databases": [

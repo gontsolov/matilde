@@ -10,7 +10,7 @@ import type { Env } from "../env";
 import { base64ToBytes, bytesToBase64, bytesToBase64Url, HttpError, randomBytes, sha256Hex, timingSafeEqual, UUID_RE } from "../util";
 import { keyCheck, unwrapRing } from "./crypto";
 import { DEFAULT_DURATION_DAYS, DEFAULT_SCOPES, DURATIONS_DAYS, GRANT_LIMITS, type GrantProps, needsKey, SCOPES } from "./grants";
-import { BIP39_WORDS, CONNECT_JS } from "./web/assets.generated";
+import { BIP39_WORDS, CONNECT_JS, ICON_PNG_BASE64, NEWSREADER_WOFF2_BASE64 } from "./web/assets.generated";
 
 export type McpEnv = Env & { OAUTH_KV: KVNamespace; OAUTH_PROVIDER: OAuthHelpers };
 
@@ -22,20 +22,87 @@ const SCOPE_TEXT: Record<string, { label: string; detail: string }> = {
   feedback: { label: "Send feedback about Matilde", detail: "Pass on a bug report or idea when you ask it to. Needs no access to notes." },
 };
 
-const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
 
-const CSS = `:root{color-scheme:light dark;--fg:#1d1d1f;--muted:#6e6e73;--bg:#fbfaf7;--card:#fff;--line:#e3e1dc;--accent:#1f3a5f;--warn:#8a4b00}
-@media (prefers-color-scheme:dark){:root{--fg:#f2f2f2;--muted:#a1a1a6;--bg:#1c1c1e;--card:#2c2c2e;--line:#3a3a3c;--accent:#9ec3ff;--warn:#ffc46b}}
-*{box-sizing:border-box}body{margin:0;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg)}
-main{max-width:30rem;margin:3rem auto;padding:0 1.25rem}h1{font-size:1.4rem;margin:0 0 .5rem}p{margin:.5rem 0}.muted{color:var(--muted);font-size:.9rem}
-section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1.25rem;margin-top:1rem}
-label.scope{display:flex;gap:.6rem;align-items:flex-start;padding:.5rem 0;border-top:1px solid var(--line)}label.scope:first-of-type{border-top:0}
-label.scope span{display:block}label.scope small{color:var(--muted)}input[type=email],input[type=text],textarea,select{width:100%;font:inherit;padding:.55rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
-textarea{min-height:5.5rem;resize:vertical}.row{display:flex;gap:.6rem;margin-top:1rem}button{font:inherit;padding:.55rem 1rem;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
-button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}button:disabled{opacity:.5;cursor:default}.error{color:#c0392b;margin-top:.5rem}.warn{color:var(--warn)}
-code{font-size:.9em}`;
+// Matilde's look: the app's Paper palette and the Newsreader serif, as on matilde.page
+// (apps/web/src/styles/global.css). Light and dark follow the system.
+const CSS = `@font-face{font-family:"Newsreader";font-style:normal;font-weight:200 800;font-display:swap;src:url(/connect/newsreader.woff2) format("woff2-variations")}
+:root{color-scheme:light dark;--paper:#f9f6ef;--sidebar:#f4f2ee;--ink:#3d4038;--muted:#7a7a6e;--accent:#7a523b;--card:#fffdf8;--rule:rgb(61 64 56/.1);--field:#f4f2ee;--button:#2b2724;--button-hover:#3a3531;--button-ink:#f6f2ea;--pen:#b9432c;--warn:#8a5a16;--shadow:0 1px 2px rgb(0 0 0/.04),0 10px 30px -18px rgb(0 0 0/.18)}
+@media (prefers-color-scheme:dark){:root{--paper:#212222;--sidebar:#1b1b1c;--ink:#dedddb;--muted:#9e9fa1;--accent:#b0a699;--card:#262727;--rule:rgb(222 221 219/.1);--field:#1b1b1c;--button:#ebe5da;--button-hover:#f6f2ea;--button-ink:#2b2724;--pen:#d9705a;--warn:#d9a55a;--shadow:none}}
+*{box-sizing:border-box}
+html{background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{margin:0;font:15px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;min-height:100vh;min-height:100dvh;display:flex;justify-content:center;align-items:flex-start}
+main{width:100%;max-width:26.5rem;padding:3.5rem 1.25rem 3rem}
+@media (min-height:760px){main{padding-top:5.5rem}}
+.brand{display:flex;align-items:center;justify-content:center;gap:.55rem;color:var(--muted);font-size:14px;font-weight:500;letter-spacing:-.005em;margin-bottom:1.75rem}
+.brand img{width:32px;height:32px;border-radius:8px}
+h1,h2{font-family:"Newsreader","Iowan Old Style",Georgia,serif;font-weight:500;letter-spacing:-.012em;color:var(--ink);margin:0}
+h1{font-size:30px;line-height:1.15;text-align:center}
+h2{font-size:21px;line-height:1.25;margin-bottom:.35rem}
+p{margin:0}
+.lede{text-align:center;color:var(--muted);font-size:14px;margin-top:.6rem}
+.lede strong{color:var(--ink);font-weight:500}
+.lede+.lede{margin-top:.25rem}
+.warn{color:var(--warn)}
+section{background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:1.35rem 1.35rem 1.25rem;margin-top:1.6rem;box-shadow:var(--shadow)}
+section[hidden]{display:none}
+.hint{color:var(--muted);font-size:14px}
+.scopes{margin:.85rem 0 0;padding:0;border:0}
+.scope{display:flex;gap:.85rem;align-items:flex-start;padding:.7rem 0;border-top:1px solid var(--rule);cursor:pointer}
+.scope:first-of-type{border-top:0;padding-top:.2rem}
+.scope-text{display:flex;flex-direction:column;gap:.1rem;flex:1;min-width:0}
+.scope-title{font-size:15px;font-weight:500;line-height:1.35}
+.scope-detail{font-size:13px;line-height:1.4;color:var(--muted)}
+.scope input{appearance:none;-webkit-appearance:none;flex:none;margin:.1rem 0 0;width:34px;height:20px;border-radius:999px;background:var(--rule);border:1px solid var(--rule);position:relative;cursor:pointer;transition:background .15s ease}
+.scope input::after{content:"";position:absolute;top:1px;left:1px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgb(0 0 0/.25);transition:transform .15s ease}
+.scope input:checked{background:var(--button);border-color:var(--button)}
+.scope input:checked::after{transform:translateX(14px);background:var(--button-ink)}
+@media (prefers-color-scheme:dark){.scope input{background:rgb(222 221 219/.16)}.scope input::after{background:#dedddb}}
+.scope input:focus-visible,.segments input:focus-visible+span,.otp input:focus-visible~.otp-boxes .active{outline:2px solid var(--accent);outline-offset:2px}
+.field-label{display:block;font-size:13px;font-weight:500;color:var(--muted);margin:1.1rem 0 .45rem}
+.segments{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:3px;border-radius:10px;background:var(--field);border:1px solid var(--rule);margin:0}
+.segments label{position:relative;cursor:pointer}
+.segments input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.segments span{display:block;text-align:center;font-size:13px;font-weight:500;padding:.35rem 0;border-radius:7px;color:var(--muted);transition:background .15s ease,color .15s ease}
+.segments input:checked+span{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0/.08)}
+@media (prefers-color-scheme:dark){.segments input:checked+span{background:#333434}}
+.note{margin-top:1.1rem;font-size:13px;line-height:1.5;color:var(--muted)}
+.note strong{color:var(--ink);font-weight:500}
+input[type=email],textarea{display:block;width:100%;font:inherit;font-size:16px;padding:.6rem .8rem;margin-top:.85rem;border:1px solid var(--rule);border-radius:10px;background:var(--field);color:var(--ink);outline:none;transition:border-color .15s ease}
+input[type=email]:focus,textarea:focus{border-color:var(--accent)}
+textarea{min-height:6.2rem;resize:vertical;line-height:1.45}
+.otp{position:relative;margin-top:.95rem}
+.otp input{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;border:0;padding:0;margin:0;background:transparent;color:transparent;caret-color:transparent}
+.otp-boxes{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;pointer-events:none}
+.otp-boxes span{height:54px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:var(--field);border:1px solid rgb(122 122 110/.28);font:500 26px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink);transition:border-color .15s ease}
+.otp.focused .otp-boxes span.active{border:2px solid var(--accent)}
+.otp.shake{animation:shake .4s linear}
+@keyframes shake{20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.otp.shake{animation:none}*{transition:none!important}}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin-top:1.25rem}
+button{font:inherit;cursor:pointer}
+.primary{display:inline-flex;align-items:center;gap:.4rem;border:0;border-radius:999px;background:var(--button);color:var(--button-ink);padding:.5rem 1.05rem;font-size:14px;font-weight:500;letter-spacing:-.005em;transition:background .15s ease}
+.primary:hover{background:var(--button-hover)}
+.quiet{border:0;background:none;color:var(--muted);padding:.5rem .7rem;font-size:14px;font-weight:500;border-radius:999px}
+.quiet:hover{color:var(--ink);background:var(--rule)}
+button:disabled{opacity:.45;cursor:default}
+button[aria-busy=true]{opacity:.7;cursor:progress}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.error{color:var(--pen);font-size:13.5px;margin-top:.7rem}
+.error[hidden]{display:none}
+.done{text-align:center;padding:1.75rem 1.35rem}
+.check{width:40px;height:40px;margin:0 auto .8rem;border-radius:50%;background:var(--button);position:relative}
+.check::after{content:"";position:absolute;left:14px;top:10px;width:9px;height:16px;border:solid var(--button-ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
+code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--field);border:1px solid var(--rule);border-radius:6px;padding:.1rem .35rem;color:var(--ink)}
+.center{text-align:center}
+section>p+p{margin-top:.5rem}
+.footer{margin-top:1.4rem;text-align:center;font-size:12.5px;color:var(--muted)}
+.footer a{color:inherit}
+@media (max-width:420px){main{padding-top:2.25rem}h1{font-size:26px}section{padding:1.15rem 1.1rem 1.1rem;border-radius:14px}.otp-boxes{gap:6px}.otp-boxes span{height:48px;font-size:23px}}`;
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+
+const BRAND = `<div class="brand"><img src="/connect/icon.png" alt="" width="32" height="32"><span>Matilde</span></div>`;
 
 function page(title: string, body: string, headers?: Headers, status = 200): Response {
   const h = new Headers(headers);
@@ -45,12 +112,17 @@ function page(title: string, body: string, headers?: Headers, status = 200): Res
   h.set("Referrer-Policy", "no-referrer");
   h.set("X-Content-Type-Options", "nosniff");
   h.set("X-Frame-Options", "DENY");
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title><link rel="stylesheet" href="/connect/app.css"></head><body><main>${body}</main></body></html>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escape(title)}</title><link rel="icon" href="/connect/icon.png"><link rel="preload" href="/connect/newsreader.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/connect/app.css"></head><body><main>${BRAND}${body}</main></body></html>`;
   return new Response(html, { status, headers: h });
 }
 
-function errorPage(message: string, status = 400): Response {
-  return page("Matilde", `<h1>This connection can't continue</h1><p>${escape(message)}</p><p class="muted">Start connecting again from your AI tool.</p>`, undefined, status);
+function errorPage(detail: string, status = 400): Response {
+  return page(
+    "Matilde",
+    `<h1>Couldn't connect</h1><section><p>The request from your AI tool can't be used. Start connecting again from the tool.</p><p class="hint">Details: ${escape(detail)}</p></section>`,
+    undefined,
+    status,
+  );
 }
 
 function json(body: unknown, status = 200, headers?: Headers): Response {
@@ -65,45 +137,57 @@ const fail = (status: number, code: string, message: string) => json({ error: { 
 export function consentPage(info: ConsentDescription, handle: string, headers: Headers): Response {
   const name = escape(info.clientName);
   const verified = info.clientDomain
-    ? `<p class="muted">Verified domain: <strong>${escape(info.clientDomain)}</strong></p>`
-    : `<p class="muted">The name “${name}” is the tool's own description and isn't verified. Continue only if you started this from that tool.</p>`;
+    ? `<p class="lede">Verified domain: <strong>${escape(info.clientDomain)}</strong></p>`
+    : "";
   const loopback = info.redirectIsLoopback
-    ? `<p class="warn">This connection goes to an app on this computer. Any program running here could receive it, whatever name it gives.</p>`
+    ? `<p class="lede warn">This connection goes to an app on this computer. Any program running here could receive it, whatever name it gives.</p>`
     : "";
   const scopes = SCOPES.map((s) => {
     const t = SCOPE_TEXT[s]!;
     const checked = (DEFAULT_SCOPES as readonly string[]).includes(s) ? " checked" : "";
-    return `<label class="scope"><input type="checkbox" name="scope" value="${s}"${checked}><span>${escape(t.label)}<small>${escape(t.detail)}</small></span></label>`;
+    return `<label class="scope"><span class="scope-text"><span class="scope-title">${escape(t.label)}</span><span class="scope-detail">${escape(t.detail)}</span></span><input type="checkbox" role="switch" name="scope" value="${s}"${checked}></label>`;
   }).join("");
-  const days = DURATIONS_DAYS.map((d) => `<option value="${d}"${d === DEFAULT_DURATION_DAYS ? " selected" : ""}>${d === 1 ? "1 day" : `${d} days`}</option>`).join("");
-  const deny = `<button type="button" data-deny>Don't connect</button>`;
+  const days = DURATIONS_DAYS.map(
+    (d) => `<label><input type="radio" name="days" value="${d}"${d === DEFAULT_DURATION_DAYS ? " checked" : ""}><span>${d === 1 ? "1 day" : `${d} days`}</span></label>`,
+  ).join("");
+  const deny = `<button class="quiet" type="button" data-deny>Don't connect</button>`;
   const body = `<div id="connect" data-handle="${escape(handle)}">
-<h1>Connect ${name} to Matilde</h1>${verified}
-<p class="muted">Sends you back to <strong>${escape(info.redirectHost)}</strong>.</p>${loopback}
+<h1>Connect ${name}</h1>
+<p class="lede">${name} would like to work with your Matilde notes. Afterwards you'll go back to <strong>${escape(info.redirectHost)}</strong>.</p>${verified}${loopback}
 <section data-step="scopes"><form id="form-scopes">
-<p>What may ${name} do?</p>${scopes}
-<p><label for="days">Connection ends after</label> <select id="days">${days}</select></p>
-<p class="muted">While this connection is active, the Matilde server can decrypt your notes so ${name} can work with them, and ${name} sees what it reads. Your Matilde key stays in this browser. You can end the connection at any time in Matilde's settings, under Connected AI tools.</p>
-<p class="error" id="scopes-error" hidden></p>
+<h2>What may ${name} do?</h2>
+<fieldset class="scopes" aria-label="Permissions">${scopes}</fieldset>
+<span class="field-label" id="days-label">Connection ends after</span>
+<fieldset class="segments" aria-labelledby="days-label">${days}</fieldset>
+<p class="note">While connected, the Matilde server can decrypt your notes so ${name} can work with them, and ${name} sees what it reads. <strong>Your Matilde key stays in this browser.</strong> End the connection any time in Matilde's Settings, under Connected AI tools.</p>
+<p class="error" id="scopes-error" role="alert" hidden></p>
 <div class="row"><button class="primary" id="scopes-continue" type="submit">Continue</button>${deny}</div></form></section>
 <section data-step="email" hidden><form id="form-email">
-<p><label for="email">The email address you use for Matilde sync</label></p><input id="email" type="email" autocomplete="email" required>
-<p class="error" id="email-error" hidden></p>
+<h2>Confirm it's you</h2>
+<p class="hint"><label for="email">Enter the email address you use for Matilde sync. A sign-in code will arrive there.</label></p>
+<input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+<p class="error" id="email-error" role="alert" hidden></p>
 <div class="row"><button class="primary" id="email-continue" type="submit">Send code</button>${deny}</div></form></section>
 <section data-step="code" hidden><form id="form-code">
-<p><label for="code">Enter the 6-digit code sent to <strong id="code-email"></strong></label></p><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required>
-<p class="error" id="code-error" hidden></p>
-<div class="row"><button class="primary" id="code-continue" type="submit">Continue</button>${deny}</div></form></section>
+<h2>Check your email</h2>
+<p class="hint"><label for="code">Enter the 6-digit code sent to <strong id="code-email"></strong>.</label></p>
+<div class="otp" id="otp"><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" required><div class="otp-boxes" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
+<p class="error" id="code-error" role="alert" hidden></p>
+<div class="row"><button class="primary" id="code-continue" type="submit">Continue</button><button class="quiet" type="button" id="code-back">Change email</button></div></form></section>
 <section data-step="key" hidden><form id="form-key">
-<p><label for="key">Your Matilde key</label></p><textarea id="key" autocomplete="off" autocapitalize="off" spellcheck="false" required></textarea>
-<p class="muted">The 12 words (or the code starting with MTLD) Matilde gave you when you turned on sync. It's checked here in the browser and never sent anywhere.</p>
-<p class="error" id="key-error" hidden></p>
+<h2>Enter your Matilde key</h2>
+<p class="hint"><label for="key">The 12 words (or the code starting with MTLD) you saved when you turned on sync. It's checked here in your browser and never sent anywhere.</label></p>
+<textarea id="key" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="word word word …" required></textarea>
+<p class="error" id="key-error" role="alert" hidden></p>
 <div class="row"><button class="primary" id="key-continue" type="submit">Connect</button>${deny}</div></form></section>
-<section data-step="done" hidden><p>Connected. Taking you back to ${name}…</p></section>
-<noscript><p class="error">Connecting needs JavaScript: your key is checked in this browser.</p></noscript>
+<section data-step="done" class="done" hidden><div class="check" aria-hidden="true"></div><h2>Connected</h2><p class="hint">Taking you back to ${name}…</p></section>
+<noscript><section><p class="error">Connecting needs JavaScript: your key is checked in this browser.</p></section></noscript>
 </div><script type="module" src="/connect/app.js"></script>`;
   return page(`Connect ${info.clientName} to Matilde`, body, headers);
 }
+
+const ICON_PNG = base64ToBytes(ICON_PNG_BASE64)!;
+const NEWSREADER_WOFF2 = base64ToBytes(NEWSREADER_WOFF2_BASE64)!;
 
 const ASSET_HEADERS = { "Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff" };
 
@@ -128,13 +212,20 @@ export async function consentFetch(request: Request, env: McpEnv, nowMs = Date.n
     if (request.method === "GET" || request.method === "HEAD") {
       switch (url.pathname) {
         case "/":
-          return page("Matilde for AI tools", `<h1>Matilde for AI tools</h1><p>This is the address AI tools connect to: <code>${escape(url.origin)}/mcp</code>.</p><p class="muted">See matilde.page for how to connect Claude, ChatGPT or Cursor.</p>`);
+          return page(
+            "Matilde for AI tools",
+            `<h1>Matilde for AI tools</h1><p class="lede">Let an AI tool you choose read and add to your Matilde notes.</p><section><p>Add this address to your AI tool as a custom connector (MCP server):</p><p><code>${escape(url.origin)}/mcp</code></p><p class="hint">The tool sends you to a Matilde page to sign in and choose what it may do. You can end the connection any time in Matilde's Settings.</p></section><p class="footer"><a href="https://matilde.page/privacy#ai-tools">How privacy works</a></p>`,
+          );
         case "/authorize":
           return await authorize(request, env);
         case "/connect/app.js":
           return new Response(CONNECT_JS, { headers: { ...ASSET_HEADERS, "Content-Type": "text/javascript; charset=utf-8" } });
         case "/connect/app.css":
           return new Response(CSS, { headers: { ...ASSET_HEADERS, "Content-Type": "text/css; charset=utf-8" } });
+        case "/connect/icon.png":
+          return new Response(ICON_PNG, { headers: { ...ASSET_HEADERS, "Content-Type": "image/png" } });
+        case "/connect/newsreader.woff2":
+          return new Response(NEWSREADER_WOFF2, { headers: { ...ASSET_HEADERS, "Content-Type": "font/woff2" } });
         case "/connect/bip39.txt":
           return new Response(BIP39_WORDS, { headers: { ...ASSET_HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
       }

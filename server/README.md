@@ -32,7 +32,7 @@ pnpm install
 cp .dev.vars.example .dev.vars
 pnpm run --silent gen-signing-key     # paste the output as TOKEN_SIGNING_KEY in .dev.vars
 pnpm run migrate:local
-pnpm run dev                          # http://localhost:8787
+pnpm run dev                          # sync on http://localhost:8787, MCP on http://127.0.0.1:8787
 ```
 
 Locally `MAIL_PROVIDER` is `console`: sign-in codes are printed in the `wrangler dev` output instead of being mailed.
@@ -96,7 +96,7 @@ Vars (in `wrangler.jsonc`, not secret):
 | `LINEAR_LABEL_BUG`, `LINEAR_LABEL_IDEA`, `LINEAR_LABEL_OTHER` | Label ids per kind; empty means no label |
 | `LINEAR_LABEL_FEEDBACK` | Optional label added to every feedback issue |
 | `LINEAR_PROJECT_ID`, `LINEAR_STATE_ID` | Optional project and workflow state (Triage). If Linear rejects them, the issue is created without them and `linear_placement_rejected` is logged |
-| `MCP_ENABLED` | `"1"` serves the MCP server for AI tools on `MCP_ORIGIN` ([docs/mcp.md](../docs/mcp.md)); `"1"` on staging, `"0"` on production until switched on |
+| `MCP_ENABLED` | `"1"` serves the MCP server for AI tools on `MCP_ORIGIN` ([docs/mcp.md](../docs/mcp.md)); `"1"` on staging and production; `"0"` turns the MCP host off |
 | `MCP_ORIGIN` | The MCP host: `https://mcp.matilde.page`, `https://mcp-staging.matilde.page`. Requests for it go to `src/mcp/`; everything else is the sync API |
 
 ### Secrets
