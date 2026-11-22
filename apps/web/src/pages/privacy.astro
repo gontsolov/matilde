@@ -4,6 +4,7 @@ import { CONTACT_EMAIL, FEEDBACK_EMAIL, SOURCE_URL } from "../lib/site";
 
 // Checked against the code on 2026-11-21: apps/macos (Sync/, SyncCrypto/, LangdockClient.swift,
 // WritingReview.swift, write-info.py, Feedback.swift) and server/ (PROTOCOL.md, migrations, wrangler.jsonc, src/feedback).
+// "AI tools you connect" checked on 2026-11-22 against server/src/mcp and docs/mcp.md.
 // Update this page whenever sync, sign-in or Ask Matilde changes what leaves the Mac.
 const updated = "22 November 2026";
 
@@ -12,6 +13,7 @@ const canSee = [
   "That you have an account, and when you created it.",
   "Your devices: what kind they are (for example macOS), when they signed in, and the day each one was last used. Their names are encrypted.",
   "For each synced item: a random ID, what kind of item it is (a note, a folder, a comment), how big it is, when it changed, which of your devices changed it, and whether it was deleted.",
+  "If you connect an AI tool: its name, what you allowed it to do, when the connection ends, and when and how it was used (the action, never what it read or wrote).",
 ];
 
 const cantSee = [
@@ -58,7 +60,8 @@ const cantSee = [
       Before anything leaves your Mac, it's encrypted with a key that only your devices have (end-to-end encryption,
       AES-256-GCM). The key is kept in your Mac's Keychain. The server stores your encrypted notes and copies of the
       key that are locked with your Matilde key, which the server never gets. No one else can read your writing, not
-      even someone who broke into the server.
+      even someone who broke into the server. The one exception is an AI tool you choose to connect, described
+      <a class="text-accent underline underline-offset-4" href="#ai-tools">below</a>.
     </p>
 
     <div class="mt-8 grid gap-8 sm:grid-cols-2">
@@ -127,6 +130,33 @@ const cantSee = [
       This text is not covered by sync's encryption: Langdock and the AI model you picked have to read it to
       answer. Langdock uses its EU region unless you change it, and passes the text to the model's provider. Their own
       privacy terms apply to it.
+    </p>
+
+    <h2 id="ai-tools" class="mt-12 text-[24px] font-semibold">AI tools you connect</h2>
+    <p class="mt-3 text-[17.5px]">
+      You can let an AI tool you use, such as Claude, ChatGPT or Cursor, read, search and add to your synced notes.
+      This is off until you connect a tool yourself, and nothing changes if you never do.
+    </p>
+    <p class="mt-3 text-[17.5px]">
+      You connect a tool on a Matilde page in your browser. You choose what it may do (read, comment, create notes,
+      and, only if you tick it, edit them) and for how long: 1, 7, 30 or 90 days. You type your Matilde key on that
+      page, and it stays in your browser.
+    </p>
+    <p class="mt-3 text-[17.5px]">
+      Here is the trade-off. The tool talks to the Matilde server, not to your Mac, so while a tool is connected the
+      Matilde server can decrypt your notes to answer it. It does that only for the tool's requests, in memory, and
+      keeps no readable copy. The limits on what the tool may do are rules the server follows: while a connection is
+      open, the server could decrypt all of your synced notes.
+    </p>
+    <p class="mt-3 text-[17.5px]">
+      Whatever the tool reads goes to the company behind it (for example Anthropic, OpenAI or Cursor), and their own
+      privacy terms apply to it. Comments a tool leaves are marked with its name in Matilde.
+    </p>
+    <p class="mt-3 text-[17.5px]">
+      Your connected tools are listed in Matilde's Settings, under Sync, on your Mac and iPhone. Disconnecting one stops
+      it at once and deletes the copy of your key the server held for it. It doesn't undo what the tool has already
+      read. The server keeps a short record of each connection's activity: when a tool was used and which action it
+      took, never what it read or wrote.
     </p>
 
     <h2 class="mt-12 text-[24px] font-semibold">Feedback</h2>

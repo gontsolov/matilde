@@ -87,6 +87,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | `packages/MatildeKit/Tests/MatildeKitTests/` | Sync record, engine, transport, crypto, recovery and shared-vector tests (run on macOS and Linux) |
 | `Config/release.json` | Local version, stable bundle identifier, repository, update URL and public signing key |
 | `server/` | Cloud sync server (TypeScript Cloudflare Worker, Durable Objects, D1, R2); its own README, PROTOCOL.md and vitest suite (`cd server && pnpm install && pnpm test`, runs on Linux) |
+| `server/src/mcp/`, `packages/MatildeKit/Sources/MatildeKit/Sync/ConnectedAITools.swift` | Remote MCP server for AI tools (AI-18) on the MCP host of the sync Worker: OAuth, consent page, tools, grants and audit; the apps' Connected AI tools list; see `docs/mcp.md` |
 | `scripts/` (plus `.github/workflows/` at the repo root) | App assembly, tests, signing, packaging, release validation and publication |
 
 ## Files, persistence, and data safety
@@ -184,6 +185,7 @@ The build script assembles `build/Matilde.app`, bundles fonts, interface icons, 
 
 - `docs/architecture.md`: product decisions and AI design history.
 - `docs/langdock-integration.md`: Ask Matilde behavior, context boundary and verification.
+- `docs/mcp.md`: the remote MCP server for AI tools (AI-18), its trade-off, OAuth, scopes and setup.
 - `docs/stash.md`: stash design and refinements.
 - `docs/canvas-followup.md`: implemented canvas behavior and remaining interaction work.
 - `docs/releases.md`: release commands, signing setup, optional notarization, and verification.
