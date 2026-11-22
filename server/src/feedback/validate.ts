@@ -30,7 +30,7 @@ export interface FeedbackInput {
   kind: FeedbackKind;
   message: string;
   replyEmail?: string;
-  /** Present only when the user left "Include app version and device" on. */
+  /** Present when includeDiagnostics is true (the apps always send it since 0.3.2). */
   diagnostics?: FeedbackDiagnostics;
 }
 

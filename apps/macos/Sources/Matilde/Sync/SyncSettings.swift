@@ -22,7 +22,7 @@ struct SyncSettingsView: View {
                         Button("Sign Out") { center.signOut(); center.setEnabled(false) }
                     }
                 } footer: {
-                    Text("End-to-end encrypted. The server can’t read your notes.")
+                    Text("End-to-end encrypted. No one else can read your notes.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 if !center.devices.isEmpty {

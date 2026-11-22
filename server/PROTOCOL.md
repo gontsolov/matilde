@@ -231,7 +231,7 @@ The server stores wrapped copies of the account key; it can't unwrap them.
 
 ## Feedback
 
-In-app feedback ("Send Feedback…") that the server files as an issue in the owner's Linear workspace. It is the only request the apps make that isn't sync, and it carries **only** what the user typed, an optional reply email, and diagnostics if the user left the toggle on. Never note content, never the account email.
+In-app feedback ("Send Feedback…") that the server files as an issue in the owner's Linear workspace. It is the only request the apps make that isn't sync, and it carries **only** what the user typed, an optional reply email, and basic diagnostics (since 0.3.2 the apps always send `includeDiagnostics: true` with app, version, build, system version and device model; no toggle, no locale). Never note content, never the account email.
 
 - `POST /v1/feedback`, auth optional. With a valid access token the issue says "Signed in: yes"; the server never looks up who. A missing, expired or invalid token counts as signed out, never as an error.
   ```json
