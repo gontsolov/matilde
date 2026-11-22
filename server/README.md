@@ -6,6 +6,7 @@ The server side of Matilde's end-to-end encrypted cloud sync: one TypeScript Clo
 - **D1 "directory"** (EU): accounts, sign-in identities, email codes, sessions, wrapped key slots, rate-limit counters. No writing.
 - **Feedback** (`POST /v1/feedback`): in-app feedback becomes an issue in the owner's Linear workspace. It holds only what the user typed, an optional reply email and opt-in diagnostics; it waits in D1 only until Linear has it. Setup: [docs/feedback.md](../docs/feedback.md).
 - **R2** (EU): encrypted blobs and ciphertext over 256 KB, under `u/<userId>/`.
+- **Usage stats** (`StatsApi`, `src/stats/`): anonymous aggregate counts for the owner's stats page (accounts, active accounts, devices by platform, live record totals, feedback per day). A named entrypoint with no HTTP route, reachable only through the `matilde-stats` Worker's service binding. See [docs/stats.md](../docs/stats.md).
 
 The server only ever stores ciphertext plus a small envelope (id, type, HLC, device, deleted flag, key id, size, blob id, sequence). The API is specified in [PROTOCOL.md](PROTOCOL.md); the Swift client (SYNC-07) follows it.
 
@@ -16,6 +17,7 @@ src/auth/               email codes, mailers, rate limits, sessions/devices, tok
 src/sync/UserSync.ts    the per-user Durable Object
 src/sync/routes.ts      push / pull / ws / blobs
 src/feedback/           POST /v1/feedback: validation, Linear issue, D1 queue + retry
+src/stats/              anonymous usage counters + the RPC-only StatsApi entrypoint
 migrations/             D1 migrations (directory)
 test/                   vitest in the Workers runtime (@cloudflare/vitest-plugin)
 ```
@@ -184,7 +186,7 @@ Secrets (`wrangler secret put`) are not part of the workflow; set them by hand a
 ## Operations
 
 - **Logs:** Workers Logs (observability is on). Each request logs method, route pattern, status, duration and error code; never bodies, tokens, codes, emails or IPs.
-- **Cron** every 15 minutes: retries queued feedback (rows older than 5 minutes, 25 per run, `failed` after 10 attempts; sent rows are dropped after 30 days). The 03:15 UTC run also deletes expired codes, rate counters and sessions.
+- **Cron** every 15 minutes: writes today's stats snapshot into `stats_daily` (docs/stats.md) and retries queued feedback (rows older than 5 minutes, 25 per run, `failed` after 10 attempts; sent rows are dropped after 30 days). The 03:15 UTC run also deletes expired codes, rate counters and sessions.
 - **Feedback log events:** `feedback_queued` (Linear unreachable or not configured; with the reason, never the text), `feedback_rate_limited`, `global_feedback_cap_reached` (worth an Observability alert, like `global_code_cap_reached`) and `linear_placement_rejected` (project or state id wrong; issue created without them). Unsent feedback:
   ```sh
   pnpm exec wrangler d1 execute DB --remote --env production --command "SELECT id, created_at, status, attempts, last_error FROM feedback WHERE status != 'sent'"

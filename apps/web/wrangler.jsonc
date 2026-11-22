@@ -8,7 +8,7 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "404-page",
-    // The Worker runs first only to redirect www; everything else is a static file.
+    // The Worker runs first to redirect www and to count /download and /appcast.xml; everything else is a static file.
     "run_worker_first": true
   },
   "routes": [
@@ -18,6 +18,9 @@
   // No workers.dev site; pull-request previews use version preview URLs.
   "workers_dev": false,
   "preview_urls": true,
-  // A static page: no request logs kept by Workers Observability.
+  // Anonymous daily counts of /download clicks and /appcast.xml update checks (worker/events.ts,
+  // docs/stats.md). The dataset is created on the first write; stats.matilde.page reads it.
+  "analytics_engine_datasets": [{ "binding": "EVENTS", "dataset": "matilde_web_events" }],
+  // No request logs kept by Workers Observability.
   "observability": { "enabled": false }
 }

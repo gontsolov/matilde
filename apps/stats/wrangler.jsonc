@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // stats.matilde.page: the owner's private dashboard of anonymous usage counts (docs/stats.md).
+  // Cloudflare Access (one-time PIN to the owner's email) sits in front of it, and the Worker
+  // also verifies the Access JWT itself, so it stays closed if Access is ever misconfigured.
+  "name": "matilde-stats",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "routes": [{ "pattern": "stats.matilde.page", "custom_domain": true }],
+  // Only the Access-protected custom domain: no workers.dev URL and no preview URLs, which
+  // Access wouldn't cover (the JWT check would still refuse them).
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  // Aggregate sync stats from the production sync server's RPC-only entrypoint
+  // (server/src/stats/api.ts). It has no HTTP route; only this binding can call it.
+  "services": [{ "binding": "SYNC", "service": "matilde-sync", "entrypoint": "StatsApi" }],
+  "vars": {
+    "GITHUB_REPO": "gontsolov/matilde",
+    // Analytics Engine dataset written by matilde-web (apps/web/worker/events.ts).
+    "EVENTS_DATASET": "matilde_web_events"
+  }
+  // Set with `pnpm exec wrangler secret put <NAME>` (docs/stats.md), never in this file:
+  //   ACCESS_TEAM_DOMAIN     e.g. matilde.cloudflareaccess.com
+  //   ACCESS_AUD             the Access application's Application Audience (AUD) tag
+  //   ACCESS_ALLOWED_EMAILS  comma-separated addresses allowed in (the owner's)
+  //   CF_ACCOUNT_ID          Cloudflare account id
+  //   CF_ANALYTICS_TOKEN     API token with Account › Account Analytics › Read only
+  //   WEB_ANALYTICS_SITE_TAG optional: matilde.page's Web Analytics site tag (visits)
+}

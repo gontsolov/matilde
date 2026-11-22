@@ -108,13 +108,13 @@ Writes use `grantId` as the device id in the HLC, so they merge with the apps li
 
 - `server/src/mcp/index.ts`: host routing, OAuth provider options. `consent.ts`: consent page and `/connect/*`. `protocol.ts`: JSON-RPC (`initialize`, `ping`, `tools/list`, `tools/call`). `tools.ts`: the seven tools. `notes.ts`: reading and writing records with the ring. `crypto.ts`: envelopes, slots, grant wrap, framing. `grants.ts`: scopes, limits, audit, revocation. `kv.ts`: the D1 KV adapter. `routes.ts`: `/v1/connections`.
 - `server/src/mcp/web/connect.js`: the consent page's browser module. After editing it run `pnpm run gen:mcp-assets` (it is embedded into `assets.generated.ts`; `pnpm run typecheck` fails when that is stale).
-- `server/migrations/0004_mcp.sql`: `mcp_grants`, `mcp_audit`, `mcp_logins`, `mcp_oauth_kv`.
+- `server/migrations/0005_mcp.sql`: `mcp_grants`, `mcp_audit`, `mcp_logins`, `mcp_oauth_kv`.
 
 ## Owner setup
 
 Nothing to create in Cloudflare: the deploy adds the custom domains and the CI migration step adds the tables.
 
-1. Merge the PR. `server.yml` applies migration `0004_mcp.sql` and deploys staging, which serves `mcp-staging.matilde.page` (the custom domain and certificate are created by `wrangler deploy`; first time can take a few minutes).
+1. Merge the PR. `server.yml` applies migration `0005_mcp.sql` and deploys staging, which serves `mcp-staging.matilde.page` (the custom domain and certificate are created by `wrangler deploy`; first time can take a few minutes).
 2. Try it on staging (below, with the staging URL) with a staging account.
 3. To turn on production: set `MCP_ENABLED` to `"1"` under `env.production.vars` in `server/wrangler.jsonc` (a one-line PR), merge, approve the `production` deployment.
 4. Optional: add a "Feedback" label id in `LINEAR_LABEL_FEEDBACK` to tell MCP feedback apart (it's also marked in the issue body).

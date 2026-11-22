@@ -1,5 +1,6 @@
 import { ipPrefix, enforceLimits, RateLimitError } from "../auth/ratelimit";
 import type { Env } from "../env";
+import { countDaily } from "../stats/counters";
 import { HttpError, hmacHex } from "../util";
 import { createLinearIssue, type FeedbackPayload, LinearError } from "./linear";
 import type { FeedbackInput } from "./validate";
@@ -57,6 +58,8 @@ export async function submitFeedback(env: Env, input: FeedbackInput, context: { 
   await env.DB.prepare("INSERT INTO feedback (id, created_at, updated_at, kind, payload, status, attempts) VALUES (?, ?, ?, ?, ?, 'pending', 0)")
     .bind(id, nowMs, nowMs, input.kind, JSON.stringify(payload))
     .run();
+  // Anonymous per-day count for the stats page (kind only). Never blocks the submission.
+  await countDaily(env.DB, `feedback:${input.kind}`, nowMs).catch(() => undefined);
 
   return deliver(env, id, payload, 0, nowMs);
 }

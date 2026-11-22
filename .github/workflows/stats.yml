@@ -1,0 +1,71 @@
+name: Stats
+on:
+  pull_request:
+    paths:
+      - "apps/stats/**"
+      - ".github/workflows/stats.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/stats/**"
+      - ".github/workflows/stats.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+# Pull requests: a new push cancels the previous run. Main: deploys queue and are never cancelled mid-deploy.
+concurrency:
+  group: stats-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+defaults:
+  run:
+    working-directory: apps/stats
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # pnpm version comes from packageManager in the root package.json.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
+
+  # Main deploys straight to stats.matilde.page, without an approval step: the dashboard only
+  # reads aggregate counts and writes nothing, Cloudflare Access and the Worker's own JWT check
+  # keep it private, and `wrangler rollback` undoes a bad deploy. No preview versions: preview
+  # URLs wouldn't be behind Access (the JWT check would refuse them anyway).
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: stats
+      url: https://stats.matilde.page
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # pnpm version comes from packageManager in the root package.json.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec wrangler deploy
+      # The page must never answer 200 to an anonymous request: Access redirects to its
+      # sign-in (302) once set up, and the Worker refuses requests without a valid JWT (403).
+      - name: Check it's private
+        run: |
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://stats.matilde.page/) && [ "$code" != 000 ] && break
+            sleep 10
+          done
+          echo "https://stats.matilde.page/ -> $code"
+          [ "$code" = 302 ] || [ "$code" = 403 ]

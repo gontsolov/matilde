@@ -50,15 +50,16 @@ A monorepo. Paths in the sections below are relative to `apps/macos/` unless the
 | --- | --- |
 | `apps/macos/` | The macOS app: `Package.swift`/`Package.resolved`, `Sources/`, `Tests/`, `assets/` (icon sources), `Config/release.json`, `release-notes/`, and its build, packaging and release scripts in `scripts/` (with `scripts/tests/`) |
 | `apps/web/` | Landing page (matilde.page): Astro site on a Cloudflare Worker, see `apps/web/README.md` |
+| `apps/stats/` | stats.matilde.page: the owner's private dashboard of anonymous usage counts (Cloudflare Worker behind Cloudflare Access), see `docs/stats.md` |
 | `apps/ios/` | The iOS app: SwiftUI, iOS 26, iPhone first; notes library, editor, comments, Ask Matilde threads and sync on MatildeKit; XcodeGen `project.yml` (the `.xcodeproj` is generated, not committed), see `apps/ios/README.md` |
 | `packages/MatildeKit/` | Shared Swift package used by the macOS and iOS apps: sync records, sync engine, HTTPS transport and end-to-end encryption, plus `MatildeKitTesting` (fake sync server). Builds and tests on Linux too (swift-crypto stands in for CryptoKit); see `packages/MatildeKit/README.md` |
 | `server/` | Cloud sync server (Cloudflare Worker), deployed by `.github/workflows/server.yml` |
 | `docs/` | Product, architecture, sync and release documentation, verification log; `docs/sync-vectors/` are shared crypto test vectors for every client |
 | `scripts/` | Repo-wide scripts only (`sync-vectors.py`, which regenerates `docs/sync-vectors/`) |
 | `ROADMAP.md` | Backlog for the whole product |
-| `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml` | pnpm workspace for the JavaScript packages (`apps/web`, `server`): one root lockfile, pnpm version pinned in `packageManager`. Use `pnpm install` / `pnpm run` / `pnpm exec`, never npm; `corepack enable` once installs pnpm |
+| `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml` | pnpm workspace for the JavaScript packages (`apps/web`, `apps/stats`, `server`): one root lockfile, pnpm version pinned in `packageManager`. Use `pnpm install` / `pnpm run` / `pnpm exec`, never npm; `corepack enable` once installs pnpm |
 
-CI (`.github/workflows/ci.yml`) runs the macOS job (app and MatildeKit tests) only when `apps/macos/`, `packages/`, `docs/sync-vectors/` or the CI/Release workflows change; the iOS job (macos-26, XcodeGen, iPhone simulator tests) when `apps/ios/`, `packages/`, `docs/sync-vectors/` or `ci.yml` change; the Linux `kit` job (MatildeKit `swift test`) when `packages/`, `docs/sync-vectors/` or `ci.yml` change; its `required` job always reports and is the check to require. `server.yml` and the web workflow have their own path filters.
+CI (`.github/workflows/ci.yml`) runs the macOS job (app and MatildeKit tests) only when `apps/macos/`, `packages/`, `docs/sync-vectors/` or the CI/Release workflows change; the iOS job (macos-26, XcodeGen, iPhone simulator tests) when `apps/ios/`, `packages/`, `docs/sync-vectors/` or `ci.yml` change; the Linux `kit` job (MatildeKit `swift test`) when `packages/`, `docs/sync-vectors/` or `ci.yml` change; its `required` job always reports and is the check to require. `server.yml`, the web workflow and `stats.yml` have their own path filters.
 
 ## Stack and source map
 
@@ -172,7 +173,7 @@ The build script assembles `build/Matilde.app`, bundles fonts, interface icons, 
 - Release configuration and scripts are authoritative for the current version; do not hardcode a latest version in future instructions.
 - Release pipeline validates increasing versions and main ancestry, tests, builds the arm64 binary, packages a DMG, signs the archive/feed, uploads assets to a draft release, then publishes it as latest.
 - Stable download: `https://github.com/gontsolov/matilde/releases/latest/download/Matilde.dmg`.
-- Stable Sparkle feed: `https://github.com/gontsolov/matilde/releases/latest/download/appcast.xml`.
+- Stable Sparkle feed: `https://matilde.page/appcast.xml` (`Config/release.json` `feedURL`, from the release after 0.3.2), a counted 302 to `https://github.com/gontsolov/matilde/releases/latest/download/appcast.xml`, which older installs still use directly. Keep uploading `appcast.xml` to every release. The site's Download buttons go through the counted `https://matilde.page/download`; see `docs/stats.md`.
 - Sparkle verifies signed updates before extraction and uses native install/relaunch UI. Automatic installation and system-profile submission are disabled. Preserve save-on-quit behavior.
 - Keep the existing bundle identifier `app.matilde.local` and signing identity stable unless a deliberate migration is requested.
 - Sparkle private key is in the local login Keychain under account `app.matilde.local` and configured in GitHub Actions as `SPARKLE_PRIVATE_KEY`. Its initial transfer was owner-authorized and completed. Never regenerate it per release, print/export it into logs, or commit it. The public key in configuration is safe to commit.
