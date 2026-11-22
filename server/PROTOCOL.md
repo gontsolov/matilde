@@ -248,6 +248,10 @@ In-app feedback ("Send Feedback…") that the server files as an issue in the ow
 - Rate limits: 5 per hour per network (IPv4 /24, hashed), and a global daily cap (`429 rate_limited` with `Retry-After`).
 - Stored payloads are deleted once the issue exists; the bookkeeping row goes after 30 days.
 
+## Usage stats
+
+There is no public stats endpoint. Aggregate counts for the owner's dashboard come from the `StatsApi` Worker entrypoint over a service binding (RPC), which no HTTP request can reach. See [docs/stats.md](../docs/stats.md).
+
 ## Limits
 
 | Limit | Value |

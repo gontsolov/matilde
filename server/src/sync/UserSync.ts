@@ -1,10 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../env";
-import { CAS_TYPES, LIMITS } from "../limits";
+import { CAS_TYPES, LIMITS, RecordType } from "../limits";
+import { addTotals } from "../stats/counters";
 import { bytesToBase64, hlcMillis } from "../util";
 import type { AccountGone, CommitBlobResult, PullResult, PushChange, PushResult, RejectReason, WireRow } from "./types";
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 interface RecordRow {
   id: string;
@@ -35,6 +36,8 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
  */
 export class UserSync extends DurableObject<Env> {
   private readonly sql: SqlStorage;
+  /** Serializes reports to the directory's stats totals (see reportStats). */
+  private statsReport: Promise<void> = Promise.resolve();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -73,6 +76,20 @@ export class UserSync extends DurableObject<Env> {
           delete_after INTEGER NOT NULL
         );
       `);
+    }
+    if (version < 2) {
+      // Anonymous stats (live record counts, reported to D1 as aggregate totals only).
+      // Existing objects count what they already hold; the first push or pull reports it.
+      const row = this.sql
+        .exec<{ records: number; drafts: number }>(
+          "SELECT COUNT(*) AS records, COALESCE(SUM(type = ?), 0) AS drafts FROM records WHERE deleted = 0",
+          RecordType.draft,
+        )
+        .toArray()[0];
+      this.setMeta("live_records", Number(row?.records ?? 0));
+      this.setMeta("live_drafts", Number(row?.drafts ?? 0));
+      if (this.getMeta("reported_records") === null) this.setMeta("reported_records", 0);
+      if (this.getMeta("reported_drafts") === null) this.setMeta("reported_drafts", 0);
     }
     // Future migrations: additive only, guarded by `version < N`.
     if (version !== SCHEMA_VERSION) this.setMeta("schema_version", SCHEMA_VERSION);
@@ -141,6 +158,8 @@ export class UserSync extends DurableObject<Env> {
     this.ctx.storage.transactionSync(() => {
       let seq = this.num("seq");
       let recordBytes = this.num("record_bytes");
+      let liveRecords = this.num("live_records");
+      let liveDrafts = this.num("live_drafts");
 
       changes.forEach((change, index) => {
         const ref = offloaded.get(index) ?? null;
@@ -214,12 +233,18 @@ export class UserSync extends DurableObject<Env> {
             stored.blob_id,
           );
         }
+        const wasLive = !!stored && !stored.deleted;
+        const isLive = !change.deleted;
+        liveRecords += Number(isLive) - Number(wasLive);
+        liveDrafts += Number(isLive && change.type === RecordType.draft) - Number(wasLive && stored!.type === RecordType.draft);
         accepted.push({ id: change.id, seq });
         changed = true;
       });
 
       this.setMeta("seq", seq);
       this.setMeta("record_bytes", recordBytes);
+      this.setMeta("live_records", liveRecords);
+      this.setMeta("live_drafts", liveDrafts);
     });
 
     // Phase 3: clean up, build the response, nudge the other devices.
@@ -232,6 +257,7 @@ export class UserSync extends DurableObject<Env> {
     );
     const maxSeq = this.num("seq");
     if (changed) this.nudge(deviceId, maxSeq);
+    await this.reportStats();
     return { accepted, rejected: rejectedOut, maxSeq, epoch: this.epoch };
   }
 
@@ -239,6 +265,7 @@ export class UserSync extends DurableObject<Env> {
 
   async pull(userId: string, since: number, limit: number): Promise<PullResult | AccountGone> {
     if (!this.enter(userId)) return GONE;
+    await this.reportStats();
     const maxSeq = this.num("seq");
     if (since > maxSeq) {
       return { rows: [], hasMore: false, maxSeq, nextSince: 0, epoch: this.epoch, resync: true };
@@ -286,6 +313,40 @@ export class UserSync extends DurableObject<Env> {
       blobId: row.blob_id,
       seq: row.seq,
       ct,
+    };
+  }
+
+  // MARK: stats
+
+  /**
+   * Sends the change in this object's live record counts to the directory's anonymous
+   * totals (stats_totals), as a delta: D1 never learns which account the numbers came
+   * from. `reported_*` remembers what D1 already has, so a failed write is simply
+   * retried by the next push or pull. Reports run one at a time.
+   */
+  private reportStats(): Promise<void> {
+    this.statsReport = this.statsReport.then(async () => {
+      const records = this.num("live_records") - this.num("reported_records");
+      const drafts = this.num("live_drafts") - this.num("reported_drafts");
+      if (records === 0 && drafts === 0) return;
+      try {
+        await addTotals(this.env.DB, { records_live: records, drafts_live: drafts });
+        this.setMeta("reported_records", this.num("reported_records") + records);
+        this.setMeta("reported_drafts", this.num("reported_drafts") + drafts);
+      } catch (error) {
+        console.warn(JSON.stringify({ event: "stats_report_failed", name: error instanceof Error ? error.name : "unknown" }));
+      }
+    });
+    return this.statsReport;
+  }
+
+  /** Test hook: the live and reported counts. */
+  async statsCounts(): Promise<{ liveRecords: number; liveDrafts: number; reportedRecords: number; reportedDrafts: number }> {
+    return {
+      liveRecords: this.num("live_records"),
+      liveDrafts: this.num("live_drafts"),
+      reportedRecords: this.num("reported_records"),
+      reportedDrafts: this.num("reported_drafts"),
     };
   }
 
@@ -447,11 +508,18 @@ export class UserSync extends DurableObject<Env> {
       if (listing.objects.length) await this.env.BLOBS.delete(listing.objects.map((o) => o.key));
       cursor = listing.truncated ? listing.cursor : undefined;
     } while (cursor);
+    await this.statsReport;
+    const reportedRecords = this.num("reported_records");
+    const reportedDrafts = this.num("reported_drafts");
     await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
     // Leave a marker so a still-valid access token cannot recreate data.
     this.migrate();
     this.setMeta("user_id", userId);
     this.setMeta("deleted", Date.now());
+    // The live counts are now 0: take what this account had added back out of the totals.
+    this.setMeta("reported_records", reportedRecords);
+    this.setMeta("reported_drafts", reportedDrafts);
+    await this.reportStats();
   }
 }

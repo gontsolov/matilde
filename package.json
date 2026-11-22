@@ -7,6 +7,7 @@
   },
   "scripts": {
     "web": "pnpm --filter matilde-web",
+    "stats": "pnpm --filter matilde-stats",
     "server": "pnpm --filter matilde-sync-server"
   }
 }

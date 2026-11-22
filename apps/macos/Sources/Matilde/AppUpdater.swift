@@ -16,6 +16,11 @@ final class AppUpdater: ObservableObject {
               Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") is String else { return }
         let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
         self.controller = controller
+        // The feed (matilde.page/appcast.xml) keeps an anonymous count of update checks by app
+        // version and macOS major version, read from this user agent; nothing else is sent.
+        // Sparkle's default is "Matilde/<version> Sparkle/<version>".
+        let macOS = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+        controller.updater.userAgentString = "\(controller.updater.userAgentString) macOS/\(macOS)"
         controller.updater.publisher(for: \.canCheckForUpdates)
             .receive(on: RunLoop.main)
             .assign(to: &$canCheckForUpdates)

@@ -1,7 +1,10 @@
 # matilde.page
 
 The landing page and privacy page for Matilde. Static [Astro](https://astro.build) site with Tailwind,
-served by a small Cloudflare Worker (`matilde-web`) that only redirects `www.matilde.page` to the apex.
+served by a small Cloudflare Worker (`matilde-web`) that redirects `www.matilde.page` to the apex and
+answers two counted redirects: `/download` (the latest DMG) and `/appcast.xml` (the Mac app's update
+feed). Each adds one anonymous count to Workers Analytics Engine for the stats page; see
+[docs/stats.md](../../docs/stats.md).
 It's separate from the sync server in `server/` (`sync.matilde.page`).
 
 ## Working on it
@@ -15,14 +18,15 @@ cd apps/web
 pnpm install
 pnpm run dev        # http://localhost:4321, live reload
 pnpm run check      # astro check + worker types
+pnpm test           # the Worker's redirects and counters (vitest)
 pnpm run build      # static files in dist/
 pnpm run preview    # the built site through the Worker (wrangler dev, http://localhost:8787)
 ```
 
 - Copy lives in `src/pages/index.astro` and `src/pages/privacy.astro`.
 - Links and contact address are in `src/lib/site.ts`.
-- The page shows no version number, so the build doesn't call GitHub; the button always links to
-  the latest release's `Matilde.dmg`. Once the hero button scrolls out of view, a floating copy
+- The page shows no version number, so the build doesn't call GitHub; the button links to `/download`,
+  which the Worker redirects to the latest release's `Matilde.dmg`. Once the hero button scrolls out of view, a floating copy
   (`src/components/FloatingDownload.astro`) appears at the bottom centre; it hides while the footer is visible.
 - Colours are the app's Paper palette, light and dark, in `src/styles/global.css`. The Download
   button is a dark warm gray (`--button`) in light mode and a warm off-white in dark mode.
@@ -66,6 +70,8 @@ pnpm run deploy            # builds and runs wrangler deploy
 curl -I https://matilde.page                       # 200
 curl -I https://www.matilde.page                   # 301 to https://matilde.page/
 curl -sIL https://matilde.page/privacy | head -1   # 200
+curl -sI https://matilde.page/download | grep -i location     # the latest Matilde.dmg
+curl -sI https://matilde.page/appcast.xml | grep -i location  # the latest appcast.xml
 curl -sI https://github.com/gontsolov/matilde/releases/latest/download/Matilde.dmg | head -1  # 302
 ```
 
