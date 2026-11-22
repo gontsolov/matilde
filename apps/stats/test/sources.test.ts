@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Env } from "../src/env";
 import { escapeHtml, renderPage } from "../src/page";
-import { eventsQuery, githubDownloads, lastDays, series, siteVisits, webEvents, windows } from "../src/sources";
+import { eventsQuery, githubDownloads, githubError, lastDays, series, siteVisits, webEvents, windows } from "../src/sources";
 import type { SyncStats } from "../src/types";
 
 const NOW = Date.parse("2026-11-22T12:00:00Z");
@@ -78,7 +78,75 @@ describe("GitHub", () => {
     expect(calls[0]!.headers.get("User-Agent")).toBe("matilde-stats");
     expect(calls[0]!.headers.get("Authorization")).toBeNull();
   });
+
+  it("sends GITHUB_TOKEN as a bearer token when set", async () => {
+    const { fetcher, calls } = stubFetch({ "https://api.github.com/repos/gontsolov/matilde/releases": () => Response.json([]) });
+    expect(await githubDownloads({ ...env, GITHUB_TOKEN: " github_pat_x \n" }, fetcher)).toEqual({ ok: true, value: [] });
+    expect(calls[0]!.headers.get("Authorization")).toBe("Bearer github_pat_x");
+  });
+
+  it("explains a rate limit", async () => {
+    for (const status of [403, 429]) {
+      const { fetcher } = stubFetch({ "https://api.github.com/repos/gontsolov/matilde/releases": () => new Response("limit", { status }) });
+      expect(await githubDownloads(env, fetcher)).toEqual({ ok: false, error: `GitHub answered ${status}: rate limited, set GITHUB_TOKEN` });
+      expect(await githubDownloads({ ...env, GITHUB_TOKEN: "t" }, fetcher)).toEqual({
+        ok: false,
+        error: `GitHub answered ${status}: rate limited, or GITHUB_TOKEN lacks read access to the repository`,
+      });
+    }
+    expect(githubError(401, true)).toBe("GitHub answered 401: GITHUB_TOKEN is invalid or expired");
+    expect(githubError(500, false)).toBe("GitHub answered 500");
+  });
+
+  it("uses the hourly cache, then falls back to the last good copy when GitHub refuses", async () => {
+    const cache = new MemoryCache();
+    let status = 200;
+    const { fetcher, calls } = stubFetch({
+      "https://api.github.com/repos/gontsolov/matilde/releases": () =>
+        status === 200
+          ? Response.json([{ tag_name: "v0.3.2", published_at: "2026-11-22T10:00:00Z", draft: false, assets: [{ name: "Matilde.dmg", download_count: 7 }] }])
+          : new Response("limit", { status }),
+    });
+    const good = { ok: true, value: [{ tag: "v0.3.2", publishedAt: "2026-11-22", dmg: 7, appcast: 0 }] };
+    expect(await githubDownloads(env, fetcher, cache.asCache())).toEqual(good);
+    expect(await githubDownloads(env, fetcher, cache.asCache())).toEqual(good);
+    expect(calls).toHaveLength(1);
+
+    cache.expire("https://api.github.com/repos/gontsolov/matilde/releases?per_page=100");
+    status = 403;
+    const stale = await githubDownloads(env, fetcher, cache.asCache());
+    expect(calls).toHaveLength(2);
+    expect(stale.ok).toBe(true);
+    if (!stale.ok) return;
+    expect(stale.value).toEqual(good.value);
+    expect(stale.warning).toMatch(/^GitHub answered 403: rate limited, set GITHUB_TOKEN\. Showing the last good copy from \d{4}-\d\d-\d\d \d\d:\d\d UTC$/);
+  });
+
+  it("fails when GitHub refuses and nothing was cached", async () => {
+    const { fetcher } = stubFetch({ "https://api.github.com/repos/gontsolov/matilde/releases": () => { throw new Error("network down"); } });
+    expect(await githubDownloads(env, fetcher, new MemoryCache().asCache())).toEqual({ ok: false, error: "network down" });
+  });
 });
+
+/** Enough of the Workers Cache API for these tests: keyed by URL, honours nothing but presence. */
+class MemoryCache {
+  private entries = new Map<string, { body: string; headers: [string, string][] }>();
+  expire(url: string) {
+    this.entries.delete(url);
+  }
+  asCache(): Cache {
+    return {
+      match: async (key: RequestInfo | URL) => {
+        const e = this.entries.get(String(key));
+        return e ? new Response(e.body, { headers: e.headers }) : undefined;
+      },
+      put: async (key: RequestInfo | URL, res: Response) => {
+        this.entries.set(String(key), { body: await res.text(), headers: [...res.headers] });
+      },
+      delete: async () => false,
+    } as unknown as Cache;
+  }
+}
 
 describe("page", () => {
   it("shows every section with today, 7 and 30 days, and escapes text", () => {
@@ -112,6 +180,15 @@ describe("page", () => {
     // ≈ 14 checks over the last 7 full days → 2 a day.
     expect(html).toContain("≈ 2");
     expect(html).not.toMatch(/<script/i);
+  });
+
+  it("shows a stale-copy warning and a rate-limit hint for releases", () => {
+    const base = { nowMs: NOW, events: { ok: false, error: "x" }, visits: null, sync: { ok: false, error: "y" } } as const;
+    const stale = renderPage({ ...base, releases: { ok: true, value: [{ tag: "v0.3.2", publishedAt: "2026-11-22", dmg: 7, appcast: 0 }], warning: "GitHub answered 403: rate limited, set GITHUB_TOKEN. Showing the last good copy" } });
+    expect(stale).toContain("v0.3.2");
+    expect(stale).toContain('class="note warning">GitHub answered 403: rate limited, set GITHUB_TOKEN. Showing the last good copy.');
+    const failed = renderPage({ ...base, releases: { ok: false, error: "GitHub answered 403: rate limited, set GITHUB_TOKEN" } });
+    expect(failed).toContain("Not available: GitHub answered 403: rate limited, set GITHUB_TOKEN.");
   });
 
   it("escapes HTML", () => {

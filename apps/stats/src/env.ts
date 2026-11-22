@@ -13,4 +13,6 @@ export interface Env {
   CF_ACCOUNT_ID?: string;
   CF_ANALYTICS_TOKEN?: string;
   WEB_ANALYTICS_SITE_TAG?: string;
+  /** Optional: read-only GitHub token, lifts the API rate limit (60 an hour per IP without one). */
+  GITHUB_TOKEN?: string;
 }

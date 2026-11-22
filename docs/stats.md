@@ -13,7 +13,7 @@ agents, no content. Every number is a sum.
 | --- | --- | --- |
 | Visits | Cloudflare Web Analytics for matilde.page (cookieless beacon), read via the GraphQL Analytics API | A visit as Cloudflare defines it: a page view that came from another site or was typed in |
 | Download clicks | `matilde.page/download` in the `matilde-web` Worker (`apps/web/worker`), stored in Workers Analytics Engine dataset `matilde_web_events` | One GET of /download that isn't an obvious bot, link preview or script; then a 302 to the latest `Matilde.dmg` |
-| GitHub downloads | GitHub's per-asset `download_count`, public API, cached for an hour | All-time downloads of `Matilde.dmg` and `appcast.xml` per release |
+| GitHub downloads | GitHub's per-asset `download_count`, releases API (optionally with `GITHUB_TOKEN`), cached for an hour; the last good answer is kept for 30 days as a fallback | All-time downloads of `Matilde.dmg` and `appcast.xml` per release |
 | Update checks per day | `matilde.page/appcast.xml` in `matilde-web`, same dataset | One GET of the feed, with only the Matilde version and macOS major version (from the user agent); then a 302 to the release's signed `appcast.xml` |
 | Macs a day (estimate) | Derived on the page | The average update checks per day over the last 7 full days |
 | Accounts, new accounts per day | Sync server D1 (`accounts.created_at`) | One account |
@@ -26,6 +26,10 @@ agents, no content. Every number is a sum.
 
 - **Download clicks aren't downloads.** A click can be abandoned, and someone may click twice. Direct
   links to GitHub (the README, the releases page) bypass /download; GitHub's numbers cover those.
+- **GitHub counts can lag when GitHub refuses.** On a refusal (rate limit, expired token, outage)
+  the page shows the last good copy, kept for 30 days in the data center's cache, with a note saying
+  why and from when; only without one does the card say "Not available". The cache is per Cloudflare
+  data center, so a request served from elsewhere may have no copy yet.
 - **GitHub's DMG count includes updates.** Sparkle downloads the same `Matilde.dmg` when it installs an
   update, so per-release DMG counts are new installs plus updates. GitHub counts are all-time per
   release, not per day.
@@ -134,8 +138,26 @@ the value at a prompt; type or paste it there, never into a chat or a file.
    pnpm exec wrangler secret put CF_ACCOUNT_ID           # Workers & Pages → Account ID
    pnpm exec wrangler secret put CF_ANALYTICS_TOKEN      # the token from step 3
    pnpm exec wrangler secret put WEB_ANALYTICS_SITE_TAG  # the site tag from step 2 (optional)
+   pnpm exec wrangler secret put GITHUB_TOKEN            # see "GitHub token" below (optional, recommended)
    ```
    Secrets take effect at once; no redeploy needed.
+
+   **GitHub token.** Without one, the GitHub releases API allows 60 requests an hour per IP
+   address, and Cloudflare's outgoing addresses are shared with many other Workers, so the limit is
+   often used up already: the GitHub card then says "rate limited, set GITHUB_TOKEN". A token
+   raises the limit to 5,000 an hour for that token. Create it on GitHub:
+   1. **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new
+      token.**
+   2. Name `matilde-stats`; resource owner: your account; **Expiration**: Custom, the longest date
+      offered (up to a year; note it to renew).
+   3. **Repository access: Public repositories** (read-only access to all public repositories).
+   4. **Permissions: none.** Don't add any; the public releases API needs nothing more.
+   5. **Generate token**, copy it, and at once run
+      `cd apps/stats && pnpm exec wrangler secret put GITHUB_TOKEN`, pasting it at the prompt.
+
+   When the token expires the card says "GITHUB_TOKEN is invalid or expired" (401); create a new one
+   the same way and put it again. Removing the secret
+   (`pnpm exec wrangler secret delete GITHUB_TOKEN`) goes back to unauthenticated requests.
 
 6. **DNS and the custom domain.** Nothing to do: `wrangler deploy` creates `stats.matilde.page`'s DNS
    record and certificate (there must be no existing `stats` record). If the Stats deploy fails with a

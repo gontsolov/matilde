@@ -99,6 +99,7 @@ export function renderPage(data: PageData): string {
     parts.push(
       `<p class="lede">${fmt(totalDmg)} DMG downloads across all releases.</p>`,
       table(["Release", "Published", "Matilde.dmg", "appcast.xml"], rows),
+      data.releases.warning ? `<p class="note warning">${escapeHtml(data.releases.warning)}.</p>` : "",
       `<p class="note">All-time counts per release from GitHub, refreshed hourly. Matilde.dmg counts new downloads and in-app updates alike (both fetch the DMG). appcast.xml counts update checks that went straight to GitHub, from installs still on the old feed address.</p>`,
     );
   } else {
@@ -207,6 +208,7 @@ dd{margin:0;font-family:"Newsreader","Iowan Old Style",Georgia,serif;font-size:2
 .chart{display:block;width:100%;height:56px;fill:var(--accent)}
 .chart .zero{fill:var(--rule)}
 .note{color:var(--muted);font-size:13px;margin:10px 0 0}
+.warning{color:var(--accent)}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule)}
 th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500}
