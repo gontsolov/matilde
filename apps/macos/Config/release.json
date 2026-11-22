@@ -1,5 +1,5 @@
 {
-  "version": "0.3.3",
+  "version": "0.3.4",
   "bundleIdentifier": "app.matilde.local",
   "repository": "gontsolov/matilde",
   "feedURL": "https://matilde.page/appcast.xml",
