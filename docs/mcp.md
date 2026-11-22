@@ -11,12 +11,12 @@ Code: `server/src/mcp/` (served by the sync Worker, see "Where it runs"). Wire f
 
 Matilde's sync is end-to-end encrypted: the server stores ciphertext and never has the account key (AK). An AI tool talks to the server, not to the user's Mac, so **for the server to answer a tool it has to be able to decrypt**. Connecting a tool therefore deliberately gives the server, for that connection and while it lasts, the ability to decrypt the user's notes. This is the one place where Matilde's server ever handles plaintext, and the user agrees to it on the consent screen in those words.
 
-What we do to keep that as small as possible:
+How Matilde keeps that as small as possible, so your notes stay yours:
 
 1. **The Matilde key never leaves the browser.** The consent page unwraps the account key ring in the browser (WebCrypto) from the key slots, exactly like a new device does, and only hands the server a *grant-wrapped* copy of the ring plus the secret for that one grant.
 2. **Split storage, so no single store is enough.** The grant-wrapped ring sits in D1 (`mcp_grants.wrapped_ring`); the grant secret `G` that unwraps it lives only inside the OAuth token's encrypted props (KV-style storage, encrypted with a key derived from the access/refresh token itself, which the server stores only as a hash). D1 alone, the props store alone, or a database dump without a live token cannot decrypt anything.
 3. **Decrypt per request, in memory, nothing kept.** Each tool call loads the grant, unwraps the ring with `G`, decrypts only the records it needs, answers, and drops everything. No plaintext is written to D1, KV, R2, logs or the audit trail, and there is no cache.
-4. **Revocation is cryptographic, not just a flag.** Revoking (from the Mac or iPhone app, or the connections page) deletes `wrapped_ring` and the OAuth grant; any token that still exists unwraps nothing.
+4. **Revocation is cryptographic, not just a flag.** Revoking (from the Mac or iPhone app) deletes `wrapped_ring` and the OAuth grant; any token that still exists unwraps nothing.
 5. **Short, explicit lifetimes.** A connection lasts 1, 7, 30 (default) or 90 days, chosen on the consent screen. After that the user connects again.
 6. **Least privilege.** Scopes are chosen per connection; editing is off by default.
 
@@ -80,17 +80,17 @@ The consent handle from the library is bound to the browser by a `__Host-` cooki
 1. The OAuth provider validates the bearer token (audience = the MCP resource) and decrypts the props.
 2. Load `mcp_grants` by `grantId`: must exist, belong to `userId`, not be revoked, not be expired. Otherwise `401` (the tool reconnects).
 3. Rate limits (D1 fixed windows): per grant 60 calls/minute and 1000/day, writes (`create_note`, `add_comment`, `edit_note`) 60/hour per grant, per account 2000 calls/day across grants; `leave_feedback` additionally goes through the feedback limits.
-4. Run the tool. Write one audit row; set `last_used_at` (day resolution).
+4. Run the tool. Write one audit row; set `last_used_day` (`YYYY-MM-DD`, day resolution on purpose).
 
 ### Tools
 
-- `list_notes({folder?, limit?, cursor?})`: titles, ids, folder, created/edited times, word count. Main drafts and alternate drafts are listed; trashed notes aren't.
+- `list_notes({folder?, limit?, cursor?})`: titles, ids, folder, created/edited times. Main drafts and alternate drafts are listed; trashed notes aren't.
 - `search_notes({query, limit?})`: case- and accent-insensitive substring search over titles and bodies, at most 20 results with short snippets. Bounded: at most 2000 notes and 25 MB of ciphertext are decrypted per call; bodies stored as blobs (over 3 MiB) are skipped and reported.
-- `read_note({id})`: title, folder, goal, Markdown body, and the note's private comments that aren't archived (quote and text).
+- `read_note({id})`: title, folder, goal, word count, Markdown body, and the note's private comments that aren't archived (quote, text, author).
 - `create_note({title, text, folder?})`: a new main draft (draft and body records); the title becomes the file name, made unique like the app does ("Title 2").
 - `add_comment({id, quote, comment})`: a private comment anchored on `quote`, which must occur exactly once in the note. Stored as a normal comment record with the new optional `author` field (the tool's name); the apps show "From <author>". Apps older than this see it as an ordinary private comment.
 - `edit_note({id, edits:[{old_text, new_text}]})`: exact replacements, each `old_text` must occur exactly once. Pushed with compare-and-swap on the body; if the note changed meanwhile, the call fails with "the note changed, read it again" instead of overwriting.
-- `leave_feedback({message, kind?})`: goes through the same pipeline as in-app feedback (`/v1/feedback`: D1 queue, Linear issue, retries). The issue says "Sent from <client> via MCP"; no account id, email or note content is attached.
+- `leave_feedback({message, kind?, replyEmail?})`: goes through the same pipeline as in-app feedback (`/v1/feedback`: D1 queue, Linear issue, retries). The issue says "Sent from <client> via MCP"; no account id, email or note content is attached.
 
 Writes use `grantId` as the device id in the HLC, so they merge with the apps like any other device's edits. Notes the server can't decrypt (a newer key epoch than the ring, unknown schema) are skipped, never rewritten.
 
@@ -103,6 +103,12 @@ Writes use `grantId` as the device id in the HLC, so they merge with the apps li
 ## Audit log and retention
 
 `mcp_audit` holds `(grant, account, time, tool name, outcome code)`: never arguments, note ids, titles, text or queries. Kept 90 days. Revoked or expired grants are deleted 30 days after they end (the row, the audit rows stay until their own 90 days). Login tokens are deleted after 15 minutes. Worker logs carry the route, status and tool name only.
+
+## Files
+
+- `server/src/mcp/index.ts`: host routing, OAuth provider options. `consent.ts`: consent page and `/connect/*`. `protocol.ts`: JSON-RPC (`initialize`, `ping`, `tools/list`, `tools/call`). `tools.ts`: the seven tools. `notes.ts`: reading and writing records with the ring. `crypto.ts`: envelopes, slots, grant wrap, framing. `grants.ts`: scopes, limits, audit, revocation. `kv.ts`: the D1 KV adapter. `routes.ts`: `/v1/connections`.
+- `server/src/mcp/web/connect.js`: the consent page's browser module. After editing it run `pnpm run gen:mcp-assets` (it is embedded into `assets.generated.ts`; `pnpm run typecheck` fails when that is stale).
+- `server/migrations/0004_mcp.sql`: `mcp_grants`, `mcp_audit`, `mcp_logins`, `mcp_oauth_kv`.
 
 ## Owner setup
 
@@ -125,4 +131,4 @@ Use `https://mcp.matilde.page/mcp` (staging: `https://mcp-staging.matilde.page/m
 
 ## Tests
 
-`server/test/mcp*.test.ts`: crypto against `docs/sync-vectors/v1.json` (records, slots, Matilde keys, legacy codes, padding), the browser consent script (Node project, same vectors), the grant lifecycle (consent → token → tools → expiry → revoke), scope filtering and enforcement, rate limits, audit content, revocation from the sync API, and that records written by the server decrypt and parse like the apps' records.
+`server/test/mcp.test.ts` (run with `pnpm test` in `server/`): crypto against `docs/sync-vectors/v1.json` (records, fields, slots, key checks, padding, grant wrap), the browser consent script `connect.js` (imported into the Workers test runtime; Matilde keys, legacy codes, unlocking the vector slots, a wrap the server opens), the grant lifecycle (consent → token → tools → expiry → revoke), scope filtering and enforcement, rate limits, audit content, revocation from the sync API, and that records written by the server decrypt and parse like the apps' records.
