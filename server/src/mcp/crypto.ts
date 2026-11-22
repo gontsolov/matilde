@@ -3,7 +3,7 @@
 // Nothing here logs, stores or returns key material outside the caller's memory.
 
 const encoder = new TextEncoder();
-const decoder = new TextDecoder("utf-8", { fatal: true });
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
 
 export class CryptoFormatError extends Error {}
 

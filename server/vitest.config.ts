@@ -45,6 +45,9 @@ export default defineConfig(async () => {
             LINEAR_LABEL_OTHER: "",
             LINEAR_LABEL_FEEDBACK: "label-feedback",
             GLOBAL_DAILY_FEEDBACK_CAP: "100000",
+            // MCP server (docs/mcp.md), reached as https://mcp.test in test/mcp.test.ts.
+            MCP_ENABLED: "1",
+            MCP_ORIGIN: "https://mcp.test",
           },
         },
       }),

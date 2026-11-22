@@ -46,7 +46,7 @@ export class ToolError extends Error {
   }
 }
 
-const decoder = new TextDecoder("utf-8", { fatal: true });
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
 
 export interface Draft {
   id: string;

@@ -1,12 +1,17 @@
 import type { Env } from "./env";
+import { cleanupGrants } from "./mcp/grants";
+import { purgeExpiredKv } from "./mcp/kv";
 
-/** Daily cron: drops expired codes, rate counters and sessions. */
+/** Daily cron: drops expired codes, rate counters, sessions and MCP connection data. */
 export async function cleanupDirectory(env: Env, nowMs = Date.now()): Promise<void> {
   await env.DB.batch([
     env.DB.prepare("DELETE FROM email_codes WHERE expires_at < ?").bind(nowMs),
     env.DB.prepare("DELETE FROM rate_counters WHERE expires_at < ?").bind(nowMs),
     env.DB.prepare("DELETE FROM sessions WHERE expires_at < ?").bind(nowMs),
   ]);
+  // MCP connections (docs/mcp.md): old audit rows, ended connections, expired OAuth records.
+  await cleanupGrants(env, nowMs);
+  await purgeExpiredKv(env.DB, nowMs);
 }
 
 /** The cron fires every 15 minutes (feedback retries); directory cleanup runs once, at 03:15 UTC. */

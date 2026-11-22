@@ -3,6 +3,7 @@ import { accountRoutes, authRoutes, deviceRoutes, keyRoutes } from "./auth/route
 import type { AccessClaims } from "./auth/tokens";
 import type { Env } from "./env";
 import { feedbackRoutes } from "./feedback/routes";
+import { connectionRoutes } from "./mcp/routes";
 import { blobRoutes, syncRoutes } from "./sync/routes";
 import { HttpError } from "./util";
 
@@ -48,6 +49,7 @@ export function createApp(): Hono<AppEnv> {
   app.route("/v1/sync", syncRoutes);
   app.route("/v1/blobs", blobRoutes);
   app.route("/v1/feedback", feedbackRoutes);
+  app.route("/v1/connections", connectionRoutes);
 
   app.notFound(() => errorResponse(new HttpError(404, "not_found")));
   app.onError((error) => {
