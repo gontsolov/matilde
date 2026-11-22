@@ -32,7 +32,7 @@ Running on a device or TestFlight needs a development team (`DEVELOPMENT_TEAM` i
 | `Matilde/FirstRunView.swift` | Launch splash and first-run tour (IOS-13) |
 | `Matilde/Brand.swift` | Landing-page button colours, primary and secondary button styles, shake effect |
 | `Matilde/NoteLibrary.swift` | The notes on this phone: a MatildeKit `Workspace` in Application Support (IOS-04) |
-| `Matilde/SyncController.swift` | Sign-in, recovery key, sync runs on foreground, live channel and poll (IOS-03) |
+| `Matilde/SyncController.swift` | Sign-in, Matilde key, sync runs on foreground, live channel and poll (IOS-03) |
 | `Matilde/NoteEditorModel.swift`, `NoteEditorView.swift`, `NoteTextView.swift` | Editor (IOS-05): title, goal, autosave, TextKit 2 text view with Markdown styling, keyboard bar, edit menu, highlights; share and Markdown export |
 | `Matilde/MarkdownStyle.swift` | Markdown spans and attributes (Newsreader, Mac heading steps) |
 | `Matilde/CommentStore.swift`, `CommentSheets.swift` | Private comments (IOS-06) |
