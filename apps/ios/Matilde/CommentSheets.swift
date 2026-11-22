@@ -46,7 +46,7 @@ struct CommentsSheet: View {
                                 model.sheet = .comment(comment)
                             } label: {
                                 CommentRow(quote: comment.attached ? comment.quote : "Passage removed",
-                                           text: comment.text, unread: false, rule: Paper.commentRule)
+                                           text: comment.text, unread: false, rule: Paper.commentRule, author: comment.author)
                             }
                             .swipeActions {
                                 Button("Delete", systemImage: "trash", role: .destructive) { model.comments.delete(comment.id) }
@@ -75,6 +75,8 @@ private struct CommentRow: View {
     let text: String
     let unread: Bool
     let rule: Color
+    /// The AI tool that left the comment through Matilde's MCP server, if one did.
+    var author: String? = nil
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -88,6 +90,11 @@ private struct CommentRow: View {
                     .font(.subheadline)
                     .foregroundStyle(Paper.ink)
                     .lineLimit(3)
+                if let author {
+                    Text("From \(author)")
+                        .font(.caption)
+                        .foregroundStyle(Paper.muted)
+                }
             }
             Spacer(minLength: 0)
             if unread {
@@ -127,6 +134,11 @@ struct CommentSheet: View {
                             .lineLimit(4)
                     }
                     .fixedSize(horizontal: false, vertical: true)
+                }
+                if let author = comment.author {
+                    Text("From \(author)")
+                        .font(.caption)
+                        .foregroundStyle(Paper.muted)
                 }
                 TextField("A note to yourself", text: $text, axis: .vertical)
                     .font(Paper.body(18))

@@ -81,10 +81,18 @@ Refresh proactively shortly before `accessTokenExpiresIn` runs out, or on `401 u
 
 Revoking, renaming, deleting the account and writing key slots need a session that still exists; a revoked device gets `401 session_revoked` even with an unexpired access token.
 
+### Connected AI tools
+
+Connections made from AI tools through the MCP server ([docs/mcp.md](../docs/mcp.md)). A normal device access token; only the account's own connections.
+
+- `GET /v1/connections` → `{ "connections": [{ "id", "clientName", "clientDomain", "redirectHost", "scopes": ["notes:read", …], "createdAt", "expiresAt", "lastUsedDay" }] }`. Active connections only (not revoked, not expired), newest first. `clientName` is what the tool called itself; `clientDomain` is set only when verified (Client ID Metadata Document). `lastUsedDay` is `YYYY-MM-DD` or `null`.
+- `GET /v1/connections/{id}/activity` → `{ "activity": [{ "at", "tool", "outcome" }] }`, the last 100 calls (tool name and `ok` or an error code; never arguments or content).
+- `DELETE /v1/connections/{id}` → `204`, `404` if it isn't the account's. Takes effect on the tool's next call: it deletes the connection's wrapped key ring and its OAuth grant and tokens.
+
 ### Account
 
 - `GET /v1/account` → `{ "userId", "createdAt", "identities": [{ "provider": "email", "email", "createdAt" }] }`
-- `DELETE /v1/account` `{ "confirm": "delete my account" }` → `204`. Deletes all records, blobs, sessions, identities and key slots immediately. Sockets close with `4002`. Backups (point-in-time recovery, ≤ 30 days) contain ciphertext only.
+- `DELETE /v1/account` `{ "confirm": "delete my account" }` → `204`. Deletes all records, blobs, sessions, identities, key slots and AI tool connections immediately. Sockets close with `4002`. Backups (point-in-time recovery, ≤ 30 days) contain ciphertext only.
 
 ### Sign in with Apple
 

@@ -38,6 +38,8 @@ final class SyncController {
     var message: String? = nil
     private(set) var busy = false
     private(set) var devices: [SyncDeviceSummary] = []
+    /// AI tools connected to the notes through the MCP server (docs/mcp.md), newest first.
+    private(set) var connections: [ConnectedAITool] = []
     /// Whether the new Matilde key was also stored in iCloud Keychain (shown on the save-key step).
     private(set) var recoveryKeyInICloud = false
     /// The format of the Matilde key the account's recovery slot expects (from the slot's
@@ -214,6 +216,30 @@ final class SyncController {
         }
     }
 
+    /// Refreshes `connections` (Connected AI tools) from the server.
+    func loadConnections() {
+        guard phase == .ready else { return }
+        let transport = transport
+        Task {
+            guard let list = try? await transport.connections() else { return }
+            self.connections = list
+        }
+    }
+
+    /// Ends an AI tool's connection at once; its next request fails.
+    func revokeConnection(_ id: String) {
+        let transport = transport
+        Task {
+            do {
+                try await transport.revokeConnection(id)
+                self.connections.removeAll { $0.id == id }
+            } catch {
+                self.message = "Couldn’t disconnect the AI tool. Check your connection and try again."
+            }
+            self.loadConnections()
+        }
+    }
+
     // MARK: Sign-in and keys
 
     private func resume() async {
@@ -319,6 +345,7 @@ final class SyncController {
         status = ""
         lastSynced = nil
         devices = []
+        connections = []
         defaults.removeObject(forKey: Self.emailKey)
         if let userId { try? keyStore.remove(userId: userId) }
         Task { await session.signOut(serverSide: true) }

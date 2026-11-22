@@ -18,6 +18,9 @@
   "name": "matilde-sync",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-01",
+  // Client ID Metadata Documents for the MCP server: the OAuth library fetches client URLs and
+  // needs fetch() limited to public addresses (docs/mcp.md).
+  "compatibility_flags": ["global_fetch_strictly_public"],
   "workers_dev": false,
   "observability": { "enabled": true },
 
@@ -43,7 +46,10 @@
     "LINEAR_LABEL_FEEDBACK": "",
     // Optional project and workflow state (Triage) for new feedback issues.
     "LINEAR_PROJECT_ID": "",
-    "LINEAR_STATE_ID": ""
+    "LINEAR_STATE_ID": "",
+    // MCP server for AI tools (docs/mcp.md): "1" = on. Served for requests to MCP_ORIGIN.
+    "MCP_ENABLED": "1",
+    "MCP_ORIGIN": "http://mcp.localhost:8787"
   },
   "d1_databases": [
     { "binding": "DB", "database_name": "matilde-directory-dev", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
@@ -62,7 +68,10 @@
   "env": {
     "staging": {
       "name": "matilde-sync-staging",
-      "routes": [{ "pattern": "sync-staging.matilde.page", "custom_domain": true }],
+      "routes": [
+        { "pattern": "sync-staging.matilde.page", "custom_domain": true },
+        { "pattern": "mcp-staging.matilde.page", "custom_domain": true }
+      ],
       "vars": {
         "ENVIRONMENT": "staging",
         "MAIL_PROVIDER": "cloudflare",
@@ -85,7 +94,10 @@
         // Project "Matilde" and workflow state "Triage" (Triage is enabled on the team).
         // Dropped automatically for one retry if Linear rejects them.
         "LINEAR_PROJECT_ID": "8ad01f26-33e2-4aad-bae4-a8ceff068ab4",
-        "LINEAR_STATE_ID": "d782f669-93e4-4718-a532-be3cbdd1f130"
+        "LINEAR_STATE_ID": "d782f669-93e4-4718-a532-be3cbdd1f130",
+        // MCP server for AI tools (docs/mcp.md). On in staging.
+        "MCP_ENABLED": "1",
+        "MCP_ORIGIN": "https://mcp-staging.matilde.page"
       },
       "d1_databases": [
         // Created with: wrangler d1 create matilde-directory-staging --jurisdiction eu
@@ -105,7 +117,10 @@
     },
     "production": {
       "name": "matilde-sync",
-      "routes": [{ "pattern": "sync.matilde.page", "custom_domain": true }],
+      "routes": [
+        { "pattern": "sync.matilde.page", "custom_domain": true },
+        { "pattern": "mcp.matilde.page", "custom_domain": true }
+      ],
       "vars": {
         "ENVIRONMENT": "production",
         "MAIL_PROVIDER": "cloudflare",
@@ -128,7 +143,11 @@
         // Project "Matilde" and workflow state "Triage" (Triage is enabled on the team).
         // Dropped automatically for one retry if Linear rejects them.
         "LINEAR_PROJECT_ID": "8ad01f26-33e2-4aad-bae4-a8ceff068ab4",
-        "LINEAR_STATE_ID": "d782f669-93e4-4718-a532-be3cbdd1f130"
+        "LINEAR_STATE_ID": "d782f669-93e4-4718-a532-be3cbdd1f130",
+        // MCP server for AI tools (docs/mcp.md). Off until the owner has tried it on staging:
+        // set "1" and approve the production deploy.
+        "MCP_ENABLED": "0",
+        "MCP_ORIGIN": "https://mcp.matilde.page"
       },
       "d1_databases": [
         // Created with: wrangler d1 create matilde-directory --jurisdiction eu

@@ -35,6 +35,10 @@ export interface Env {
   LINEAR_PROJECT_ID?: string;
   /** Optional workflow state id for new feedback issues, meant for the team's Triage state. */
   LINEAR_STATE_ID?: string;
+  /** "1" serves the MCP server for AI tools (docs/mcp.md) on MCP_ORIGIN; anything else turns it off. */
+  MCP_ENABLED: string;
+  /** Origin of the MCP host, e.g. "https://mcp.matilde.page". Requests for it go to src/mcp. */
+  MCP_ORIGIN: string;
 
   // Secrets (wrangler secret put)
   /** Ed25519 private JWK (JSON) with a "kid"; signs access tokens. */

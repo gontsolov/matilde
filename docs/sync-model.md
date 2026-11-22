@@ -50,7 +50,7 @@ Raw type values are the server's. `folder` (12) is new; the server accepts 1…6
 | 3 snapshot | `source`, `child`, `text`, `created?` | LWW (immutable) |
 | 4 stash | `family`, `text` | CAS |
 | 5 asset | `path`, `size` (the encrypted file becomes a blob in SYNC-07) | LWW |
-| 6 comment | `draft`, `body`, `location`, `length`, `quote`, `prefix`, `suffix`, `created`, `modified`, `archived` | LWW, field merge |
+| 6 comment | `draft`, `body`, `location`, `length`, `quote`, `prefix`, `suffix`, `created`, `modified`, `archived`, optional `author` (an AI tool's name, set by the MCP server; see [mcp.md](mcp.md)) | LWW, field merge |
 | 7 thread | `review`, `draft`, `reviewCreated`, `model`, `revision`, `stale`, `quote`, `prefix`, `suffix`, `explanation`, `replacement?`, `location`, `length`, `status`, `userInitiated?`, `rewriteQuote?`, `rewriteMessage?`, `initialReplacement?` | LWW, field merge |
 | 8 message | `thread`, `index`, `role`, `text`, `delivery?`, `replacement?` | LWW (append-only) |
 | 9 readMarker | `thread`, `unread` | LWW |

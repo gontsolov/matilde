@@ -3,7 +3,7 @@ import type { Env } from "../env";
 import { CAS_TYPES, LIMITS, RecordType } from "../limits";
 import { addTotals } from "../stats/counters";
 import { bytesToBase64, hlcMillis } from "../util";
-import type { AccountGone, CommitBlobResult, PullResult, PushChange, PushResult, RejectReason, WireRow } from "./types";
+import type { AccountGone, CommitBlobResult, PullResult, PushChange, PushResult, RecordQuery, RecordQueryResult, RejectReason, WireRow } from "./types";
 
 const SCHEMA_VERSION = 2;
 
@@ -291,6 +291,40 @@ export class UserSync extends DurableObject<Env> {
       epoch: this.epoch,
       resync: false,
     };
+  }
+
+  /**
+   * Current rows by type and/or id, ordered by id, for the MCP server (docs/mcp.md). Read-only and
+   * additive: devices never call it. Paged by `after` (an id) and bounded by row count and bytes.
+   */
+  async query(userId: string, q: RecordQuery): Promise<RecordQueryResult | AccountGone> {
+    if (!this.enter(userId)) return GONE;
+    const where: string[] = ["id > ?"];
+    const args: SqlStorageValue[] = [q.after ?? ""];
+    if (!q.includeDeleted) where.push("deleted = 0");
+    if (q.types?.length) {
+      where.push(`type IN (${q.types.map(() => "?").join(",")})`);
+      args.push(...q.types);
+    }
+    if (q.ids) {
+      if (q.ids.length === 0) return { rows: [], next: null };
+      where.push(`id IN (${q.ids.map(() => "?").join(",")})`);
+      args.push(...q.ids);
+    }
+    const limit = Math.max(1, Math.min(q.limit, 1000));
+    const candidates = this.sql
+      .exec<RecordRow>(`SELECT * FROM records WHERE ${where.join(" AND ")} ORDER BY id LIMIT ?`, ...args, limit + 1)
+      .toArray();
+    const page: RecordRow[] = [];
+    let bytes = 0;
+    for (const row of candidates) {
+      if (page.length === limit) break;
+      if (!q.envelopeOnly && page.length > 0 && bytes + row.size > q.maxBytes) break;
+      page.push(row);
+      bytes += row.size;
+    }
+    const rows = await Promise.all(page.map((row) => (q.envelopeOnly ? this.toWire({ ...row, ct: null, ct_ref: null }) : this.toWire(row))));
+    return { rows, next: candidates.length > page.length ? (page[page.length - 1]?.id ?? null) : null };
   }
 
   private async toWire(row: RecordRow): Promise<WireRow> {

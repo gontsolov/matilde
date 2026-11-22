@@ -14,10 +14,12 @@ public struct UserComment: Identifiable, Equatable {
     public var suffix: String
     public let created: Date
     public var modified: Date
+    /// Set when an AI tool wrote the comment through the MCP server ("From Claude"); nil for the user's own.
+    public var author: String?
     public var range: NSRange { NSRange(location: location, length: length) }
     public var attached: Bool { length > 0 }
 
-    public init(id: UUID, draftID: String, text: String, location: Int, length: Int, quote: String, prefix: String, suffix: String, created: Date, modified: Date) {
+    public init(id: UUID, draftID: String, text: String, location: Int, length: Int, quote: String, prefix: String, suffix: String, created: Date, modified: Date, author: String? = nil) {
         self.id = id
         self.draftID = draftID
         self.text = text
@@ -28,6 +30,7 @@ public struct UserComment: Identifiable, Equatable {
         self.suffix = suffix
         self.created = created
         self.modified = modified
+        self.author = author
     }
 }
 
@@ -181,6 +184,10 @@ extension Workspace {
         if !(try db.execute("PRAGMA table_info(user_comments)")).contains(where: { $0["name"] == "archived" }) {
             try db.execute("ALTER TABLE user_comments ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
         }
+        // The AI tool that wrote a comment through the MCP server (AI-18); NULL for the user's own.
+        if !(try db.execute("PRAGMA table_info(user_comments)")).contains(where: { $0["name"] == "author" }) {
+            try db.execute("ALTER TABLE user_comments ADD COLUMN author TEXT")
+        }
     }
     public func userComments(draftID: String) throws -> [UserComment] {
         try ensureUserComments()
@@ -190,7 +197,8 @@ extension Workspace {
             return UserComment(id: id, draftID: draftID, text: row["body"] ?? "", location: location, length: length,
                                quote: row["quote"] ?? "", prefix: row["prefix"] ?? "", suffix: row["suffix"] ?? "",
                                created: Date(timeIntervalSince1970: row["created"].flatMap { Double($0) } ?? 0),
-                               modified: Date(timeIntervalSince1970: row["modified"].flatMap { Double($0) } ?? 0))
+                               modified: Date(timeIntervalSince1970: row["modified"].flatMap { Double($0) } ?? 0),
+                               author: row["author"].flatMap { $0.isEmpty ? nil : $0 })
         }
     }
     public func saveUserComments(_ comments: [UserComment]) throws {
@@ -199,10 +207,10 @@ extension Workspace {
         try db.execute("BEGIN IMMEDIATE")
         do {
             for comment in comments {
-                try db.execute("INSERT OR REPLACE INTO user_comments (id, draft_id, body, location, length, quote, prefix, suffix, created, modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                try db.execute("INSERT OR REPLACE INTO user_comments (id, draft_id, body, location, length, quote, prefix, suffix, created, modified, author) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                                [comment.id.uuidString, comment.draftID, comment.text, String(comment.location), String(comment.length),
                                 comment.quote, comment.prefix, comment.suffix,
-                                String(comment.created.timeIntervalSince1970), String(comment.modified.timeIntervalSince1970)])
+                                String(comment.created.timeIntervalSince1970), String(comment.modified.timeIntervalSince1970), comment.author])
             }
             try db.execute("COMMIT")
         } catch {
@@ -219,15 +227,15 @@ extension Workspace {
         where !comment.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             var copy = UserComment(id: UUID(), draftID: target, text: comment.text, location: comment.location, length: comment.length,
                                    quote: comment.quote, prefix: comment.prefix, suffix: comment.suffix,
-                                   created: comment.created, modified: comment.modified)
+                                   created: comment.created, modified: comment.modified, author: comment.author)
             if copy.attached {
                 if let range = CommentAnchor.relocate(copy, in: text) { copy = CommentAnchor.refreshed(copy, range: range, in: text) }
                 else { copy.length = 0 }
             }
-            try db.execute("INSERT INTO user_comments (id, draft_id, body, location, length, quote, prefix, suffix, created, modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            try db.execute("INSERT INTO user_comments (id, draft_id, body, location, length, quote, prefix, suffix, created, modified, author) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                            [copy.id.uuidString, copy.draftID, copy.text, String(copy.location), String(copy.length),
                             copy.quote, copy.prefix, copy.suffix,
-                            String(copy.created.timeIntervalSince1970), String(copy.modified.timeIntervalSince1970)])
+                            String(copy.created.timeIntervalSince1970), String(copy.modified.timeIntervalSince1970), copy.author])
         }
     }
     public func archiveUserComment(_ id: UUID) throws {

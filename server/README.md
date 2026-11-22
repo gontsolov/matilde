@@ -96,6 +96,8 @@ Vars (in `wrangler.jsonc`, not secret):
 | `LINEAR_LABEL_BUG`, `LINEAR_LABEL_IDEA`, `LINEAR_LABEL_OTHER` | Label ids per kind; empty means no label |
 | `LINEAR_LABEL_FEEDBACK` | Optional label added to every feedback issue |
 | `LINEAR_PROJECT_ID`, `LINEAR_STATE_ID` | Optional project and workflow state (Triage). If Linear rejects them, the issue is created without them and `linear_placement_rejected` is logged |
+| `MCP_ENABLED` | `"1"` serves the MCP server for AI tools on `MCP_ORIGIN` ([docs/mcp.md](../docs/mcp.md)); `"1"` on staging, `"0"` on production until switched on |
+| `MCP_ORIGIN` | The MCP host: `https://mcp.matilde.page`, `https://mcp-staging.matilde.page`. Requests for it go to `src/mcp/`; everything else is the sync API |
 
 ### Secrets
 
@@ -151,6 +153,10 @@ If the old private key wasn't kept, just replace `TOKEN_SIGNING_KEY`: every devi
    - Create a Cloudflare API token (My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template), limited to this account and the domain's zone, and add **Account → D1 → Edit**. The template already has Workers Scripts (includes Durable Objects), Workers R2 Storage, Workers Routes and Account Settings read. If deploying the custom domain reports a permission error, add **Zone → DNS → Edit**.
    - Repository → Settings → Secrets and variables → Actions: add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (Dashboard → Workers & Pages → Account ID) as **repository** secrets, so both the staging and the production job can read them. (Done 2026-11-18.)
    - Repository → Settings → Environments → `production`: required reviewer = the owner, deployment branches = `main` only. (Done 2026-11-18.) The `staging` environment is created automatically by the first run and needs no protection.
+
+## MCP server for AI tools
+
+The same Worker also serves `mcp.matilde.page` (staging `mcp-staging.matilde.page`): an opt-in remote MCP server with OAuth 2.1 that lets a person connect claude.ai, ChatGPT, Cursor and similar tools to their notes. Design, security model, owner setup and how to connect each tool: [docs/mcp.md](../docs/mcp.md). It needs no new Cloudflare resources (OAuth state lives in D1, table `mcp_oauth_kv`); the custom domain is created by `wrangler deploy`. After editing `src/mcp/web/connect.js` run `pnpm run gen:mcp-assets`.
 
 ## Deploying
 

@@ -378,7 +378,7 @@ extension Workspace {
                     draft: draft, body: row["body"] ?? "", location: location, length: length,
                     quote: row["quote"] ?? "", prefix: row["prefix"] ?? "", suffix: row["suffix"] ?? "",
                     created: Self.milliseconds(row["created"]) ?? 0, modified: Self.milliseconds(row["modified"]) ?? 0,
-                    archived: (row["archived"] ?? "0") != "0"))
+                    archived: (row["archived"] ?? "0") != "0", author: row["author"].flatMap { $0.isEmpty ? nil : $0 }))
             }
         }
 

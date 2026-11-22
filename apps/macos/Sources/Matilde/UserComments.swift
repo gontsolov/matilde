@@ -310,7 +310,7 @@ final class UserCommentPopover: NSPopover, NSPopoverDelegate {
         delegate = self
         let id = comment.id
         contentViewController = NSHostingController(rootView: UserCommentEditor(
-            quote: comment.quote, text: comment.text, focus: focus,
+            quote: comment.quote, author: comment.author, text: comment.text, focus: focus,
             onChange: { [weak store] in store?.update(id, text: $0) },
             onArchive: { [weak self, weak store] in store?.archive(id); self?.close() },
             onDone: { [weak self] in self?.close() }))
@@ -330,6 +330,8 @@ final class UserCommentPopover: NSPopover, NSPopoverDelegate {
 
 private struct UserCommentEditor: View {
     let quote: String
+    /// The AI tool that left the comment through Matilde's MCP server, if one did.
+    let author: String?
     @State var text: String
     let focus: Bool
     let onChange: @MainActor (String) -> Void
@@ -340,6 +342,9 @@ private struct UserCommentEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if !quote.isEmpty { PassageQuote(text: quote, lines: 3, kind: .note).padding(.trailing, 22) }
+            if let author {
+                Text("From \(author)").font(.caption).foregroundStyle(Color(Paper.muted))
+            }
                 HStack(alignment: .bottom, spacing: 6) {
                     TextField("Add a note…", text: $text, axis: .vertical)
                         .lineLimit(1...10).textFieldStyle(.plain).composerText()

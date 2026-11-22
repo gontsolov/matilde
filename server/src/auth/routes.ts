@@ -131,6 +131,10 @@ accountRoutes.delete("/", requireLiveSession, async (c) => {
     c.env.DB.prepare("DELETE FROM sessions WHERE account_id = ?").bind(userId),
     c.env.DB.prepare("DELETE FROM identities WHERE account_id = ?").bind(userId),
     c.env.DB.prepare("DELETE FROM accounts WHERE id = ?").bind(userId),
+    // AI tool connections (docs/mcp.md): the wrapped rings and the audit trail go with the account.
+    c.env.DB.prepare("DELETE FROM mcp_grants WHERE user_id = ?").bind(userId),
+    c.env.DB.prepare("DELETE FROM mcp_audit WHERE user_id = ?").bind(userId),
+    c.env.DB.prepare("DELETE FROM mcp_logins WHERE user_id = ?").bind(userId),
   ]);
   return c.body(null, 204);
 });

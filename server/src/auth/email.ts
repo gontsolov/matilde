@@ -85,10 +85,13 @@ export interface VerifyInput extends Omit<NewSession, "userId"> {
 
 const invalidCode = () => new HttpError(400, "invalid_code", "the code is wrong or has expired");
 
-/** Checks a code (at most 5 attempts, then it is burned) and signs the device in. */
-export async function verifyEmailCode(env: Env, input: VerifyInput, ip: string, nowMs = Date.now()): Promise<TokenPair & { isNewAccount: boolean }> {
-  const email = normalizeEmail(input.email);
-  if (typeof input.code !== "string" || !/^\d{6}$/.test(input.code)) throw invalidCode();
+/**
+ * Checks a code (at most 5 attempts, then it is burned) and consumes it. Returns the normalised
+ * address. Creates nothing: callers decide what a verified address means.
+ */
+export async function consumeEmailCode(env: Env, rawEmail: unknown, code: unknown, ip: string, nowMs = Date.now()): Promise<string> {
+  const email = normalizeEmail(rawEmail);
+  if (typeof code !== "string" || !/^\d{6}$/.test(code)) throw invalidCode();
   await enforceLimits(env.DB, [{ key: `verify:ip:${await ipKey(env, ip)}`, windowSeconds: 3600, max: EMAIL_LIMITS.verifyPerIpHour }], nowMs);
   const key = await emailKey(env, email);
 
@@ -104,7 +107,7 @@ export async function verifyEmailCode(env: Env, input: VerifyInput, ip: string, 
     await env.DB.prepare("DELETE FROM email_codes WHERE email_key = ?").bind(key).run();
     throw invalidCode();
   }
-  const presented = await codeHash(env, email, input.code);
+  const presented = await codeHash(env, email, code);
   if (!timingSafeEqual(presented, reserved.code_hash)) {
     if (reserved.attempts >= CODE_MAX_ATTEMPTS) {
       await env.DB.prepare("DELETE FROM email_codes WHERE email_key = ?").bind(key).run();
@@ -115,7 +118,12 @@ export async function verifyEmailCode(env: Env, input: VerifyInput, ip: string, 
     .bind(key, reserved.code_hash)
     .first();
   if (!consumed) throw invalidCode();
+  return email;
+}
 
+/** Checks a code and signs the device in, creating the account on first sign-in. */
+export async function verifyEmailCode(env: Env, input: VerifyInput, ip: string, nowMs = Date.now()): Promise<TokenPair & { isNewAccount: boolean }> {
+  const email = await consumeEmailCode(env, input.email, input.code, ip, nowMs);
   const account = await findOrCreateAccount(env, { provider: "email", subject: email, email }, nowMs);
   const tokens = await createSession(
     env,

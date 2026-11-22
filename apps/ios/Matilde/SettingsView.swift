@@ -66,6 +66,7 @@ private struct SyncSection: View {
     @Environment(SyncController.self) private var sync
     @Binding var settingUp: Bool
     @State private var signingOut = false
+    @State private var revoking: ConnectedAITool?
 
     var body: some View {
         Section {
@@ -92,11 +93,13 @@ private struct SyncSection: View {
             Text("Sync")
         } footer: {
             if sync.phase == .ready {
-                Text("End-to-end encrypted. No one else can read your notes.")
+                Text(sync.connections.contains(where: \.canReachNotes)
+                     ? "End-to-end encrypted. While an AI tool below is connected, the Matilde server can decrypt your notes for it."
+                     : "End-to-end encrypted. No one else can read your notes.")
             }
         }
-        .onAppear { sync.loadDevices() }
-        .onChange(of: sync.phase) { _, phase in if phase == .ready { sync.loadDevices() } }
+        .onAppear { sync.loadDevices(); sync.loadConnections() }
+        .onChange(of: sync.phase) { _, phase in if phase == .ready { sync.loadDevices(); sync.loadConnections() } }
         .confirmationDialog("Sign out of sync on this iPhone?", isPresented: $signingOut, titleVisibility: .visible) {
             Button("Sign Out", role: .destructive) { sync.signOut() }
         } message: {
@@ -118,6 +121,36 @@ private struct SyncSection: View {
                 }
             }
         }
+        if sync.phase == .ready, !sync.connections.isEmpty {
+            Section {
+                ForEach(sync.connections) { tool in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(tool.displayName)
+                        if let domain = tool.clientDomain {
+                            Text(domain).font(.footnote).foregroundStyle(.secondary)
+                        }
+                        Text(tool.permissionsSummary).font(.footnote).foregroundStyle(.secondary)
+                        Text(Self.connectionDetails(tool)).font(.footnote).foregroundStyle(.secondary)
+                    }
+                    .swipeActions {
+                        Button("Disconnect", role: .destructive) { revoking = tool }
+                    }
+                    .contextMenu {
+                        Button("Disconnect…", systemImage: "xmark.circle", role: .destructive) { revoking = tool }
+                    }
+                }
+            } header: {
+                Text("Connected AI Tools")
+            } footer: {
+                Text("These tools can use your notes as shown until the connection ends. Swipe to disconnect; what a tool has already read stays with it.")
+            }
+            .confirmationDialog("Disconnect \(revoking?.displayName ?? "this tool")?", isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
+                                titleVisibility: .visible, presenting: revoking) { tool in
+                Button("Disconnect", role: .destructive) { sync.revokeConnection(tool.id) }
+            } message: { _ in
+                Text("It can no longer read or change your notes. To use it again, connect it from the tool.")
+            }
+        }
         if SyncServerSelection.showsPicker {
             Section {
                 Picker("Server", selection: Binding(get: { sync.server.isStaging }, set: { sync.setServer($0 ? .staging : .production) })) {
@@ -129,6 +162,13 @@ private struct SyncSection: View {
                 Text("Debug builds only.")
             }
         }
+    }
+
+    /// "Ends 21 Dec 2026 · last used today" for a connected AI tool.
+    static func connectionDetails(_ tool: ConnectedAITool) -> String {
+        let ends = "Ends \(tool.expires.formatted(date: .abbreviated, time: .omitted))"
+        guard let day = tool.lastUsedDay else { return ends + " · not used yet" }
+        return ends + " · last used \(Self.day(day))"
     }
 
     /// "2026-11-21" as "Today", "Yesterday" or a short date.
