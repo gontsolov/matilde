@@ -1,6 +1,6 @@
 ---
 import "../styles/global.css";
-import { AUTHOR_URL, SOURCE_URL } from "../lib/site";
+import { AUTHOR_URL, FEEDBACK_EMAIL, SOURCE_URL } from "../lib/site";
 
 interface Props {
   title: string;
@@ -35,6 +35,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
         <a href="/" class="hover:text-ink">Matilde</a>
         <a href="/privacy" class="hover:text-ink">Privacy</a>
         <a href={SOURCE_URL} rel="noopener" class="hover:text-ink">GitHub</a>
+        <a href={`mailto:${FEEDBACK_EMAIL}`} class="hover:text-ink">Feedback</a>
         <a href={AUTHOR_URL} rel="noopener" class="hover:text-ink">Built by Filip</a>
       </div>
     </footer>

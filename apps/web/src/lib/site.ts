@@ -6,5 +6,7 @@ export const RELEASES_URL = `https://github.com/${REPO}/releases/latest`;
 export const SOURCE_URL = `https://github.com/${REPO}`;
 /** Where people can reach the owner, e.g. to delete a sync account. OWNER: confirm this address receives mail. */
 export const CONTACT_EMAIL = "hello@matilde.page";
+/** Feedback by email (footer, and the apps' "Email Instead"). OWNER: route it to your inbox with Cloudflare Email Routing. */
+export const FEEDBACK_EMAIL = "feedback@matilde.page";
 /** The footer's "Built by Filip" link. */
 export const AUTHOR_URL = "https://tsolov.zip";
