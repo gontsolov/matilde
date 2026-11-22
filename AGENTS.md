@@ -20,6 +20,14 @@ Matilde (also called Tilde during naming) is a native macOS writing app. The pri
 - Keep the last-updated date current when editing the backlog. Update detailed design/verification documents when needed and link them from the roadmap; avoid competing task lists.
 - Do not leave completed work marked pending or mark an entire feature Done when only part of its scope was delivered. Completing backlog work does not authorize a release.
 
+## User-facing wording
+
+Owner's rule (2026-11-22) for every user-facing string: the Mac and iPhone apps, MatildeKit copy, the website (including privacy), release notes and user-facing docs.
+
+- Don't name the developer in the apps. Nothing "goes to Filip" or "goes straight to Filip"; feedback copy says what's included, not who reads it. The website's footer credit "Built by Filip" (linking to tsolov.zip) stays; avoid other mentions of him.
+- No company or developer voice in privacy copy: no "we can't read", "by us", "not even us", "we see your email". Centre on the person and on what the system does: "Encrypted on your devices. No one else can read your notes." or "The server sees your email address, never what you write."
+- Code identifiers, git history and internal docs (ROADMAP, AGENTS, docs for the owner) are exempt.
+
 ## Visual and interaction direction
 
 - SwiftUI app with native macOS controls. Bear is the closest writing reference; Obsidian, Raycast Notes, and Notion are secondary references. The sidebar takes inspiration from Linear.

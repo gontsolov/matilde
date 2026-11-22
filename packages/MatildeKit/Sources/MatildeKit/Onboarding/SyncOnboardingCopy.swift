@@ -18,20 +18,20 @@ public enum SyncOnboardingCopy {
         Point(symbol: "text.bubble", title: "Comments come along",
               text: "Your own notes in the margin and your Ask Matilde threads, too."),
         Point(symbol: "lock", title: "Locked before it leaves",
-              text: "Encrypted on your device. Nobody can read your writing, not even us."),
+              text: "Encrypted on your devices. No one else can read your notes."),
         Point(symbol: "globe.europe.africa", title: "Kept in the EU",
-              text: "Stored on servers in the EU. We see your email, never your words.")
+              text: "Stored on servers in the EU. Your words stay encrypted there.")
     ]
     public static let introFootnote = "Sync is optional. You can sign out at any time."
 
     public static let emailTitle = "What’s your email?"
-    public static let emailText = "We’ll send you a code. There’s no password to remember."
+    public static let emailText = "You’ll get a code by email. There’s no password to remember."
     public static let codeTitle = "Check your email"
-    public static func codeText(_ email: String) -> String { "We sent a 6-digit code to \(email)." }
+    public static func codeText(_ email: String) -> String { "A 6-digit code is on its way to \(email)." }
     public static let signingInTitle = "You’re in"
     public static let signingInText = "Getting your encryption key ready…"
     public static let saveKeyTitle = "Your Matilde key"
-    public static let saveKeyText = "These 12 words unlock your notes on a new device. Keep them somewhere safe: we can’t recover them for you."
+    public static let saveKeyText = "These 12 words unlock your notes on a new device. Keep them somewhere safe: no one can recover them for you."
     public static let savedConfirmation = "I’ve saved my Matilde key"
     public static let keyCardTitle = "Your Matilde key"
     public static let savedToICloud = "Also saved in your iCloud Keychain, so your other Apple devices can fill it in."

@@ -4,7 +4,7 @@
 
 ## What is sent
 
-Only what the user types: the kind (Bug, Idea, Something else), the message, an optional reply email and, if "Include app version and device" stays on, the app version and build, system version, device model and language setting. The sheet lists exactly those values. Never note content, never the account email, no analytics. A valid access token only makes the issue say "Signed in: yes"; the server doesn't look up who. The protocol is in [server/PROTOCOL.md](../server/PROTOCOL.md#feedback).
+Only what the user types: the kind (Bug, Idea, Something else), the message, an optional reply email and, always, the basic diagnostics: app, version and build, system version and device model (no language setting since 0.3.2, which also removed the toggle and the "What gets sent" list). The privacy page says plainly that the app version and device type are included. Never note content, never the account email, no analytics. A valid access token only makes the issue say "Signed in: yes"; the server doesn't look up who. The protocol is in [server/PROTOCOL.md](../server/PROTOCOL.md#feedback).
 
 The server stores each submission in D1 first, then creates the issue. Once Linear has it, the text is deleted from D1 (the bookkeeping row goes after 30 days). If Linear is down or the key is missing, the app tells the user it's saved, and the cron retries every 15 minutes, up to 10 attempts.
 

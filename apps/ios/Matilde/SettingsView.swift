@@ -95,7 +95,7 @@ private struct SyncSection: View {
             if sync.phase == .ready {
                 Text(sync.connections.contains(where: \.canReachNotes)
                      ? "End-to-end encrypted. While an AI tool below is connected, the Matilde server can decrypt your notes for it."
-                     : "End-to-end encrypted. Your notes can only be read on your devices.")
+                     : "End-to-end encrypted. No one else can read your notes.")
             }
         }
         .onAppear { sync.loadDevices(); sync.loadConnections() }
