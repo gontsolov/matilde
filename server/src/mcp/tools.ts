@@ -386,7 +386,7 @@ export const TOOLS: Tool[] = [
       const client = ctx.grant.client_name.replace(/[\u0000-\u001f]/g, " ").slice(0, 80);
       let input;
       try {
-        input = parseFeedback({ message: `${message}\n\n(Sent from ${client} via MCP)`, kind: args.kind ?? "other", replyEmail: args.replyEmail });
+        input = parseFeedback({ message: `${message}\n\n(Sent from ${client} via MCP)`, kind: args.kind ?? "other", replyEmail: args.replyEmail, includeDiagnostics: false });
       } catch (error) {
         throw new ToolError("invalid_arguments", error instanceof Error ? error.message : "invalid feedback");
       }
