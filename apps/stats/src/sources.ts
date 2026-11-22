@@ -6,7 +6,8 @@ import type { DayValue, SyncStats } from "./types";
 export const DAYS = 30;
 const CF_API = "https://api.cloudflare.com/client/v4";
 
-export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
+/** `warning`: the value is usable but not current (e.g. a cached copy served after an error). */
+export type Result<T> = { ok: true; value: T; warning?: string } | { ok: false; error: string };
 
 async function attempt<T>(work: () => Promise<T>): Promise<Result<T>> {
   try {
@@ -122,31 +123,80 @@ export interface ReleaseDownloads {
 }
 
 const GITHUB_CACHE_SECONDS = 3600;
+/** How long the last good answer is kept to fall back on when GitHub refuses. */
+const GITHUB_LAST_GOOD_SECONDS = 30 * 24 * 3600;
+
+type Release = { tag_name: string; published_at: string | null; draft: boolean; assets: { name: string; download_count: number }[] };
+
+function releaseDownloads(releases: Release[]): ReleaseDownloads[] {
+  return releases
+    .filter((r) => !r.draft)
+    .map((r) => ({
+      tag: r.tag_name,
+      publishedAt: (r.published_at ?? "").slice(0, 10),
+      dmg: r.assets.find((a) => a.name === "Matilde.dmg")?.download_count ?? 0,
+      appcast: r.assets.find((a) => a.name === "appcast.xml")?.download_count ?? 0,
+    }));
+}
+
+/** A readable reason for a refused GitHub request. */
+export function githubError(status: number, hasToken: boolean): string {
+  if (status === 403 || status === 429) {
+    return hasToken
+      ? `GitHub answered ${status}: rate limited, or GITHUB_TOKEN lacks read access to the repository`
+      : `GitHub answered ${status}: rate limited, set GITHUB_TOKEN`;
+  }
+  if (status === 401) return hasToken ? "GitHub answered 401: GITHUB_TOKEN is invalid or expired" : "GitHub answered 401";
+  return `GitHub answered ${status}`;
+}
 
 export async function githubDownloads(env: Env, fetcher: typeof fetch = fetch, cache?: Cache): Promise<Result<ReleaseDownloads[]>> {
-  return attempt(async () => {
-    if (!/^[\w.-]+\/[\w.-]+$/.test(env.GITHUB_REPO)) throw new Error("invalid GITHUB_REPO");
-    const url = `https://api.github.com/repos/${env.GITHUB_REPO}/releases?per_page=100`;
-    // Unauthenticated (public repo, 60 requests an hour per IP), so cached for an hour.
-    let res = cache ? await cache.match(url) : undefined;
-    if (!res) {
-      const fresh = await fetcher(url, { headers: { Accept: "application/vnd.github+json", "User-Agent": "matilde-stats", "X-GitHub-Api-Version": "2022-11-28" } });
-      if (!fresh.ok) throw new Error(`GitHub answered ${fresh.status}`);
-      const text = await fresh.text();
-      res = new Response(text, { headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${GITHUB_CACHE_SECONDS}` } });
-      if (cache) await cache.put(url, res.clone());
+  if (!/^[\w.-]+\/[\w.-]+$/.test(env.GITHUB_REPO)) return { ok: false, error: "invalid GITHUB_REPO" };
+  const url = `https://api.github.com/repos/${env.GITHUB_REPO}/releases?per_page=100`;
+  // Cache keys only; never fetched. The fresh copy lasts an hour, the last good one a month.
+  const freshKey = url;
+  const lastGoodKey = `${url}&matilde-cache=last-good`;
+  const token = env.GITHUB_TOKEN?.trim();
+
+  try {
+    const cached = cache ? await cache.match(freshKey) : undefined;
+    if (cached) return { ok: true, value: releaseDownloads((await cached.json()) as Release[]) };
+  } catch {
+    // A broken cache entry: fetch again.
+  }
+
+  let error: string;
+  try {
+    // Without a token GitHub allows 60 requests an hour per IP, shared with everything else on
+    // Cloudflare's egress addresses; with one, 5,000 an hour for the token.
+    const headers: Record<string, string> = { Accept: "application/vnd.github+json", "User-Agent": "matilde-stats", "X-GitHub-Api-Version": "2022-11-28" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetcher(url, { headers });
+    if (res.ok) {
+      const text = await res.text();
+      const value = releaseDownloads(JSON.parse(text) as Release[]);
+      if (cache) {
+        const store = (seconds: number) => new Response(text, { headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${seconds}`, Date: new Date().toUTCString() } });
+        await Promise.all([cache.put(freshKey, store(GITHUB_CACHE_SECONDS)), cache.put(lastGoodKey, store(GITHUB_LAST_GOOD_SECONDS))]);
+      }
+      return { ok: true, value };
     }
-    type Release = { tag_name: string; published_at: string | null; draft: boolean; assets: { name: string; download_count: number }[] };
-    const releases = (await res.json()) as Release[];
-    return releases
-      .filter((r) => !r.draft)
-      .map((r) => ({
-        tag: r.tag_name,
-        publishedAt: (r.published_at ?? "").slice(0, 10),
-        dmg: r.assets.find((a) => a.name === "Matilde.dmg")?.download_count ?? 0,
-        appcast: r.assets.find((a) => a.name === "appcast.xml")?.download_count ?? 0,
-      }));
-  });
+    error = githubError(res.status, Boolean(token));
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+  }
+
+  try {
+    const lastGood = cache ? await cache.match(lastGoodKey) : undefined;
+    if (lastGood) {
+      const date = lastGood.headers.get("Date");
+      const when = date && !Number.isNaN(Date.parse(date)) ? ` from ${new Date(date).toISOString().slice(0, 16).replace("T", " ")} UTC` : "";
+      return { ok: true, value: releaseDownloads((await lastGood.json()) as Release[]), warning: `${error}. Showing the last good copy${when}` };
+    }
+  } catch {
+    // Fall through to the error.
+  }
+  return { ok: false, error };
 }
 
 // MARK: Sync server
