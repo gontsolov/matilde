@@ -1,0 +1,68 @@
+---
+import DownloadButton from "./DownloadButton.astro";
+
+interface Props {
+  /** Id of the hero Download button. The floating one shows once it has scrolled out of view. */
+  watch: string;
+}
+const { watch } = Astro.props;
+---
+
+<!--
+  Floating Download button, fixed at the bottom centre. Hidden (and unfocusable, via visibility)
+  until the hero button has scrolled out above the viewport, and again while the footer is in view
+  so it never covers the footer links. Without JavaScript it simply never appears.
+-->
+<div class="floating-download" data-watch={watch}>
+  <DownloadButton class="shadow-[0_1px_2px_rgb(0_0_0/0.08),0_10px_28px_-10px_rgb(0_0_0/0.35)]" />
+</div>
+
+<style>
+  .floating-download {
+    position: fixed;
+    left: 50%;
+    bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    z-index: 40;
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(-50%, 12px);
+    transition:
+      opacity 200ms ease,
+      transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      visibility 0s linear 240ms;
+  }
+  .floating-download.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+    transition-delay: 0s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .floating-download,
+    .floating-download.is-visible {
+      transform: translate(-50%, 0);
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  for (const el of document.querySelectorAll<HTMLElement>(".floating-download")) {
+    const hero = document.getElementById(el.dataset.watch ?? "");
+    const footer = document.querySelector("footer");
+    if (!hero || !("IntersectionObserver" in window)) continue;
+    let heroPassed = false;
+    let footerVisible = false;
+    const update = () => el.classList.toggle("is-visible", heroPassed && !footerVisible);
+    new IntersectionObserver(([entry]) => {
+      heroPassed = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+      update();
+    }).observe(hero);
+    if (footer) {
+      new IntersectionObserver(([entry]) => {
+        footerVisible = entry.isIntersecting;
+        update();
+      }).observe(footer);
+    }
+  }
+</script>
