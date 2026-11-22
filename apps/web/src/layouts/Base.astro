@@ -5,9 +5,29 @@ import { AUTHOR_URL, FEEDBACK_EMAIL, SOURCE_URL } from "../lib/site";
 interface Props {
   title: string;
   description: string;
+  /** Link-preview image in public/, 1200×630 (rendered by scripts/og-image.mjs). */
+  image?: string;
+  imageAlt?: string;
+  /** Markdown copy of the page (generated at build time, see integrations/markdown.mjs). */
+  markdown?: string;
+  /** schema.org JSON-LD for this page. */
+  jsonLd?: Record<string, unknown>;
+  /** Keep the page out of search results (the 404 page). */
+  noindex?: boolean;
 }
-const { title, description } = Astro.props;
-const canonical = new URL(Astro.url.pathname, Astro.site);
+const {
+  title,
+  description,
+  image = "/og-image.png",
+  imageAlt = "Matilde: You write every word. Matilde reads along.",
+  markdown,
+  jsonLd,
+  noindex = false,
+} = Astro.props;
+// build.format "file" makes Astro.url end in /index.html or /privacy.html; the public URLs are / and /privacy.
+const path = Astro.url.pathname.replace(/(^|\/)index\.html$/, "$1").replace(/\.html$/, "");
+const canonical = new URL(path, Astro.site).href;
+const imageURL = new URL(image, Astro.site).href;
 ---
 
 <!doctype html>
@@ -17,16 +37,30 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#f9f6ef" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#212222" media="(prefers-color-scheme: dark)" />
+    <meta property="og:site_name" content="Matilde" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={new URL("/icon.png", Astro.site)} />
+    <meta property="og:locale" content="en" />
+    <meta property="og:image" content={imageURL} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={imageAlt} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={imageURL} />
+    <meta name="twitter:image:alt" content={imageAlt} />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    {markdown && <link rel="alternate" type="text/markdown" href={markdown} title="This page as Markdown" />}
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
   </head>
   <body class="min-h-dvh bg-paper font-serif text-ink">
     <slot />

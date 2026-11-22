@@ -4,6 +4,7 @@ import AppPreview from "../components/AppPreview.astro";
 import DownloadButton from "../components/DownloadButton.astro";
 import FloatingDownload from "../components/FloatingDownload.astro";
 import PenMark from "../components/PenMark.astro";
+import { DOWNLOAD_URL, RELEASES_URL, SOURCE_URL } from "../lib/site";
 
 const points = [
   "Plain Markdown files, in a folder on your Mac.",
@@ -29,12 +30,34 @@ const privacy = [
     text: "Twelve words to keep somewhere safe. If you lose all your devices and the key, no one can unlock your synced notes.",
   },
 ];
+
+const description =
+  "You write every word. Matilde reads along like a thoughtful editor, asks questions and leaves notes in the margin.";
+
+// schema.org data for search engines and AI agents. Keep it in step with the copy and README.md.
+const site = Astro.site!;
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Matilde",
+  description: `${description} Plain Markdown files on your Mac, optional end-to-end encrypted sync.`,
+  url: site.href,
+  image: new URL("/og-image.png", site).href,
+  applicationCategory: "ProductivityApplication",
+  applicationSubCategory: "Writing app",
+  operatingSystem: "macOS 14 or later",
+  processorRequirements: "Apple silicon",
+  downloadUrl: new URL(DOWNLOAD_URL, site).href,
+  installUrl: new URL(DOWNLOAD_URL, site).href,
+  releaseNotes: RELEASES_URL,
+  isAccessibleForFree: true,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  publisher: { "@type": "Organization", name: "Matilde", url: site.href, logo: new URL("/icon.png", site).href },
+  sameAs: [SOURCE_URL],
+};
 ---
 
-<Base
-  title="Matilde: a quiet writing app for the Mac"
-  description="You write every word. Matilde reads along like a thoughtful editor, asks questions and leaves notes in the margin."
->
+<Base title="Matilde: a quiet writing app for the Mac" description={description} markdown="/index.md" jsonLd={jsonLd}>
   <main>
     <section class="mx-auto flex max-w-5xl flex-col items-start px-6 pt-16 text-left sm:items-center sm:pt-24 sm:text-center">
       <img src="/icon.png" alt="" width="76" height="76" class="mb-8 size-[76px]" />

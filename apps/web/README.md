@@ -32,6 +32,22 @@ pnpm run preview    # the built site through the Worker (wrangler dev, http://lo
   button is a dark warm gray (`--button`) in light mode and a warm off-white in dark mode.
 - Newsreader is self-hosted through Fontsource; small UI text uses the system sans.
 
+### Link previews and AI agents
+
+- **Link previews.** `public/og-image.png` (home) and `public/og-image-privacy.png` (privacy) are 1200×630
+  Open Graph / Twitter card images. They're rendered from an HTML template in `scripts/og-image.mjs` with
+  Playwright, using only Newsreader and the app icon, so they look the same on any machine. After changing
+  the headline or the design: `pnpm exec playwright install chromium` (once), `pnpm run og-image`, and commit
+  the PNGs. `src/layouts/Base.astro` sets the canonical URL, `og:*` and `twitter:*` tags; a page passes
+  `image` and `imageAlt` to use its own picture.
+- **For LLMs and agents.** `public/llms.txt` is a hand-written guide in the [llms.txt](https://llmstxt.org)
+  format; keep its facts in step with the pages and `docs/`. After each build, `integrations/markdown.mjs`
+  converts each page's `<main>` into `dist/index.md` and `dist/privacy.md` (linked from the pages with
+  `rel="alternate"`) and writes `dist/llms-full.txt` (llms.txt followed by both pages). Add new pages to its
+  `PAGES` list and to `src/pages/sitemap.xml.ts`.
+- `public/robots.txt` allows every crawler, AI crawlers included, and points to `/sitemap.xml`. The home page
+  carries schema.org `SoftwareApplication` JSON-LD (in `src/pages/index.astro`).
+
 ### Using a real screenshot
 
 The page shows an interactive HTML/CSS mock-up of the editor (`src/components/EditorMockup.astro`):

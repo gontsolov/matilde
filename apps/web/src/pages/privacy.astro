@@ -27,6 +27,9 @@ const cantSee = [
 <Base
   title="Privacy · Matilde"
   description="What stays on your Mac, what sync can and can't see, and what happens when you ask Matilde."
+  image="/og-image-privacy.png"
+  imageAlt="How privacy works: your notes are encrypted on your devices, so no one else can read them."
+  markdown="/privacy.md"
 >
   <main class="prose-quiet mx-auto max-w-2xl px-6 pt-14 sm:pt-20">
     <a href="/" class="inline-flex items-center gap-3 font-sans text-[14px] text-muted hover:text-ink">
@@ -62,7 +65,7 @@ const cantSee = [
       Before anything leaves your Mac, it's encrypted with a key that only your devices have (end-to-end encryption,
       AES-256-GCM). The key is kept in your Mac's Keychain. The server stores your encrypted notes and copies of the
       key that are locked with your Matilde key, which the server never gets. No one else can read your writing, not
-      even someone who broke into the server. The one exception is an AI tool you choose to connect, described
+      even someone who broke into the server. The one exception is an AI tool you choose to connect, described{" "}
       <a class="text-accent underline underline-offset-4" href="#ai-tools">below</a>.
     </p>
 
