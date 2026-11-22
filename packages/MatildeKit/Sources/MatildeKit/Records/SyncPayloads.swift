@@ -86,8 +86,11 @@ public struct CommentPayload: Codable, Equatable {
     public var created: Double
     public var modified: Double
     public var archived: Bool
+    /// The AI tool that wrote the comment through the MCP server (docs/mcp.md), nil for the user's
+    /// own. Omitted from the JSON when nil, so records of older apps are unchanged.
+    public var author: String?
 
-    public init(draft: String, body: String, location: Int, length: Int, quote: String, prefix: String, suffix: String, created: Double, modified: Double, archived: Bool) {
+    public init(draft: String, body: String, location: Int, length: Int, quote: String, prefix: String, suffix: String, created: Double, modified: Double, archived: Bool, author: String? = nil) {
         self.draft = draft
         self.body = body
         self.location = location
@@ -98,6 +101,7 @@ public struct CommentPayload: Codable, Equatable {
         self.created = created
         self.modified = modified
         self.archived = archived
+        self.author = author
     }
 }
 

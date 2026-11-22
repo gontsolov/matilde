@@ -467,11 +467,11 @@ public final class WorkspaceSyncStore: SyncLocalStore {
         let payload = try record.payload(CommentPayload.self)
         try db.execute("DELETE FROM user_comments WHERE lower(id)=?", [record.id])
         try db.execute("""
-            INSERT INTO user_comments (id, draft_id, body, location, length, quote, prefix, suffix, created, modified, archived)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO user_comments (id, draft_id, body, location, length, quote, prefix, suffix, created, modified, archived, author)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, [upper(record.id), upper(payload.draft), payload.body, String(payload.location), String(payload.length),
                   payload.quote, payload.prefix, payload.suffix, String(payload.created / 1000), String(payload.modified / 1000),
-                  payload.archived ? "1" : "0"])
+                  payload.archived ? "1" : "0", payload.author])
         return .written
     }
 

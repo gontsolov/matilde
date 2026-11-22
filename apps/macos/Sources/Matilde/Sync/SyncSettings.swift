@@ -9,6 +9,7 @@ import MatildeKit
 struct SyncSettingsView: View {
     @ObservedObject var center = SyncCenter.shared
     @State private var settingUp = false
+    @State private var revoking: ConnectedAITool?
 
     var body: some View {
         Form {
@@ -22,7 +23,9 @@ struct SyncSettingsView: View {
                         Button("Sign Out") { center.signOut(); center.setEnabled(false) }
                     }
                 } footer: {
-                    Text("End-to-end encrypted. The server can’t read your notes.")
+                    Text(center.connections.contains(where: \.canReachNotes)
+                         ? "End-to-end encrypted. While an AI tool below is connected, the Matilde server can decrypt your notes for it."
+                         : "End-to-end encrypted. Your notes can only be read on your devices.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 if !center.devices.isEmpty {
@@ -35,6 +38,18 @@ struct SyncSettingsView: View {
                                 MatildeIcon.forSharedSymbol(device.symbolName).image(size: 18)
                             }
                         }
+                    }
+                }
+                if !center.connections.isEmpty {
+                    Section {
+                        ForEach(center.connections) { tool in
+                            ConnectedAIToolRow(tool: tool) { revoking = tool }
+                        }
+                    } header: {
+                        Text("Connected AI tools")
+                    } footer: {
+                        Text("These tools can use your notes as shown until the connection ends. Disconnecting stops them at once; what a tool has already read stays with it.")
+                            .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
             case .off, .signedOut:
@@ -75,8 +90,14 @@ struct SyncSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { center.loadDevices() }
-        .onChange(of: center.phase) { _, phase in if phase == .ready { center.loadDevices() } }
+        .onAppear { center.loadDevices(); center.loadConnections() }
+        .onChange(of: center.phase) { _, phase in if phase == .ready { center.loadDevices(); center.loadConnections() } }
+        .confirmationDialog("Disconnect \(revoking?.displayName ?? "this tool")?", isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
+                            titleVisibility: .visible, presenting: revoking) { tool in
+            Button("Disconnect", role: .destructive) { center.revokeConnection(tool.id) }
+        } message: { _ in
+            Text("It can no longer read or change your notes. To use it again, connect it from the tool.")
+        }
         .sheet(isPresented: $settingUp) {
             SyncSetupSheet(center: center)
         }
@@ -87,6 +108,34 @@ struct SyncSettingsView: View {
         if !center.status.isEmpty { return center.status }
         guard let last = center.lastSynced else { return "Waiting" }
         return "Synced \(last.formatted(date: .omitted, time: .shortened))"
+    }
+}
+
+/// One connected AI tool: its name (and verified domain), what it may do, when it ends and was
+/// last used, and Disconnect.
+private struct ConnectedAIToolRow: View {
+    let tool: ConnectedAITool
+    let onRevoke: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(tool.displayName)
+                if let domain = tool.clientDomain {
+                    Text(domain).font(.caption).foregroundStyle(.secondary)
+                }
+                Text(tool.permissionsSummary).font(.caption).foregroundStyle(.secondary)
+                Text(details).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("Disconnect…", action: onRevoke)
+        }
+    }
+
+    private var details: String {
+        var parts = ["Ends \(tool.expires.formatted(date: .abbreviated, time: .omitted))"]
+        if let day = tool.lastUsedDay { parts.append("last used \(day)") } else { parts.append("not used yet") }
+        return parts.joined(separator: " · ")
     }
 }
 
