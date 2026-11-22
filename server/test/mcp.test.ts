@@ -299,6 +299,29 @@ describe("MCP over OAuth", () => {
     expect(html).toContain("isn't verified");
   });
 
+  it("serves the consent page's own icon, font, style and script under a strict CSP", async () => {
+    const clientId = await register("Tool");
+    const q = new URLSearchParams({ response_type: "code", client_id: clientId, redirect_uri: REDIRECT, scope: "notes:read", state: "s", code_challenge: "x".repeat(43), code_challenge_method: "S256" });
+    const page = await fetchWorker(new Request(`${MCP}/authorize?${q}`));
+    const csp = page.headers.get("Content-Security-Policy")!;
+    for (const directive of ["default-src 'none'", "script-src 'self'", "style-src 'self'", "font-src 'self'", "frame-ancestors 'none'"]) expect(csp).toContain(directive);
+    const html = await page.text();
+    expect(html).not.toMatch(/<script>|style="/);
+    expect(html).toContain('name="days" value="30" checked');
+    expect(html).toContain('autocomplete="one-time-code"');
+    const assets: [string, string, number[]][] = [
+      ["/connect/icon.png", "image/png", [0x89, 0x50, 0x4e, 0x47]],
+      ["/connect/newsreader.woff2", "font/woff2", [0x77, 0x4f, 0x46, 0x32]],
+    ];
+    for (const [path, type, magic] of assets) {
+      const res = await fetchWorker(new Request(`${MCP}${path}`));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe(type);
+      expect([...new Uint8Array(await res.arrayBuffer()).slice(0, 4)]).toEqual(magic);
+    }
+    for (const path of ["/connect/app.css", "/connect/app.js"]) expect((await fetchWorker(new Request(`${MCP}${path}`))).status).toBe(200);
+  });
+
   it("connects, creates, lists, searches, reads and comments; records decrypt for the apps", async () => {
     const c = await connectTool({ scopes: ["notes:read", "notes:comment", "notes:create", "feedback"] });
     const init = (await (await rpc(c, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } })).json()) as { result: { protocolVersion: string } };

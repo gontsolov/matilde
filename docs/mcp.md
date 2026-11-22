@@ -32,7 +32,7 @@ Honest limits (also on the privacy page):
 The MCP server is part of the existing sync Worker (`matilde-sync` / `matilde-sync-staging`), on its own custom domain (`mcp.matilde.page`, `mcp-staging.matilde.page`). Requests are routed by host name: the MCP host gets the OAuth provider and the MCP endpoint; the sync host is unchanged. This keeps one deploy, one D1 database (EU jurisdiction) and direct access to the per-user Durable Object, and needs **no new Cloudflare resources**:
 
 - OAuth state (clients, grants, token hashes) is stored by `@cloudflare/workers-oauth-provider` through a small KV-compatible adapter over D1 (`mcp_oauth_kv`), not in a separate KV namespace, so it stays in the EU D1 database and the deploy needs no extra binding.
-- `MCP_ENABLED` turns it on per environment (`"1"` on staging, `"0"` on production until the owner has tried staging). When off, the MCP host answers `404` and the connections API on the sync host still works (it lists nothing).
+- `MCP_ENABLED` turns it on per environment (`"1"` on staging and, since the owner tried staging on 2026-11-22, on production). When off, the MCP host answers `404` and the connections API on the sync host still works (it lists nothing).
 
 ## OAuth 2.1
 
@@ -116,7 +116,7 @@ Nothing to create in Cloudflare: the deploy adds the custom domains and the CI m
 
 1. Merge the PR. `server.yml` applies migration `0005_mcp.sql` and deploys staging, which serves `mcp-staging.matilde.page` (the custom domain and certificate are created by `wrangler deploy`; first time can take a few minutes).
 2. Try it on staging (below, with the staging URL) with a staging account.
-3. To turn on production: set `MCP_ENABLED` to `"1"` under `env.production.vars` in `server/wrangler.jsonc` (a one-line PR), merge, approve the `production` deployment.
+3. Production: `MCP_ENABLED` is `"1"` under `env.production.vars` in `server/wrangler.jsonc`; merging deploys staging, then production after the owner approves the `production` deployment. Setting it back to `"0"` turns the MCP host off (404) without touching sync.
 4. Optional: add a "Feedback" label id in `LINEAR_LABEL_FEEDBACK` to tell MCP feedback apart (it's also marked in the issue body).
 
 ## Connecting a tool
