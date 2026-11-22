@@ -2,31 +2,69 @@ import SwiftUI
 import AppKit
 import MatildeKit
 
-// FEEDBACK (UI-29): Help → Send Feedback… and Settings → General open `FeedbackSheet`. It sends
-// only what the user types and, if the toggle stays on, the diagnostics listed in the sheet,
-// to the sync server the app is set to (`SyncCenter.server`). Never note content.
+// FEEDBACK (UI-29): the sidebar's Feedback button, Help → Send Feedback… and Settings → General
+// all open the same small window (`FeedbackWindow`, centred on screen), never a sheet: a sheet
+// on the small Settings window used to hang out of it. It sends only what the user types plus the
+// basic diagnostics (app, version, build, system, device model) to the sync server the app is set
+// to (`SyncCenter.server`). Never note content.
 
-/// Opens the feedback sheet over the main window (from the Help menu).
-@MainActor
-final class FeedbackPresenter: ObservableObject {
-    static let shared = FeedbackPresenter()
-    @Published var showing = false
+/// The feedback window's scene: one window, sized to the form, centred, not in the Window menu.
+struct FeedbackWindow: Scene {
+    static let id = "feedback"
 
-    func show() {
-        NSApp.activate(ignoringOtherApps: true)
-        showing = true
+    var body: some Scene {
+        Window(FeedbackCopy.title, id: Self.id) {
+            FeedbackSheet()
+                .modifier(AppAppearanceModifier())
+                .scrollIndicators(.hidden)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        .commandsRemoved()
     }
 }
 
-/// A calm sheet in the sync setup's style: header, kind, message, optional reply email, the
-/// diagnostics toggle with exactly what gets sent, then Send. Success and failure replace the
-/// form in place; a failure offers "Email Instead".
+/// Opens the feedback window. Menu item, sidebar and Settings all use it; `openWindow` only exists
+/// inside views, hence a view rather than a function.
+struct FeedbackButton<Label: View>: View {
+    @Environment(\.openWindow) private var openWindow
+    let label: () -> Label
+
+    init(@ViewBuilder label: @escaping () -> Label) { self.label = label }
+
+    var body: some View {
+        Button(action: {
+            NSApp.activate(ignoringOtherApps: true)
+            openWindow(id: FeedbackWindow.id)
+        }, label: label)
+    }
+}
+
+/// The sidebar footer's "Feedback", opposite the Settings gear: muted 12-point text, no
+/// background, ink on hover.
+struct SidebarFeedbackButton: View {
+    @State private var hovering = false
+
+    var body: some View {
+        FeedbackButton { Text("Feedback") }
+            .buttonStyle(.plain)
+            .font(.system(size: 12))
+            .foregroundStyle(Color(hovering ? Paper.ink : Paper.muted))
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+            .animation(.easeOut(duration: 0.12), value: hovering)
+            .help(FeedbackCopy.menuTitle)
+    }
+}
+
+/// A compact form in the sync setup's style: header, kind, message, optional reply email, then
+/// Send. Success and failure replace the form in place; a failure offers "Email Instead".
 struct FeedbackSheet: View {
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var draft = FeedbackDraft()
     @State private var stage: Stage = .editing
-    @State private var showsDiagnostics = false
     @FocusState private var focus: Field?
     private let diagnostics = FeedbackDiagnostics.current()
 
@@ -45,7 +83,7 @@ struct FeedbackSheet: View {
                 if case .sent(let outcome) = stage {
                     MacStatusStep(icon: .done, title: FeedbackCopy.sentTitle,
                                   text: outcome == .sent ? FeedbackCopy.sentText : FeedbackCopy.savedText, success: true)
-                        .frame(maxWidth: .infinity, minHeight: 190)
+                        .frame(maxWidth: .infinity, minHeight: 160)
                         .transition(reduceMotion ? .opacity : .scale(scale: 0.96).combined(with: .opacity))
                 } else {
                     form.transition(.opacity)
@@ -54,24 +92,39 @@ struct FeedbackSheet: View {
             HStack(spacing: 12) {
                 actions
             }
-            .frame(minHeight: 34)
-            .padding(.top, 24)
+            .frame(minHeight: 30)
+            .padding(.top, 18)
         }
-        .padding(.horizontal, 32)
-        .padding(.top, 28)
-        .padding(.bottom, 22)
-        .frame(width: 500)
+        // Laid out from the window's top edge (hidden title bar); the top inset clears the traffic lights.
+        .padding(.horizontal, 24)
+        .padding(.top, 38)
+        .padding(.bottom, 18)
+        .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
         .background(Color(Paper.background))
+        .ignoresSafeArea(.container, edges: .top)
         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.4, bounce: 0.12), value: stage)
         .onAppear { DispatchQueue.main.async { focus = .message } }
+        .onDisappear { draft = FeedbackDraft(); stage = .editing }
     }
+
+    private func dismiss() { dismissWindow(id: FeedbackWindow.id) }
 
     // MARK: Form
 
     private var form: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            MacStepHeader(title: FeedbackCopy.title, text: FeedbackCopy.promise)
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                // The app's ordinary sheet-title size, not the onboarding's large serif.
+                Text(FeedbackCopy.title)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color(Paper.ink))
+                    .accessibilityAddTraits(.isHeader)
+                Text(FeedbackCopy.promise)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(Paper.muted))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Picker(FeedbackCopy.kindLabel, selection: $draft.kind) {
                 ForEach(FeedbackKind.allCases) { kind in Text(kind.title).tag(kind) }
@@ -84,24 +137,24 @@ struct FeedbackSheet: View {
                 ZStack(alignment: .topLeading) {
                     if draft.message.isEmpty {
                         Text(FeedbackCopy.messagePlaceholder)
-                            .font(.system(size: 14))
+                            .font(.system(size: 13))
                             .foregroundStyle(Color(Paper.muted).opacity(0.8))
-                            .padding(.top, 13)
-                            .padding(.leading, 17)
+                            .padding(.top, 9)
+                            .padding(.leading, 13)
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
                     TextEditor(text: $draft.message)
-                        .font(.system(size: 14))
+                        .font(.system(size: 13))
                         .foregroundStyle(Color(Paper.ink))
                         .scrollContentBackground(.hidden)
                         .scrollIndicators(.hidden)
                         .focused($focus, equals: .message)
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 8)
                         .accessibilityLabel("Feedback message")
                 }
-                .frame(height: 150)
+                .frame(height: 120)
                 .fieldBackground(focused: focus == .message)
                 if draft.isTooLong {
                     Text(FeedbackCopy.tooLong(draft.messageLength))
@@ -115,34 +168,19 @@ struct FeedbackSheet: View {
                     .foregroundStyle(Color(Paper.muted))
                 TextField(FeedbackCopy.emailPlaceholder, text: $draft.replyEmail)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundStyle(Color(Paper.ink))
                     .textContentType(.emailAddress)
                     .autocorrectionDisabled()
                     .focused($focus, equals: .email)
                     .onSubmit(send)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .padding(.horizontal, 12)
                     .fieldBackground(focused: focus == .email)
                     .accessibilityLabel(FeedbackCopy.emailLabel)
                 if !draft.replyEmailIsValid && focus != .email {
                     Text(FeedbackCopy.emailInvalid)
                         .font(.caption).foregroundStyle(Color(nsColor: .systemRed))
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Toggle(FeedbackCopy.diagnosticsToggle, isOn: $draft.includeDiagnostics)
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .font(.system(size: 13))
-                    .tint(Color(Paper.accent))
-                DisclosureGroup(isExpanded: $showsDiagnostics) {
-                    diagnosticsList.padding(.top, 6)
-                } label: {
-                    Text(FeedbackCopy.diagnosticsDisclosure)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color(Paper.muted))
                 }
             }
 
@@ -155,24 +193,6 @@ struct FeedbackSheet: View {
             }
         }
         .disabled(stage == .sending)
-    }
-
-    @ViewBuilder private var diagnosticsList: some View {
-        if draft.includeDiagnostics {
-            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 4) {
-                ForEach(diagnostics.lines) { line in
-                    GridRow {
-                        Text(line.label).foregroundStyle(Color(Paper.muted))
-                        Text(line.value).foregroundStyle(Color(Paper.ink)).textSelection(.enabled)
-                    }
-                }
-            }
-            .font(.system(size: 12))
-        } else {
-            Text(FeedbackCopy.diagnosticsOff)
-                .font(.system(size: 12))
-                .foregroundStyle(Color(Paper.muted))
-        }
     }
 
     // MARK: Actions

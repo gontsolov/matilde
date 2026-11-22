@@ -3,8 +3,8 @@ import UIKit
 import MatildeKit
 
 // FEEDBACK (UI-29): Settings → Send Feedback. The same fields and words as the Mac's sheet
-// (`FeedbackCopy`): kind, message, optional reply email, the diagnostics toggle with exactly
-// what gets sent. Sends to the sync server the app is set to. Never note content.
+// (`FeedbackCopy`): kind, message, optional reply email. Sends them with the basic diagnostics
+// (app, version, build, system, device model) to the sync server the app is set to. Never note content.
 
 struct FeedbackView: View {
     @Environment(SyncController.self) private var sync
@@ -13,7 +13,6 @@ struct FeedbackView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var draft = FeedbackDraft()
     @State private var stage: Stage = .editing
-    @State private var showsDiagnostics = false
     @State private var failures = 0
     @FocusState private var focus: Field?
     private let diagnostics = FeedbackDiagnostics.current()
@@ -112,20 +111,6 @@ struct FeedbackView: View {
                         }
                     }
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Toggle(FeedbackCopy.diagnosticsToggle, isOn: $draft.includeDiagnostics)
-                            .font(.system(size: 16))
-                            .tint(Paper.accent)
-                        DisclosureGroup(isExpanded: $showsDiagnostics) {
-                            diagnosticsList.padding(.top, 8)
-                        } label: {
-                            Text(FeedbackCopy.diagnosticsDisclosure)
-                                .font(.system(size: 15))
-                                .foregroundStyle(Paper.muted)
-                        }
-                        .tint(Paper.muted)
-                    }
-
                     if case .failed(let reason) = stage {
                         Label(reason, systemImage: "exclamationmark.circle")
                             .font(.callout)
@@ -155,26 +140,6 @@ struct FeedbackView: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 12)
-        }
-    }
-
-    @ViewBuilder private var diagnosticsList: some View {
-        if draft.includeDiagnostics {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(diagnostics.lines) { line in
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(line.label).foregroundStyle(Paper.muted).frame(width: 82, alignment: .leading)
-                        Text(line.value).foregroundStyle(Paper.ink).textSelection(.enabled)
-                    }
-                }
-            }
-            .font(.system(size: 14))
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            Text(FeedbackCopy.diagnosticsOff)
-                .font(.system(size: 14))
-                .foregroundStyle(Paper.muted)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

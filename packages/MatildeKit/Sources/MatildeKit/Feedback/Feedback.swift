@@ -10,8 +10,8 @@ import Glibc
 
 // FEEDBACK (ROADMAP UI-29): "Send Feedback" in both apps. `POST /v1/feedback` on the sync server
 // (server/PROTOCOL.md, "Feedback") turns each message into an issue in the owner's Linear.
-// Privacy: only what the user typed, the optional reply email and, if the toggle is on, the
-// diagnostics shown in the sheet. Never note content, account email or analytics.
+// Privacy: only what the user typed, the optional reply email and the basic diagnostics (app,
+// version, build, system version, device model). Never note content, account email or analytics.
 
 public enum FeedbackKind: String, CaseIterable, Codable, Sendable, Identifiable {
     case bug, idea, other
@@ -27,8 +27,8 @@ public enum FeedbackKind: String, CaseIterable, Codable, Sendable, Identifiable 
     }
 }
 
-/// App version and device, sent only while "Include app version and device" is on. The sheet
-/// shows exactly these values (`lines`) before sending.
+/// App version and device, always sent with feedback (the privacy page says so). `locale` stays in
+/// the wire format for compatibility, but `current()` leaves it out.
 public struct FeedbackDiagnostics: Codable, Equatable, Sendable {
     public var app: String
     public var appVersion: String
@@ -55,7 +55,7 @@ public struct FeedbackDiagnostics: Codable, Equatable, Sendable {
         #endif
     }
 
-    public static func current(bundle: Bundle = .main, locale: Locale = .current) -> FeedbackDiagnostics {
+    public static func current(bundle: Bundle = .main) -> FeedbackDiagnostics {
         let info = bundle.infoDictionary ?? [:]
         let version = ProcessInfo.processInfo.operatingSystemVersion
         var os = "\(version.majorVersion).\(version.minorVersion)"
@@ -70,8 +70,7 @@ public struct FeedbackDiagnostics: Codable, Equatable, Sendable {
             appVersion: Self.clean(info["CFBundleShortVersionString"] as? String, allowed: versionCharacters, max: 32) ?? "0",
             build: Self.clean(info["CFBundleVersion"] as? String, allowed: buildCharacters, max: 32) ?? "0",
             osVersion: "\(osName) \(os)",
-            deviceModel: Self.clean(hardwareModel(), allowed: modelCharacters, max: 64),
-            locale: Self.clean(locale.identifier, allowed: localeCharacters, max: 35)
+            deviceModel: Self.clean(hardwareModel(), allowed: modelCharacters, max: 64)
         )
     }
 
@@ -81,7 +80,7 @@ public struct FeedbackDiagnostics: Codable, Equatable, Sendable {
         public var id: String { label }
     }
 
-    /// What the disclosure under the toggle shows: exactly the values that are sent.
+    /// The values that are sent, as readable lines (the "Email Instead" body).
     public var lines: [Line] {
         var lines = [
             Line(label: "App", value: "Matilde \(appVersion) (\(build)) for \(app == "ios" ? "iPhone" : "Mac")"),
@@ -131,15 +130,26 @@ public struct FeedbackRequest: Encodable, Equatable, Sendable {
     public var kind: FeedbackKind
     public var message: String
     public var replyEmail: String?
-    public var includeDiagnostics: Bool
-    public var diagnostics: FeedbackDiagnostics?
+    /// Always true: the apps always send the basic diagnostics. Kept because the server requires it.
+    public let includeDiagnostics = true
+    public var diagnostics: FeedbackDiagnostics
 
-    public init(kind: FeedbackKind, message: String, replyEmail: String?, includeDiagnostics: Bool, diagnostics: FeedbackDiagnostics?) {
+    public init(kind: FeedbackKind, message: String, replyEmail: String?, diagnostics: FeedbackDiagnostics) {
         self.kind = kind
         self.message = message
         self.replyEmail = replyEmail
-        self.includeDiagnostics = includeDiagnostics
-        self.diagnostics = includeDiagnostics ? diagnostics : nil
+        self.diagnostics = diagnostics
+    }
+
+    private enum CodingKeys: String, CodingKey { case kind, message, replyEmail, includeDiagnostics, diagnostics }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(message, forKey: .message)
+        try container.encodeIfPresent(replyEmail, forKey: .replyEmail)
+        try container.encode(includeDiagnostics, forKey: .includeDiagnostics)
+        try container.encode(diagnostics, forKey: .diagnostics)
     }
 }
 
@@ -150,13 +160,11 @@ public struct FeedbackDraft: Equatable, Sendable {
     public var kind: FeedbackKind
     public var message: String
     public var replyEmail: String
-    public var includeDiagnostics: Bool
 
-    public init(kind: FeedbackKind = .other, message: String = "", replyEmail: String = "", includeDiagnostics: Bool = true) {
+    public init(kind: FeedbackKind = .other, message: String = "", replyEmail: String = "") {
         self.kind = kind
         self.message = message
         self.replyEmail = replyEmail
-        self.includeDiagnostics = includeDiagnostics
     }
 
     public var trimmedMessage: String { message.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -170,21 +178,18 @@ public struct FeedbackDraft: Equatable, Sendable {
 
     public func request(diagnostics: FeedbackDiagnostics) -> FeedbackRequest {
         FeedbackRequest(kind: kind, message: trimmedMessage, replyEmail: trimmedEmail.isEmpty ? nil : trimmedEmail,
-                        includeDiagnostics: includeDiagnostics, diagnostics: diagnostics)
+                        diagnostics: diagnostics)
     }
 
     /// The "Email instead" fallback: the same message in the user's mail app.
     public func mailtoURL(diagnostics: FeedbackDiagnostics) -> URL {
-        var body = trimmedMessage
-        if includeDiagnostics {
-            body += "\n\n" + diagnostics.lines.map { "\($0.label): \($0.value)" }.joined(separator: "\n")
-        }
+        let body = trimmedMessage + "\n\n" + diagnostics.lines.map { "\($0.label): \($0.value)" }.joined(separator: "\n")
         return FeedbackCopy.mailtoURL(subject: "Matilde feedback: \(kind.title)", body: body)
     }
 }
 
 public enum FeedbackOutcome: Equatable, Sendable {
-    /// Delivered to the owner.
+    /// Delivered.
     case sent
     /// The server kept it and delivers it later (Linear was unavailable).
     case saved
@@ -221,20 +226,17 @@ public enum FeedbackCopy {
     public static let address = "feedback@matilde.page"
     public static let menuTitle = "Send Feedback…"
     public static let title = "Send feedback"
-    public static let promise = "This goes straight to Filip. Your notes are never included."
+    public static let promise = "Your notes are never included."
     public static let kindLabel = "Kind"
     public static let messagePlaceholder = "What’s on your mind?"
     public static let emailLabel = "Email for a reply"
     public static let emailPlaceholder = "Optional"
     public static let emailInvalid = "That email address doesn’t look right."
-    public static let diagnosticsToggle = "Include app version and device"
-    public static let diagnosticsDisclosure = "What gets sent"
-    public static let diagnosticsOff = "Only your message and, if you add one, your email."
     public static let send = "Send"
     public static let sending = "Sending…"
     public static let sentTitle = "Thank you"
-    public static let sentText = "Your feedback is on its way to Filip."
-    public static let savedText = "Your feedback is saved and will reach Filip shortly."
+    public static let sentText = "Your feedback is on its way."
+    public static let savedText = "Your feedback is saved and will be delivered shortly."
     public static let failedTitle = "Couldn’t send"
     public static let emailInstead = "Email Instead"
     public static let tryAgain = "Try Again"
@@ -250,7 +252,7 @@ public enum FeedbackCopy {
             case "rate_limited": return "You’ve sent a lot of feedback in a short while. Try again later, or email instead."
             case "invalid_email": return emailInvalid
             case "upgrade_required": return "Please update Matilde to send feedback, or email instead."
-            default: return "Something went wrong on our side. Try again later, or email instead."
+            default: return "Something went wrong on the server. Try again later, or email instead."
             }
         }
         return "Matilde couldn’t reach the server. Check your connection, or email instead."

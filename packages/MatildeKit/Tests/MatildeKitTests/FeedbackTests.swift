@@ -6,7 +6,7 @@ import FoundationNetworking
 
 final class FeedbackTests: XCTestCase {
     private let diagnostics = FeedbackDiagnostics(app: "macos", appVersion: "0.3.0", build: "0.3.0", osVersion: "macOS 15.2",
-                                                  deviceModel: "Mac14,2", locale: "de_DE")
+                                                  deviceModel: "Mac14,2")
 
     private func http() -> SyncHTTP {
         let configuration = URLSessionConfiguration.ephemeral
@@ -35,25 +35,28 @@ final class FeedbackTests: XCTestCase {
         XCTAssertFalse(draft.canSend)
     }
 
-    func testRequestCarriesOnlyWhatTheUserChose() throws {
-        var draft = FeedbackDraft(kind: .bug, message: " It crashed ", replyEmail: "", includeDiagnostics: false)
+    func testRequestAlwaysCarriesBasicDiagnostics() throws {
+        var draft = FeedbackDraft(kind: .bug, message: " It crashed ", replyEmail: "")
         var body = try JSONSerialization.jsonObject(with: try SyncHTTP.encode(draft.request(diagnostics: diagnostics))) as! [String: Any]
-        XCTAssertEqual(Set(body.keys), ["kind", "message", "includeDiagnostics"])
+        XCTAssertEqual(Set(body.keys), ["kind", "message", "includeDiagnostics", "diagnostics"])
         XCTAssertEqual(body["message"] as? String, "It crashed")
-        XCTAssertEqual(body["includeDiagnostics"] as? Bool, false)
+        XCTAssertEqual(body["includeDiagnostics"] as? Bool, true)
+        let sent = try XCTUnwrap(body["diagnostics"] as? [String: Any])
+        XCTAssertEqual(sent["deviceModel"] as? String, "Mac14,2")
+        XCTAssertEqual(Set(sent.keys), ["app", "appVersion", "build", "osVersion", "deviceModel"])
 
-        draft.includeDiagnostics = true
         draft.replyEmail = "anna@example.com"
         body = try JSONSerialization.jsonObject(with: try SyncHTTP.encode(draft.request(diagnostics: diagnostics))) as! [String: Any]
         XCTAssertEqual(body["replyEmail"] as? String, "anna@example.com")
-        let sent = try XCTUnwrap(body["diagnostics"] as? [String: Any])
-        XCTAssertEqual(sent["deviceModel"] as? String, "Mac14,2")
-        XCTAssertEqual(Set(sent.keys), ["app", "appVersion", "build", "osVersion", "deviceModel", "locale"])
     }
 
-    func testDisclosureShowsEverythingThatIsSent() {
+    func testCurrentDiagnosticsLeaveOutTheLanguage() {
+        XCTAssertNil(FeedbackDiagnostics.current().locale)
+    }
+
+    func testLinesShowEverythingThatIsSent() {
         let values = diagnostics.lines.map(\.value).joined(separator: " ")
-        for field in [diagnostics.appVersion, diagnostics.build, diagnostics.osVersion, diagnostics.deviceModel!, diagnostics.locale!] {
+        for field in [diagnostics.appVersion, diagnostics.build, diagnostics.osVersion, diagnostics.deviceModel!] {
             XCTAssertTrue(values.contains(field), field)
         }
     }
@@ -69,13 +72,12 @@ final class FeedbackTests: XCTestCase {
     }
 
     func testMailtoKeepsTheTextIntact() throws {
-        let draft = FeedbackDraft(kind: .idea, message: "A & B = C + D #1?", includeDiagnostics: false)
+        let draft = FeedbackDraft(kind: .idea, message: "A & B = C + D #1?")
         let url = draft.mailtoURL(diagnostics: diagnostics)
         XCTAssertTrue(url.absoluteString.hasPrefix("mailto:feedback@matilde.page?subject=Matilde%20feedback%3A%20Idea&body="))
         let body = try XCTUnwrap(url.absoluteString.components(separatedBy: "&body=").last?.removingPercentEncoding)
-        XCTAssertEqual(body, "A & B = C + D #1?")
-        XCTAssertFalse(url.absoluteString.contains("Mac14"))
-        XCTAssertTrue(FeedbackDraft(message: "x").mailtoURL(diagnostics: diagnostics).absoluteString.contains("Mac14%2C2"))
+        XCTAssertTrue(body.hasPrefix("A & B = C + D #1?\n\n"))
+        XCTAssertTrue(url.absoluteString.contains("Mac14%2C2"))
     }
 
     func testClientPostsToTheSelectedServer() async throws {

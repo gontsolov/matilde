@@ -92,7 +92,7 @@ private struct SyncSection: View {
             Text("Sync")
         } footer: {
             if sync.phase == .ready {
-                Text("End-to-end encrypted. The server can’t read your notes.")
+                Text("End-to-end encrypted. No one else can read your notes.")
             }
         }
         .onAppear { sync.loadDevices() }
