@@ -55,8 +55,9 @@
     "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UserSync"] }],
-  // Daily cleanup of expired codes, rate counters and sessions.
-  "triggers": { "crons": ["17 3 * * *"] },
+  // Every 15 minutes: retry queued feedback. Once a day (the 03:15 UTC run): clean up expired
+  // codes, rate counters and sessions. One trigger per environment keeps within the plan's cron limit.
+  "triggers": { "crons": ["*/15 * * * *"] },
 
   "env": {
     "staging": {
@@ -100,7 +101,7 @@
       // Cloudflare Email Service. No `allowed_destination_addresses`/`destination_address`:
       // sign-in codes go to arbitrary users. Needs matilde.page onboarded for Email Sending.
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["sign-in@matilde.page"] }],
-      "triggers": { "crons": ["17 3 * * *"] }
+      "triggers": { "crons": ["*/15 * * * *"] }
     },
     "production": {
       "name": "matilde-sync",
@@ -143,7 +144,7 @@
       // Cloudflare Email Service. No `allowed_destination_addresses`/`destination_address`:
       // sign-in codes go to arbitrary users. Needs matilde.page onboarded for Email Sending.
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["sign-in@matilde.page"] }],
-      "triggers": { "crons": ["17 3 * * *"] }
+      "triggers": { "crons": ["*/15 * * * *"] }
     }
   }
 }

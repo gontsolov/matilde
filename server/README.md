@@ -4,16 +4,18 @@ The server side of Matilde's end-to-end encrypted cloud sync: one TypeScript Clo
 
 - **Durable Object `UserSync`**, one per user (SQLite, EU): the sync authority. Records, sequence numbers, compare-and-swap, blob index, WebSocket nudges.
 - **D1 "directory"** (EU): accounts, sign-in identities, email codes, sessions, wrapped key slots, rate-limit counters. No writing.
+- **Feedback** (`POST /v1/feedback`): in-app feedback becomes an issue in the owner's Linear workspace. It holds only what the user typed, an optional reply email and opt-in diagnostics; it waits in D1 only until Linear has it. Setup: [docs/feedback.md](../docs/feedback.md).
 - **R2** (EU): encrypted blobs and ciphertext over 256 KB, under `u/<userId>/`.
 
 The server only ever stores ciphertext plus a small envelope (id, type, HLC, device, deleted flag, key id, size, blob id, sequence). The API is specified in [PROTOCOL.md](PROTOCOL.md); the Swift client (SYNC-07) follows it.
 
 ```
-src/index.ts            entry: fetch + daily cron
+src/index.ts            entry: fetch + cron (every 15 minutes)
 src/app.ts              Hono router, logging, error mapping, minimum app build
 src/auth/               email codes, mailers, rate limits, sessions/devices, tokens, account + key routes
 src/sync/UserSync.ts    the per-user Durable Object
 src/sync/routes.ts      push / pull / ws / blobs
+src/feedback/           POST /v1/feedback: validation, Linear issue, D1 queue + retry
 migrations/             D1 migrations (directory)
 test/                   vitest in the Workers runtime (@cloudflare/vitest-plugin)
 ```
@@ -49,7 +51,7 @@ pnpm run typecheck
 pnpm test
 ```
 
-The tests run inside the Workers runtime with real D1, R2 and Durable Object implementations (Miniflare), on Linux or macOS. They cover sign-in codes (hashing, expiry, attempts, rate limits), token rotation and reuse detection, devices and revocation, push/pull/cursor, LWW and body conflicts, tombstones, large records in R2, blobs and garbage collection, WebSocket nudges, per-user isolation, account deletion, and that the server syncs client-encrypted data it can't read. Test secrets are generated per run in `vitest.config.ts`.
+The tests run inside the Workers runtime with real D1, R2 and Durable Object implementations (Miniflare), on Linux or macOS. They cover sign-in codes (hashing, expiry, attempts, rate limits), token rotation and reuse detection, devices and revocation, push/pull/cursor, LWW and body conflicts, tombstones, large records in R2, blobs and garbage collection, WebSocket nudges, per-user isolation, account deletion, that the server syncs client-encrypted data it can't read, and feedback (validation, rate limits, the Linear request with a mocked `fetch`, queueing and retries). Test secrets are generated per run in `vitest.config.ts`.
 
 ## Configuration
 
@@ -86,6 +88,12 @@ Vars (in `wrangler.jsonc`, not secret):
 | `DO_JURISDICTION` | `eu` when deployed |
 | `MIN_CLIENT_BUILD` | Lowest `X-Matilde-Build` accepted (`0` = off); older apps get `426` |
 | `GLOBAL_DAILY_CODE_CAP` | Sign-in codes per day across all users before refusing more |
+| `FEEDBACK_PER_IP_HOUR` | Feedback submissions per network (IPv4 /24) per hour (default 5) |
+| `GLOBAL_DAILY_FEEDBACK_CAP` | Feedback submissions per day across everyone (200 production, 50 staging) |
+| `LINEAR_TEAM_ID` | Linear team the issues go to (empty: feedback is only queued, `503 feedback_not_configured`) |
+| `LINEAR_LABEL_BUG`, `LINEAR_LABEL_IDEA`, `LINEAR_LABEL_OTHER` | Label ids per kind; empty means no label |
+| `LINEAR_LABEL_FEEDBACK` | Optional label added to every feedback issue |
+| `LINEAR_PROJECT_ID`, `LINEAR_STATE_ID` | Optional project and workflow state (Triage). If Linear rejects them, the issue is created without them and `linear_placement_rejected` is logged |
 
 ### Secrets
 
@@ -96,6 +104,7 @@ Never committed. Set each one per environment (`--env staging` and `--env produc
 | `TOKEN_SIGNING_KEY` | yes | `pnpm run --silent gen-signing-key \| pnpm exec wrangler secret put TOKEN_SIGNING_KEY --env production` (Ed25519 private JWK with a `kid`; signs access tokens) |
 | `CODE_PEPPER` | yes | `openssl rand -base64 32 \| pnpm exec wrangler secret put CODE_PEPPER --env production` (keys the hashes of emails, codes and IP prefixes) |
 | `RESEND_API_KEY` | only for the Resend fallback (`MAIL_PROVIDER: "resend"`); not needed by default | from the Resend dashboard (sending access, restricted to the domain) |
+| `LINEAR_API_KEY` | for feedback (without it feedback waits in D1) | Linear → Settings → Security & access → Personal API keys, limited to the team; `pnpm exec wrangler secret put LINEAR_API_KEY --env production`. Set on both environments (2026-11). See [docs/feedback.md](../docs/feedback.md) |
 | `TOKEN_VERIFY_KEYS` | only during a key rotation | JSON array of old public JWKs, see below |
 
 Use different values for staging and production. Changing `CODE_PEPPER` only invalidates codes in flight and resets rate-limit counters.
@@ -169,6 +178,10 @@ Secrets (`wrangler secret put`) are not part of the workflow; set them by hand a
 ## Operations
 
 - **Logs:** Workers Logs (observability is on). Each request logs method, route pattern, status, duration and error code; never bodies, tokens, codes, emails or IPs.
-- **Daily cron** (03:17 UTC) deletes expired codes, rate counters and sessions.
+- **Cron** every 15 minutes: retries queued feedback (rows older than 5 minutes, 25 per run, `failed` after 10 attempts; sent rows are dropped after 30 days). The 03:15 UTC run also deletes expired codes, rate counters and sessions.
+- **Feedback log events:** `feedback_queued` (Linear unreachable or not configured; with the reason, never the text), `feedback_rate_limited`, `global_feedback_cap_reached` (worth an Observability alert, like `global_code_cap_reached`) and `linear_placement_rejected` (project or state id wrong; issue created without them). Unsent feedback:
+  ```sh
+  pnpm exec wrangler d1 execute DB --remote --env production --command "SELECT id, created_at, status, attempts, last_error FROM feedback WHERE status != 'sent'"
+  ```
 - **Backups:** Durable Object point-in-time recovery (30 days) and D1 Time Travel (30 days); everything is ciphertext.
 - **Schema changes:** D1 through `migrations/` (`wrangler d1 migrations create DB <name>`); the Durable Object migrates itself on start (`schema_version` in its `meta` table), additive only. Keep every change compatible with the previous app version.

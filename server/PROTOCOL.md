@@ -6,7 +6,7 @@ The contract between the Matilde apps (Swift client, SYNC-07) and the sync serve
 
 - **Base URL:** `https://sync.matilde.page/v1` (staging: `https://sync-staging.matilde.page/v1`).
 - **Transport:** HTTPS with JSON bodies (`Content-Type: application/json`), except blob bodies (raw bytes) and the WebSocket.
-- **Auth:** `Authorization: Bearer <accessToken>` on everything except `/v1/health`, `/v1/auth/email/*` and `/v1/auth/refresh`.
+- **Auth:** `Authorization: Bearer <accessToken>` on everything except `/v1/health`, `/v1/auth/email/*`, `/v1/auth/refresh` and `/v1/feedback` (optional there).
 - **App build:** send `X-Matilde-Build: <integer build number>` on every request. If the server's minimum build is higher, every `/v1` request returns `426 upgrade_required`; the app should ask the user to update and stop syncing.
 - **Ids:** all ids (record, blob, device, session, slot) are UUIDs in **lowercase** canonical form. Uppercase is rejected (`400`), because ids are part of the encryption's associated data and must be byte-identical everywhere. Swift: `uuid.uuidString.lowercased()`.
 - **Binary values** in JSON (`ct`, `wrappedKey`, `keyCheck`, `deviceNameCt`) are standard base64 **with** padding.
@@ -36,6 +36,8 @@ Clients act on `code`, not `message`. Codes in use:
 | 426 | `upgrade_required`, `websocket_required` | Update the app / use a WebSocket upgrade |
 | 429 | `rate_limited` | Wait `Retry-After` seconds |
 | 502 | `mail_failed` | Code email could not be sent; try again later |
+| 502 | `feedback_delivery_failed` | Feedback is stored (`queued: true`) and retried by the server; tell the user it will arrive shortly |
+| 503 | `feedback_not_configured` | Feedback is stored (`queued: true`) but the server has no Linear key yet; same message to the user |
 | 5xx | `internal_error` | Retry with backoff |
 
 ## Sign-in and sessions
@@ -227,6 +229,25 @@ The server stores wrapped copies of the account key; it can't unwrap them.
   ```
   Replaces the check value and all slots atomically. `expectedKeyId` must equal the stored `keyId` (`null` when none exists), otherwise `409 key_conflict`. This stops two devices that turn on sync at once from both creating an account key: the loser fetches the winner's key instead. 1–8 slots; `kind` is lowercase (`recovery`, `passphrase`, …); `params` is an opaque string (e.g. Argon2id parameters as JSON).
 
+## Feedback
+
+In-app feedback ("Send Feedback…") that the server files as an issue in the owner's Linear workspace. It is the only request the apps make that isn't sync, and it carries **only** what the user typed, an optional reply email, and diagnostics if the user left the toggle on. Never note content, never the account email.
+
+- `POST /v1/feedback`, auth optional. With a valid access token the issue says "Signed in: yes"; the server never looks up who. A missing, expired or invalid token counts as signed out, never as an error.
+  ```json
+  { "kind": "bug", "message": "The sidebar flickers when…", "replyEmail": "me@example.com",
+    "includeDiagnostics": true,
+    "diagnostics": { "app": "macos", "appVersion": "0.3.0", "build": "42", "osVersion": "15.1",
+                     "deviceModel": "Mac15,3", "locale": "en_US" } }
+  ```
+  - `kind`: `bug`, `idea` or `other` (default `other`). `message`: 1–5000 characters (code points) after trimming. `replyEmail`: optional, a valid address (`400 invalid_email` otherwise).
+  - `includeDiagnostics` is required. When `false`, any `diagnostics` sent are ignored and never stored. When `true`, `app`, `appVersion`, `build` and `osVersion` are required and `deviceModel`, `locale` optional; all are short machine values (restricted character sets).
+  - Unknown fields at either level are rejected (`400 invalid_request`). Body at most 32 KiB (`413 batch_too_large`).
+- `201 { "ok": true, "id", "status": "sent" }` once the Linear issue exists.
+- If Linear can't be reached or the key is missing, the feedback is stored and retried by the server's cron (every 15 minutes, starting 5 minutes after submission, up to 10 attempts): `502 feedback_delivery_failed` or `503 feedback_not_configured`, with `"queued": true` and the `id` next to `error`. The apps treat both as "saved, will reach Filip shortly", not as a failure.
+- Rate limits: 5 per hour per network (IPv4 /24, hashed), and a global daily cap (`429 rate_limited` with `Retry-After`).
+- Stored payloads are deleted once the issue exists; the bookkeeping row goes after 30 days.
+
 ## Limits
 
 | Limit | Value |
@@ -242,6 +263,7 @@ The server stores wrapped copies of the account key; it can't unwrap them.
 | WebSockets per account | 20 |
 | Access token / refresh token lifetime | 15 minutes / 90 days unused |
 | Sign-in code lifetime / attempts | 10 minutes / 5 |
+| Feedback per network per hour / message length / body | 5 / 5000 characters / 32 KiB |
 
 ## Not yet in v1
 

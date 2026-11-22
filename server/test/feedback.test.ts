@@ -4,6 +4,7 @@ import type { Env } from "../src/env";
 import { escapeMarkdown, issueDescription, issueTitle, LINEAR_API_URL } from "../src/feedback/linear";
 import { FEEDBACK_RETRY, retryFeedback, submitFeedback } from "../src/feedback/service";
 import { parseFeedback } from "../src/feedback/validate";
+import { isDailyRun } from "../src/maintenance";
 import { call, device } from "./helpers";
 
 let ipCounter = 0;
@@ -278,5 +279,13 @@ describe("issue formatting", () => {
     expect(description).toContain("- Device: iPhone17,1");
     expect(issueTitle(payload)).toBe("[Feedback] Idea: Split view - for drafts");
     expect(issueTitle({ ...payload, message: "a".repeat(100) })).toBe(`[Feedback] Idea: ${"a".repeat(60)}…`);
+  });
+});
+
+describe("cron schedule", () => {
+  it("runs directory cleanup only on the 03:15 UTC run of the 15-minute cron", () => {
+    const runs = Array.from({ length: 96 }, (_, i) => Date.UTC(2026, 10, 22, 0, i * 15));
+    const daily = runs.filter(isDailyRun).map((t) => new Date(t).toISOString());
+    expect(daily).toEqual(["2026-11-22T03:15:00.000Z"]);
   });
 });
