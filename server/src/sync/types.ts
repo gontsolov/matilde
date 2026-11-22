@@ -55,3 +55,23 @@ export type CommitBlobResult = { ok: true; existed: boolean } | { ok: false; rea
 export interface AccountGone {
   gone: true;
 }
+
+/** Filter for UserSync.query (MCP server only). */
+export interface RecordQuery {
+  types?: number[];
+  ids?: string[];
+  includeDeleted?: boolean;
+  /** Exclusive id cursor. */
+  after?: string;
+  limit: number;
+  /** Return the envelope only (ct null, size still set); maxBytes is then ignored. */
+  envelopeOnly?: boolean;
+  /** Ciphertext bytes per page (at least one row is always returned). */
+  maxBytes: number;
+}
+
+export interface RecordQueryResult {
+  rows: WireRow[];
+  /** Pass as `after` for the next page; null when done. */
+  next: string | null;
+}

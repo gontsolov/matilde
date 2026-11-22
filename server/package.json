@@ -23,6 +23,7 @@
     "set-domain": "node scripts/set-domain.mjs"
   },
   "dependencies": {
+    "@cloudflare/workers-oauth-provider": "1.2.4",
     "hono": "^4.13.19",
     "jose": "^6.2.17"
   },
