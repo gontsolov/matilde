@@ -29,7 +29,21 @@
     // Local workerd does not implement jurisdictions; staging and production set "eu".
     "DO_JURISDICTION": "",
     "MIN_CLIENT_BUILD": "0",
-    "GLOBAL_DAILY_CODE_CAP": "2000"
+    "GLOBAL_DAILY_CODE_CAP": "2000",
+    // In-app feedback (docs/feedback.md). Messages per network per hour, and per day overall.
+    "FEEDBACK_PER_IP_HOUR": "5",
+    "GLOBAL_DAILY_FEEDBACK_CAP": "200",
+    // Linear team and label ids (not secret; the API key is the LINEAR_API_KEY secret).
+    // Empty = feedback is stored in D1 but not delivered / no label.
+    "LINEAR_TEAM_ID": "",
+    "LINEAR_LABEL_BUG": "",
+    "LINEAR_LABEL_IDEA": "",
+    "LINEAR_LABEL_OTHER": "",
+    // Optional label put on every feedback issue, on top of the kind label.
+    "LINEAR_LABEL_FEEDBACK": "",
+    // Optional project and workflow state (Triage) for new feedback issues.
+    "LINEAR_PROJECT_ID": "",
+    "LINEAR_STATE_ID": ""
   },
   "d1_databases": [
     { "binding": "DB", "database_name": "matilde-directory-dev", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
@@ -41,8 +55,9 @@
     "bindings": [{ "name": "USER_SYNC", "class_name": "UserSync" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UserSync"] }],
-  // Daily cleanup of expired codes, rate counters and sessions.
-  "triggers": { "crons": ["17 3 * * *"] },
+  // Every 15 minutes: retry queued feedback. Once a day (the 03:15 UTC run): clean up expired
+  // codes, rate counters and sessions. One trigger per environment keeps within the plan's cron limit.
+  "triggers": { "crons": ["*/15 * * * *"] },
 
   "env": {
     "staging": {
@@ -54,7 +69,23 @@
         "MAIL_FROM": "Matilde <sign-in@matilde.page>",
         "DO_JURISDICTION": "eu",
         "MIN_CLIENT_BUILD": "0",
-        "GLOBAL_DAILY_CODE_CAP": "200"
+        "GLOBAL_DAILY_CODE_CAP": "200",
+        // In-app feedback (docs/feedback.md). Messages per network per hour, and per day overall.
+        "FEEDBACK_PER_IP_HOUR": "5",
+        "GLOBAL_DAILY_FEEDBACK_CAP": "50",
+        // Linear team and label ids (not secret; the API key is the LINEAR_API_KEY secret).
+        // Empty = feedback is stored in D1 but not delivered / no label.
+        // Team "Gontsolov Labs" (GON); labels "Bug" and "Feature". "Something else" gets no kind label.
+        "LINEAR_TEAM_ID": "dea29b62-97d3-4fdc-a6c4-46520e9ab272",
+        "LINEAR_LABEL_BUG": "fb091bb1-52b1-4bfd-aa12-0735ea655e93",
+        "LINEAR_LABEL_IDEA": "af5c12d6-0a71-4abf-bb7f-5901b6b1699b",
+        "LINEAR_LABEL_OTHER": "",
+        // Optional label put on every feedback issue, on top of the kind label (e.g. a "Feedback" label).
+        "LINEAR_LABEL_FEEDBACK": "",
+        // Project "Matilde" and workflow state "Triage" (Triage is enabled on the team).
+        // Dropped automatically for one retry if Linear rejects them.
+        "LINEAR_PROJECT_ID": "8ad01f26-33e2-4aad-bae4-a8ceff068ab4",
+        "LINEAR_STATE_ID": "d782f669-93e4-4718-a532-be3cbdd1f130"
       },
       "d1_databases": [
         // Created with: wrangler d1 create matilde-directory-staging --jurisdiction eu
@@ -70,7 +101,7 @@
       // Cloudflare Email Service. No `allowed_destination_addresses`/`destination_address`:
       // sign-in codes go to arbitrary users. Needs matilde.page onboarded for Email Sending.
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["sign-in@matilde.page"] }],
-      "triggers": { "crons": ["17 3 * * *"] }
+      "triggers": { "crons": ["*/15 * * * *"] }
     },
     "production": {
       "name": "matilde-sync",
@@ -81,7 +112,23 @@
         "MAIL_FROM": "Matilde <sign-in@matilde.page>",
         "DO_JURISDICTION": "eu",
         "MIN_CLIENT_BUILD": "0",
-        "GLOBAL_DAILY_CODE_CAP": "2000"
+        "GLOBAL_DAILY_CODE_CAP": "2000",
+        // In-app feedback (docs/feedback.md). Messages per network per hour, and per day overall.
+        "FEEDBACK_PER_IP_HOUR": "5",
+        "GLOBAL_DAILY_FEEDBACK_CAP": "200",
+        // Linear team and label ids (not secret; the API key is the LINEAR_API_KEY secret).
+        // Empty = feedback is stored in D1 but not delivered / no label.
+        // Team "Gontsolov Labs" (GON); labels "Bug" and "Feature". "Something else" gets no kind label.
+        "LINEAR_TEAM_ID": "dea29b62-97d3-4fdc-a6c4-46520e9ab272",
+        "LINEAR_LABEL_BUG": "fb091bb1-52b1-4bfd-aa12-0735ea655e93",
+        "LINEAR_LABEL_IDEA": "af5c12d6-0a71-4abf-bb7f-5901b6b1699b",
+        "LINEAR_LABEL_OTHER": "",
+        // Optional label put on every feedback issue, on top of the kind label (e.g. a "Feedback" label).
+        "LINEAR_LABEL_FEEDBACK": "",
+        // Project "Matilde" and workflow state "Triage" (Triage is enabled on the team).
+        // Dropped automatically for one retry if Linear rejects them.
+        "LINEAR_PROJECT_ID": "8ad01f26-33e2-4aad-bae4-a8ceff068ab4",
+        "LINEAR_STATE_ID": "d782f669-93e4-4718-a532-be3cbdd1f130"
       },
       "d1_databases": [
         // Created with: wrangler d1 create matilde-directory --jurisdiction eu
@@ -97,7 +144,7 @@
       // Cloudflare Email Service. No `allowed_destination_addresses`/`destination_address`:
       // sign-in codes go to arbitrary users. Needs matilde.page onboarded for Email Sending.
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["sign-in@matilde.page"] }],
-      "triggers": { "crons": ["17 3 * * *"] }
+      "triggers": { "crons": ["*/15 * * * *"] }
     }
   }
 }

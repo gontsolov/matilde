@@ -8,3 +8,9 @@ export async function cleanupDirectory(env: Env, nowMs = Date.now()): Promise<vo
     env.DB.prepare("DELETE FROM sessions WHERE expires_at < ?").bind(nowMs),
   ]);
 }
+
+/** The cron fires every 15 minutes (feedback retries); directory cleanup runs once, at 03:15 UTC. */
+export function isDailyRun(scheduledTime: number): boolean {
+  const at = new Date(scheduledTime);
+  return at.getUTCHours() === 3 && at.getUTCMinutes() >= 15 && at.getUTCMinutes() < 30;
+}

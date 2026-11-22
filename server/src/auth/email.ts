@@ -15,7 +15,7 @@ export const EMAIL_LIMITS = {
   verifyPerIpHour: 60,
 } as const;
 
-const EMAIL_RE = /^[^\s@<>()",;:\\[\]]+@[^\s@<>()",;:\\[\]]+\.[^\s@<>()",;:\\[\]]+$/;
+export const EMAIL_RE = /^[^\s@<>()",;:\\[\]]+@[^\s@<>()",;:\\[\]]+\.[^\s@<>()",;:\\[\]]+$/;
 
 export function normalizeEmail(raw: unknown): string {
   if (typeof raw !== "string") throw new HttpError(400, "invalid_email");

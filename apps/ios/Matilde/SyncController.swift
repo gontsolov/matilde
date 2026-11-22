@@ -303,6 +303,13 @@ final class SyncController {
     }
 
 
+    /// For feedback: an access token while signed in, so the issue can say "Signed in: yes"
+    /// (the server reads nothing else from it). Nil when signed out or the token can't be had.
+    func feedbackAccessToken() async -> String? {
+        guard phase == .ready else { return nil }
+        return try? await session.accessToken()
+    }
+
     func signOut() {
         let session = session
         let userId = ring?.userId

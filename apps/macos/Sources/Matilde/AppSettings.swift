@@ -28,6 +28,7 @@ struct AppSettingsView: View {
     @State private var hasKey = false
     @State private var keyError: String?
     @State private var removingKey = false
+    @State private var sendingFeedback = false
     private let keyStore = APIKeyStore()
 
     var body: some View {
@@ -37,6 +38,14 @@ struct AppSettingsView: View {
                     ForEach(AppAppearance.allCases) { mode in Text(mode.title).tag(mode.rawValue) }
                 }.pickerStyle(.segmented)
                 Section("App Icon") { AppIconPicker(selection: $appIcon) }
+                Section {
+                    LabeledContent {
+                        Button(FeedbackCopy.menuTitle) { sendingFeedback = true }
+                    } label: {
+                        Text("Feedback")
+                        Text(FeedbackCopy.promise)
+                    }
+                }
             }.formStyle(.grouped)
                 .tabItem { Label { Text("General") } icon: { MatildeIcon.settings.image(size: MatildeIcon.tabSize) } }
 
@@ -117,6 +126,7 @@ struct AppSettingsView: View {
         .onChange(of: appIcon) { _, value in AppIconChoice.resolved(value).apply() }
         .onChange(of: langdockURL) { _, _ in resetModels() }
         .onChange(of: langdockRegion) { _, _ in resetModels() }
+        .sheet(isPresented: $sendingFeedback) { FeedbackSheet() }
         .confirmationDialog("Remove the saved Langdock API key?", isPresented: $removingKey) {
             Button("Remove Key", role: .destructive) { perform { try keyStore.remove(); hasKey = false; key = ""; resetModels() } }
         }

@@ -64,6 +64,8 @@ struct MatildeApp: App {
             }
             CommandGroup(replacing: .help) {
                 Button("Welcome to Matilde") { model.showWelcomeDocument() }.disabled(model.workspace == nil)
+                Divider()
+                Button(FeedbackCopy.menuTitle) { FeedbackPresenter.shared.show() }
             }
         }
         Settings { AppSettingsView().scrollIndicators(.hidden) }
@@ -107,6 +109,7 @@ struct ContentView: View {
     @State private var dropFolder: String?
     @State private var sidebarKeyboard = SidebarKeyboardView()
     @State private var folderToTrash: String?
+    @ObservedObject private var feedback = FeedbackPresenter.shared
     private var sidebarFocused: Bool { sidebarKeyboard.window?.firstResponder === sidebarKeyboard }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var chrome = WindowChromeModel()
@@ -160,6 +163,7 @@ struct ContentView: View {
         .onChange(of: model.boardVisible) { _, _ in chrome.reveal() }
         .onChange(of: model.sidebar) { _, _ in chrome.reveal() }
         .sheet(item: $model.sheet) { kind in DocumentSheet(model: model, kind: kind).scrollIndicators(.hidden) }
+        .sheet(isPresented: $feedback.showing) { FeedbackSheet() }
         .alert("Matilde", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button("OK") { model.error = nil }
         } message: { Text(model.error ?? "") }
