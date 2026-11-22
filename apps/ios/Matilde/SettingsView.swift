@@ -12,12 +12,20 @@ struct SettingsView: View {
     /// went away with its row when the sync phase changed the rows (signed out → code → key),
     /// which closed the setup in the middle of the flow.
     @State private var settingUpSync = false
+    @State private var sendingFeedback = false
 
     var body: some View {
         NavigationStack {
             Form {
                 SyncSection(settingUp: $settingUpSync)
                 ConnectionsSection()
+                Section {
+                    Button("Send Feedback", systemImage: "bubble.left") { sendingFeedback = true }
+                } header: {
+                    Text("Feedback")
+                } footer: {
+                    Text(FeedbackCopy.promise)
+                }
                 Section("About") {
                     LabeledContent("Version", value: Self.version)
                     Link("matilde.page", destination: URL(string: "https://matilde.page")!)
@@ -32,6 +40,9 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .fullScreenCover(isPresented: $settingUpSync) {
                 SyncOnboardingView(phase: sync.setupPhase)
+            }
+            .sheet(isPresented: $sendingFeedback) {
+                FeedbackView()
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

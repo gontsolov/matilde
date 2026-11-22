@@ -284,7 +284,7 @@ struct SyncSetupSheet: View {
 
 // MARK: Steps
 
-private struct MacStepHeader: View {
+struct MacStepHeader: View {
     let title: String
     let text: String
 
@@ -547,7 +547,7 @@ private struct OneTimeCodeKeyField: NSViewRepresentable {
 
 /// Signing in, syncing, done: a centred symbol, title and line. `success` draws the tick in the
 /// accent and lets it spring in (a plain fade with Reduce Motion).
-private struct MacStatusStep: View {
+struct MacStatusStep: View {
     let icon: MatildeIcon
     let title: String
     let text: String

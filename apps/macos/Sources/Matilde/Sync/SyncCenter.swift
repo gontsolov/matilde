@@ -127,6 +127,13 @@ final class SyncCenter: ObservableObject {
         if on { Task { await resume() } } else { stopEngine(); phase = .off; status = "" }
     }
 
+    /// For feedback: an access token while signed in, so the issue can say "Signed in: yes"
+    /// (the server reads nothing else from it). Nil when signed out or the token can't be had.
+    func feedbackAccessToken() async -> String? {
+        guard enabled, phase == .ready else { return nil }
+        return try? await session.accessToken()
+    }
+
     func setServer(_ server: SyncServer) {
         guard server != self.server else { return }
         stopEngine()
