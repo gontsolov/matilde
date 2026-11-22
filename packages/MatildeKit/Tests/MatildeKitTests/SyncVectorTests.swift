@@ -26,6 +26,8 @@ final class SyncVectorTests: XCTestCase {
         var slots: [Slot]
         var blobs: [Blob]
         var recoveryCodes: [Code]
+        struct MatildeKey: Decodable { var entropy: String; var words: String; var secret: String }
+        var matildeKeys: [MatildeKey]
     }
 
     private func load() throws -> Vectors {
@@ -130,6 +132,15 @@ final class SyncVectorTests: XCTestCase {
             let recovery = try SyncRecoveryKey(bytes: bytes(vector.key))
             XCTAssertEqual(recovery.code, vector.code)
             XCTAssertEqual(try SyncRecoveryKey(code: vector.code), recovery)
+        }
+    }
+
+    func testMatildeKeys() throws {
+        for vector in try load().matildeKeys {
+            let key = try SyncRecoveryKey(entropy: bytes(vector.entropy))
+            XCTAssertEqual(key.code, vector.words)
+            XCTAssertEqual(key.key.syncBytes.base64EncodedString(), vector.secret)
+            XCTAssertEqual(try SyncRecoveryKey(code: vector.words), key)
         }
     }
 }

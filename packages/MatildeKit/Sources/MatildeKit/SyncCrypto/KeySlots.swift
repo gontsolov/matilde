@@ -13,7 +13,9 @@ import Crypto
 // fields("matilde/v1/slot", userId, slotId, kind, keyId).
 //
 // Kinds:
-// - `recovery`: secret = the recovery key; plaintext = the 32-byte account key.
+// - `recovery`: secret = the Matilde key's slot secret (`SyncRecoveryKey.key`); plaintext = the 32-byte
+//   account key. `params` is `"matilde-key/words-v1"` for a 12-word key and null for a legacy `MTLD-` key.
+//   It is only a hint for the UI (it isn't authenticated); unwrapping never depends on it.
 // - `previous-keys`: secret = the current account key; plaintext = older epochs still needed after a
 //   rotation, each `keyId(2, big-endian) | key(32)`. Lets a new device read records that have not been
 //   re-encrypted yet. Absent when there are none.
@@ -21,6 +23,28 @@ import Crypto
 public enum SyncKeySlotKind {
     public static let recovery = "recovery"
     public static let previousKeys = "previous-keys"
+}
+
+/// The recovery slot's `params` hint for the Matilde key's format.
+public enum SyncRecoverySlotParams {
+    public static let words = "matilde-key/words-v1"
+
+    public static func params(for format: SyncRecoveryKey.Format) -> String? {
+        format == .words ? words : nil
+    }
+}
+
+extension SyncKeysResponse {
+    /// The format of the Matilde key that opens the current recovery slot, from the slot's
+    /// unauthenticated `params` hint: `.words` when it says so, `.legacy` for slots without one
+    /// (made by 0.2.x), nil when there is no recovery slot. For choosing what the Enter step shows
+    /// first; both formats are always accepted.
+    public var recoveryKeyFormat: SyncRecoveryKey.Format? {
+        guard let keyId else { return nil }
+        let slots = slots.filter { $0.kind == SyncKeySlotKind.recovery && $0.keyId == keyId }
+        guard !slots.isEmpty else { return nil }
+        return slots.contains { $0.params == SyncRecoverySlotParams.words } ? .words : .legacy
+    }
 }
 
 /// A slot as returned by `GET /v1/keys`.
@@ -156,7 +180,7 @@ public enum SyncKeyWrap {
 
 /// Builds and reads the server's key material. Pure: no networking, no Keychain. The caller sends
 /// `request` to `PUT /v1/keys` and, only after the server accepted it, stores `ring` in the Keychain
-/// (and shows a new recovery key once). On `409 key_conflict` it fetches `GET /v1/keys` and recovers instead.
+/// (and shows a new Matilde key once). On `409 key_conflict` it fetches `GET /v1/keys` and recovers instead.
 public enum SyncKeyEnrollment {
     public struct Result {
         public let ring: AccountKeyRing
@@ -249,7 +273,8 @@ public enum SyncKeyEnrollment {
         let slotId = UUID().uuidString.lowercased()
         let wrapped = try SyncKeyWrap.wrap(ring.current.key.syncBytes, secret: recovery.key, userId: ring.userId, slotId: slotId,
                                            kind: SyncKeySlotKind.recovery, keyId: ring.current.id)
-        var slots = [SyncPutKeysRequest.Slot(slotId: slotId, kind: SyncKeySlotKind.recovery, params: nil, wrappedKey: wrapped.base64EncodedString())]
+        var slots = [SyncPutKeysRequest.Slot(slotId: slotId, kind: SyncKeySlotKind.recovery,
+                                             params: SyncRecoverySlotParams.params(for: recovery.format), wrappedKey: wrapped.base64EncodedString())]
         if let previous = try previousKeysSlot(ring: ring) { slots.append(previous) }
         return SyncPutKeysRequest(expectedKeyId: expectedKeyId, keyId: ring.current.id, keyCheck: ring.current.check.base64EncodedString(), slots: slots)
     }

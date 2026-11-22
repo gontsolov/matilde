@@ -98,6 +98,22 @@ def recovery_code(key: bytes) -> str:
     return "-".join(["MTLD"] + [chars[i:i + 4] for i in range(0, 52, 4)])
 
 
+WORDLIST = os.path.join(os.path.dirname(__file__), "..", "packages", "MatildeKit", "Wordlists", "bip39-english.txt")
+
+
+def matilde_key_words(entropy: bytes) -> list:
+    """BIP-0039 English words for 16 bytes of entropy (128 bits + 4 checksum bits)."""
+    with open(WORDLIST) as handle:
+        words = handle.read().split("\n")[:-1]
+    bits = "".join(f"{b:08b}" for b in entropy) + f"{hashlib.sha256(entropy).digest()[0]:08b}"[:4]
+    return [words[int(bits[i:i + 11], 2)] for i in range(0, 132, 11)]
+
+
+def matilde_key_secret(entropy: bytes) -> bytes:
+    """The recovery slot secret for a 12-word Matilde key."""
+    return hkdf(entropy, b"matilde/matilde-key/v1", "matilde/matilde-key/v1/slot-secret")
+
+
 def main():
     user_id = "6f1c2d3e-4a5b-4c6d-8e7f-90a1b2c3d4e5"
     ak1, ak2 = seed("ak1", 32), seed("ak2", 32)
@@ -113,6 +129,7 @@ def main():
         "slots": [],
         "blobs": [],
         "recoveryCodes": [],
+        "matildeKeys": [],
     }
     for index, (key_id, ak, rtype, hlc, text) in enumerate([
         (1, ak1, 2, "1763500000000.00042.0b3c1d2e-3f40-4a51-8b62-7c83d94ea5f6", "# Letter\n\nDear Anna, ünïcødé ✍️"),
@@ -153,6 +170,9 @@ def main():
                                  "blob": b64(blob(key, blob_id, plaintext, chunk, prefix))})
     for key in (recovery, bytes(32), b"\xff" * 32):
         vectors["recoveryCodes"].append({"key": b64(key), "code": recovery_code(key)})
+    for entropy in (seed("matilde-key", 16), bytes(16), b"\x7f" * 16, b"\xff" * 16):
+        vectors["matildeKeys"].append({"entropy": b64(entropy), "words": " ".join(matilde_key_words(entropy)),
+                                       "secret": b64(matilde_key_secret(entropy))})
     path = os.path.join(os.path.dirname(__file__), "..", "docs", "sync-vectors", "v1.json")
     with open(path, "w") as handle:
         json.dump(vectors, handle, indent=2, ensure_ascii=False)

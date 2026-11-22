@@ -185,5 +185,27 @@
       "key": "//////////////////////////////////////////8=",
       "code": "MTLD-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZT"
     }
+  ],
+  "matildeKeys": [
+    {
+      "entropy": "ac74G803Eqk4BZvpDKAWpQ==",
+      "words": "hawk jelly alone omit illness fee theme recall trouble govern aisle enhance",
+      "secret": "9uznj8e8rYjt2HEGXnpRUtC/qdnrUhu/9RZseQNVdn0="
+    },
+    {
+      "entropy": "AAAAAAAAAAAAAAAAAAAAAA==",
+      "words": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "secret": "BKixIpH2div3GCR74aGUlEuF6Dh1eOBr0sPNmvm8lJs="
+    },
+    {
+      "entropy": "f39/f39/f39/f39/f39/fw==",
+      "words": "legal winner thank year wave sausage worth useful legal winner thank yellow",
+      "secret": "RcyhWcuhsRBbIgjL82+FfgU9gcJKTuKatsJUlNTDm80="
+    },
+    {
+      "entropy": "/////////////////////w==",
+      "words": "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong",
+      "secret": "GLWVcqSfq3/5z+SmgJQwG/wt1iur2lU9OiXXZV7ReSs="
+    }
   ]
 }
