@@ -3,7 +3,7 @@ import UIKit
 import MatildeKit
 
 /// The guided "Sync your notes" flow (a full-screen sheet, one step per screen): intro → email →
-/// code → save or enter the recovery key → first sync → done. The steps come from
+/// code → save or enter the Matilde key → first sync → done. The steps come from
 /// `SyncOnboardingFlow` in MatildeKit, the words from `SyncOnboardingCopy`; the work stays in
 /// `SyncController`.
 struct SyncOnboardingView: View {
@@ -270,8 +270,7 @@ private struct CodeStep: View {
                 ZStack {
                     // The real field: invisible, takes typing, paste and the code from Mail.
                     TextField("", text: $code)
-                        .textContentType(.oneTimeCode)
-                        .keyboardType(.numberPad)
+                                .keyboardType(.numberPad)
                         .focused($focused)
                         .foregroundStyle(.clear)
                         .tint(.clear)
@@ -424,23 +423,51 @@ private struct SaveKeyStep: View {
         .onDisappear(perform: removeFile)
     }
 
+    /// The key as a card: "Your Matilde key" over its 12 numbered words in two columns (1–6, 7–12),
+    /// or a legacy key's groups of four.
     private var keyGrid: some View {
-        let groups = RecoveryKeyInput.groups(code)
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
-            ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
-                Text(group)
-                    .font(.system(size: 19, weight: .medium, design: .monospaced))
+        let words = SyncRecoveryKey.format(of: code) == .words ? MatildeKeyPhrase.letterRuns(code) : []
+        let half = (words.count + 1) / 2
+        return VStack(alignment: .leading, spacing: 14) {
+            Label(SyncOnboardingCopy.keyCardTitle, systemImage: "key")
+                .font(Paper.body(17, relativeTo: .headline).weight(.semibold))
+                .foregroundStyle(Paper.accent)
+            if words.isEmpty {
+                Text(RecoveryKeyInput.groups(code).joined(separator: "-"))
+                    .font(.system(size: 18, weight: .medium, design: .monospaced))
                     .foregroundStyle(Paper.ink)
+            } else {
+                HStack(alignment: .top, spacing: 16) {
+                    wordColumn(words, range: 0..<half)
+                    wordColumn(words, range: half..<words.count)
+                }
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .background(Paper.sidebar, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Paper.muted.opacity(0.25)))
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Paper.elevated, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Paper.accent.opacity(0.3)))
         .textSelection(.enabled)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Recovery key")
-        .accessibilityValue(groups.joined(separator: ", "))
+        .accessibilityLabel(SyncOnboardingCopy.keyCardTitle)
+        .accessibilityValue(words.isEmpty ? RecoveryKeyInput.groups(code).joined(separator: ", ") : words.joined(separator: ", "))
+    }
+
+    private func wordColumn(_ words: [String], range: Range<Int>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(range), id: \.self) { index in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("\(index + 1)")
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Paper.muted)
+                        .frame(width: 20, alignment: .trailing)
+                    Text(words[index])
+                        .font(Paper.body(20))
+                        .foregroundStyle(Paper.ink)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// The key as a text file for "Save to Files", in a private temporary folder; removed again
@@ -467,43 +494,42 @@ private struct SaveKeyStep: View {
 private struct EnterKeyStep: View {
     @Environment(SyncController.self) private var sync
     let failures: Int
+    /// The old long key (accounts made before Matilde keys), typed into one field.
+    @State private var legacy = false
     @State private var key = ""
+    @State private var editor = MatildeKeyWordsEditor()
     @State private var shakes: CGFloat = 0
     @State private var filledFromICloud = false
     @FocusState private var focused: Bool
+    @FocusState private var slot: Int?
+
+    private var state: RecoveryKeyInput.State { legacy ? RecoveryKeyInput.state(of: key) : editor.state }
+    private var code: String { legacy ? RecoveryKeyInput.normalize(key) : editor.phrase }
 
     var body: some View {
-        let state = RecoveryKeyInput.state(of: key)
-        StepLayout(symbol: "key", title: SyncOnboardingCopy.enterKeyTitle, text: SyncOnboardingCopy.enterKeyText) {
+        StepLayout(symbol: "key", title: SyncOnboardingCopy.enterKeyTitle,
+                   text: legacy ? SyncOnboardingCopy.enterLegacyKeyText : SyncOnboardingCopy.enterKeyText) {
             VStack(alignment: .leading, spacing: 10) {
-                TextField("MTLD-XXXX-XXXX-…", text: $key, axis: .vertical)
-                    .font(.system(size: 19, weight: .medium, design: .monospaced))
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-                    .focused($focused)
-                    .lineLimit(2...4)
-                    .padding(.vertical, 14)
-                    .padding(.horizontal, 16)
-                    .background(Paper.sidebar, in: RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(state == .valid ? Paper.accent : Paper.muted.opacity(0.25)))
-                    .modifier(Shake(shakes: shakes))
                 Group {
-                    if let message = RecoveryKeyInput.message(for: state) {
-                        Text(message).foregroundStyle(.red)
-                    } else if case .incomplete(let remaining) = state {
-                        Text("\(remaining) characters to go").foregroundStyle(Paper.muted)
-                    } else if state == .valid {
-                        Label(filledFromICloud ? SyncOnboardingCopy.filledFromICloud : "Looks right",
-                              systemImage: filledFromICloud ? "key.icloud" : "checkmark.circle")
-                            .foregroundStyle(Paper.accent)
-                    }
+                    if legacy { legacyField(state) } else { wordSlots }
                 }
-                .font(.callout)
-                .contentTransition(.numericText())
+                .modifier(Shake(shakes: shakes))
+                if !legacy, let slot, !editor.suggestions(slot).isEmpty {
+                    suggestions(for: slot)
+                }
+                status(state)
+                    .font(.callout)
+                    .contentTransition(.numericText())
+                Button(legacy ? SyncOnboardingCopy.useWords : SyncOnboardingCopy.useLegacyKey) {
+                    legacy.toggle()
+                    if legacy { focused = true } else { slot = firstEmptySlot }
+                }
+                .font(.footnote)
+                .tint(Paper.accent)
                 StepMessage()
             }
         } actions: {
-            Button(action: { sync.recover(code: RecoveryKeyInput.normalize(key)) }) {
+            Button(action: { sync.recover(code: code) }) {
                 if sync.busy { ProgressView().tint(Brand.buttonInk) } else { Text("Unlock") }
             }
             .buttonStyle(.matildePrimary)
@@ -511,11 +537,20 @@ private struct EnterKeyStep: View {
             Button("Use a Different Email", role: .destructive) { sync.signOut() }
                 .buttonStyle(.matildeSecondary)
         }
-        .onAppear { focused = true }
+        .onAppear {
+            legacy = sync.recoveryKeyFormat == .legacy
+            if legacy { focused = true } else { slot = 0 }
+        }
         .task {
-            // A copy another device kept in iCloud Keychain fills the field; the user still taps Unlock.
-            guard key.isEmpty, let stored = await sync.storedRecoveryKey() else { return }
-            key = RecoveryKeyInput.formatted(stored)
+            // A copy another device kept in iCloud Keychain fills the key in; the user still taps Unlock.
+            guard key.isEmpty, editor.state == .empty, let stored = await sync.storedRecoveryKey() else { return }
+            if RecoveryKeyInput.format(of: stored) == .words {
+                editor = MatildeKeyWordsEditor(stored)
+                legacy = false
+            } else {
+                key = RecoveryKeyInput.formatted(stored)
+                legacy = true
+            }
             filledFromICloud = true
         }
         .onChange(of: key) { _, new in
@@ -526,6 +561,104 @@ private struct EnterKeyStep: View {
             }
         }
         .onChange(of: failures) { _, _ in withAnimation(.linear(duration: 0.45)) { shakes += 1 } }
+    }
+
+    private var firstEmptySlot: Int { editor.words.firstIndex(where: \.isEmpty) ?? 0 }
+
+    /// 12 numbered word fields in two columns (1–6, 7–12). Pasting the whole key into any of
+    /// them fills them all.
+    private var wordSlots: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(spacing: 8) { ForEach(0..<6, id: \.self, content: wordField) }
+            VStack(spacing: 8) { ForEach(6..<12, id: \.self, content: wordField) }
+        }
+    }
+
+    private func wordField(_ index: Int) -> some View {
+        let unknown = editor.isUnknown(index)
+        let binding = Binding<String>(
+            get: { editor.words[index] },
+            set: { text in
+                let next = editor.set(text, at: index)
+                filledFromICloud = false
+                if next != index { slot = next }
+            })
+        return HStack(spacing: 6) {
+            Text("\(index + 1)")
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(Paper.muted)
+                .frame(width: 18, alignment: .trailing)
+            TextField("", text: binding)
+                .font(Paper.body(18))
+                .foregroundStyle(unknown ? .red : Paper.ink)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.asciiCapable)
+                .submitLabel(index == 11 ? .done : .next)
+                .focused($slot, equals: index)
+                .onSubmit {
+                    if let word = editor.suggestions(index, limit: 1).first, editor.suggestions(index, limit: 2).count == 1 {
+                        slot = editor.complete(index, with: word)
+                    } else if index < 11 {
+                        slot = index + 1
+                    }
+                }
+        }
+        .padding(.vertical, 9)
+        .padding(.horizontal, 10)
+        .background(Paper.sidebar, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10)
+            .strokeBorder(unknown ? Color.red.opacity(0.7) : slot == index ? Paper.accent : Paper.muted.opacity(0.25)))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Word \(index + 1)")
+        .accessibilityHint(unknown ? "Not one of the Matilde key words" : "")
+    }
+
+    private func suggestions(for index: Int) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(editor.suggestions(index), id: \.self) { word in
+                    Button(word) { slot = editor.complete(index, with: word) }
+                        .buttonStyle(.bordered)
+                        .tint(Paper.accent)
+                }
+            }
+        }
+        .accessibilityLabel("Suggestions")
+    }
+
+    private func legacyField(_ state: RecoveryKeyInput.State) -> some View {
+        TextField("MTLD-XXXX-XXXX-…", text: $key, axis: .vertical)
+            .font(.system(size: 19, weight: .medium, design: .monospaced))
+            .textInputAutocapitalization(.characters)
+            .autocorrectionDisabled()
+            .focused($focused)
+            .lineLimit(2...4)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .background(Paper.sidebar, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(state == .valid ? Paper.accent : Paper.muted.opacity(0.25)))
+    }
+
+    @ViewBuilder private func status(_ state: RecoveryKeyInput.State) -> some View {
+        let stillTyping: Bool = {
+            // The last word is the start of a list word: not wrong yet.
+            if case .unknownWord = state, !legacy { return !(0..<12).contains(where: editor.isUnknown) }
+            return false
+        }()
+        if stillTyping {
+            Text("Finish the last word").foregroundStyle(Paper.muted)
+        } else if let message = RecoveryKeyInput.message(for: state) {
+            Text(message).foregroundStyle(.red)
+        } else if case .incomplete(let remaining) = state {
+            Text("\(remaining) characters to go").foregroundStyle(Paper.muted)
+        } else if case .incompleteWords(let remaining) = state {
+            Text(remaining == 1 ? "1 word to go" : "\(remaining) words to go").foregroundStyle(Paper.muted)
+        } else if state == .valid {
+            Label(filledFromICloud ? SyncOnboardingCopy.filledFromICloud : "Looks right",
+                  systemImage: filledFromICloud ? "key.icloud" : "checkmark.circle")
+                .foregroundStyle(Paper.accent)
+        }
     }
 }
 

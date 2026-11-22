@@ -89,7 +89,7 @@ private struct SyncSection: View {
         .confirmationDialog("Sign out of sync on this iPhone?", isPresented: $signingOut, titleVisibility: .visible) {
             Button("Sign Out", role: .destructive) { sync.signOut() }
         } message: {
-            Text("Your notes stay on this iPhone. To sync again you’ll need your email and, if another device made your account, your recovery key.")
+            Text("Your notes stay on this iPhone. To sync again you’ll need your email and, if another device made your account, your Matilde key.")
         }
         if sync.phase == .ready, !sync.devices.isEmpty {
             Section("Signed-in Devices") {

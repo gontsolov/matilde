@@ -151,6 +151,6 @@ struct SyncControllerTests {
 
     @Test func friendlyMessages() {
         #expect(SyncController.message(for: URLError(.notConnectedToInternet)) == "You’re offline.")
-        #expect(SyncController.message(for: SyncCryptoError.invalidRecoveryCode) == "That recovery key doesn’t look right.")
+        #expect(SyncController.message(for: SyncCryptoError.invalidRecoveryCode) == "That Matilde key doesn’t look right.")
     }
 }

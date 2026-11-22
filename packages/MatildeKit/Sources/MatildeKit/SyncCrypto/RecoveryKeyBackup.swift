@@ -83,7 +83,7 @@ public struct ICloudRecoveryKeyBackup: RecoveryKeyBackup {
         guard status == errSecItemNotFound else { return false }
         var item = base.merging(changes) { _, new in new }
         item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        item[kSecAttrLabel as String] = "Matilde — sync recovery key"
+        item[kSecAttrLabel as String] = "Matilde — Matilde key"
         return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
     }
 
