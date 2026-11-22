@@ -408,7 +408,7 @@ public enum RecoveryKeyDocument {
         lines.append(contentsOf: [
             "",
             "You need this key to add another device to your Matilde sync account.",
-            "Keep it somewhere safe, such as a password manager. Nobody else can read your notes without it, not even us."
+            "Keep it somewhere safe, such as a password manager. No one else can read your notes without it."
         ])
         if let email { lines.append(contentsOf: ["", "Account: \(email)"]) }
         lines.append("Saved: \(date.formatted(date: .long, time: .omitted))")
