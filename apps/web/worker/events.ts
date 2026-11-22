@@ -21,7 +21,7 @@ const BOT_RE = /bot|crawl|spider|slurp|preview|facebookexternalhit|curl|wget|pyt
 
 /**
  * The coarse facts of an update check. Sparkle sends "Matilde/<version> Sparkle/<version>";
- * the app (from the release after 0.3.1) appends "macOS/<major>". Anything else is "other".
+ * the app (from the release after 0.3.2) appends "macOS/<major>". Anything else is "other".
  */
 export function parseUpdateCheck(userAgent: string | null): { version: string; os: string } {
   const ua = userAgent ?? "";

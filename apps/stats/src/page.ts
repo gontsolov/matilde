@@ -113,7 +113,7 @@ export function renderPage(data: PageData): string {
     const fullWeek = perDay.slice(-8, -1);
     const estimate = fullWeek.reduce((a, b) => a + b, 0) / Math.max(1, fullWeek.length);
     const versions = tally(checks, "version", week).sort((a, b) => versionSort(a[0], b[0]));
-    const systems = tally(checks, "os", week).map(([os, n]) => [os === "unknown" ? "unknown (0.3.1 and older)" : `macOS ${os}`, n] as [string, number]);
+    const systems = tally(checks, "os", week).map(([os, n]) => [os === "unknown" ? "unknown (0.3.2 and older)" : `macOS ${os}`, n] as [string, number]);
     parts.push(
       `<div class="grid">`,
       metric("Update checks per day", "Requests for matilde.page/appcast.xml. Matilde looks for updates about once a day while it runs, and again when someone chooses Check for Updates.", perDay, days),

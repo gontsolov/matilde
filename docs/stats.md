@@ -33,11 +33,11 @@ agents, no content. Every number is a sum.
   at launch when a day has passed), plus every Check for Updates. A Mac that stays closed isn't
   counted; one that checks manually several times counts more than once. Treat "Macs a day" as a
   rough figure.
-- **Old installs use the old feed.** Versions up to 0.3.1 have
+- **Old installs use the old feed.** Versions up to 0.3.2 have
   `https://github.com/gontsolov/matilde/releases/latest/download/appcast.xml` built in and keep asking
   GitHub directly until they install an update; only then do they use `matilde.page/appcast.xml`. Their
   checks show up as the `appcast.xml` column in the GitHub table (all-time per release), not in the
-  daily chart. The macOS column says "unknown" for versions that don't send it (0.3.1 and older,
+  daily chart. The macOS column says "unknown" for versions that don't send it (0.3.2 and older,
   which only reach matilde.page if someone points them there).
 - **Analytics Engine keeps three months.** The daily charts cover 30 days, so that's enough; there is
   no all-time total of /download clicks. At very high volume Analytics Engine samples; the page
@@ -63,7 +63,7 @@ agents, no content. Every number is a sum.
   point each (`blobs: [event, version, os]`) and redirect with `Cache-Control: no-store`. HEAD requests
   aren't counted. The Download buttons on the site link to `/download`.
 - The Mac app's feed is `https://matilde.page/appcast.xml` (`apps/macos/Config/release.json`, from the
-  release after 0.3.1) and its Sparkle user agent ends in `macOS/<major>`. The redirect hands Sparkle
+  release after 0.3.2) and its Sparkle user agent ends in `macOS/<major>`. The redirect hands Sparkle
   the signed file from GitHub byte for byte; the feed signature and the DMG's EdDSA signature are
   checked exactly as before (`SURequireSignedFeed`, `SUVerifyUpdateBeforeExtraction`).
 - `server/` (sync server): migration `0004_stats.sql` adds `stats_totals` and `stats_daily`. The cron
