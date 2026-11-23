@@ -189,9 +189,12 @@ extension Workspace {
             try db.execute("ALTER TABLE user_comments ADD COLUMN author TEXT")
         }
     }
-    public func userComments(draftID: String) throws -> [UserComment] {
+    public func userComments(draftID: String) throws -> [UserComment] { try userComments(draftID: draftID, archived: false) }
+    /// Comments the writer archived: hidden everywhere, but a review still knows about them (AI-19).
+    public func archivedUserComments(draftID: String) throws -> [UserComment] { try userComments(draftID: draftID, archived: true) }
+    private func userComments(draftID: String, archived: Bool) throws -> [UserComment] {
         try ensureUserComments()
-        return try db.execute("SELECT * FROM user_comments WHERE draft_id = ? AND archived = 0 ORDER BY location, created", [draftID]).compactMap { row in
+        return try db.execute("SELECT * FROM user_comments WHERE draft_id = ? AND archived = \(archived ? 1 : 0) ORDER BY location, created", [draftID]).compactMap { row in
             guard let id = row["id"].flatMap(UUID.init(uuidString:)), let location = row["location"].flatMap({ Int($0) }),
                   let length = row["length"].flatMap({ Int($0) }), location >= 0, length >= 0 else { return nil }
             return UserComment(id: id, draftID: draftID, text: row["body"] ?? "", location: location, length: length,

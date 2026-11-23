@@ -256,7 +256,7 @@ export const TOOLS: Tool[] = [
     name: "add_comment",
     title: "Comment on a note",
     description:
-      "Add a private comment to a passage of a Matilde note, shown in the margin in the user's apps with your name. `quote` must be copied exactly from the note's text and occur only once in it (include a few more words if needed).",
+      "Add a private comment to a passage of a Matilde note, shown in the margin in the user's apps with your name. `quote` must be copied exactly from the note's text and occur only once in it (include a few more words if needed). Check the comments read_note returns first and don't repeat a point that is already there; adding the same comment on the same passage again changes nothing.",
     scope: "notes:comment",
     write: true,
     inputSchema: {
@@ -282,6 +282,10 @@ export const TOOLS: Tool[] = [
       if (found.length === 0) throw new ToolError("quote_not_found", "quote does not occur in the note. Copy it exactly from read_note.");
       if (found.length > 1) throw new ToolError("quote_ambiguous", "quote occurs more than once. Include a few more words so it is unique.");
       const location = found[0]!;
+      // The same comment on the same passage (also one the user archived) is not added twice.
+      const same = (a: string, b: string) => a.trim().replace(/\s+/g, " ").toLowerCase() === b.trim().replace(/\s+/g, " ").toLowerCase();
+      const duplicate = (await notes.comments(id)).find((c) => same(c.quote, quote) && same(c.body, comment));
+      if (duplicate) return { ok: true, commentId: duplicate.id, alreadyThere: true };
       const anchor = anchorContext(body.text, location, quote.length);
       const commentId = crypto.randomUUID();
       const hlc = notes.nextHlc(null, ctx.nowMs);
@@ -300,7 +304,7 @@ export const TOOLS: Tool[] = [
       });
       const result = await notes.push([change], ctx.nowMs);
       if (result.rejected.length) throw new ToolError("write_failed", "The comment could not be saved. Try again.");
-      return { ok: true, commentId };
+      return { ok: true, commentId, alreadyThere: false };
     },
   },
   {
