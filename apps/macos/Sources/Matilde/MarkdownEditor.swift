@@ -735,7 +735,11 @@ final class WritingTextView: NSTextView {
     }
     override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
         guard dividerRange(at: selectedRange().location) == nil else { return }
-        super.drawInsertionPoint(in: alignedCaretRect(rect), color: color, turnedOn: flag)
+        let aligned = alignedCaretRect(rect)
+        super.drawInsertionPoint(in: aligned, color: color, turnedOn: flag)
+        // AppKit erases a blinking-off caret only within its own rect; the aligned caret can
+        // reach a pixel or two past it, which used to leave a dot behind on every blink.
+        if !flag { setNeedsDisplay(aligned.union(rect).insetBy(dx: -1, dy: -1), avoidAdditionalLayout: true) }
     }
 
     override func deleteBackward(_ sender: Any?) {
@@ -746,6 +750,67 @@ final class WritingTextView: NSTextView {
         } else {
             super.deleteBackward(sender)
         }
+    }
+
+    override func deleteToBeginningOfLine(_ sender: Any?) {
+        if let edit = markdownDeletion(lineStart: true) { applyMarkdownEdit(edit) } else { super.deleteToBeginningOfLine(sender) }
+    }
+
+    override func deleteWordBackward(_ sender: Any?) {
+        if let edit = markdownDeletion(lineStart: false) { applyMarkdownEdit(edit) } else { super.deleteWordBackward(sender) }
+    }
+
+    /// ⌘⌫ and ⌥⌫ around block markers (EDIT-31). They stop at the start of a heading's,
+    /// list item's or quote's text instead of eating its hidden marker, so ⌘⌫ in an item keeps
+    /// the bullet, and pressed again at the start of the text they act like Backspace (the
+    /// marker goes or the item moves out). Emptying a heading this way removes its `#` too, so
+    /// nothing hidden is left to turn the next words into a heading. `nil`: AppKit's own
+    /// behaviour applies (no marker on the line, a selection, code, or a wrapped line further down).
+    func markdownDeletion(lineStart: Bool) -> MarkdownEdit? {
+        let selection = selectedRange()
+        guard !hasMarkedText(), selection.length == 0, selection.location != NSNotFound,
+              let storage = textStorage else { return nil }
+        let source = string as NSString
+        let caret = selection.location
+        let line = source.lineRange(for: NSRange(location: caret, length: 0))
+        // At the very start of a line (an empty line included) both act like Backspace, as in
+        // other Mac editors: the line break goes and the caret joins the line above.
+        if caret == line.location, caret > 0 {
+            if storage.attribute(.codeBlock, at: caret - 1, effectiveRange: nil) == nil,
+               let edit = MarkdownEditing.deleteBackward(in: string, selection: selection, options: .concealed) { return edit }
+            return MarkdownEdit(range: NSRange(location: caret - 1, length: 1), replacement: "", selection: NSRange(location: caret - 1, length: 0))
+        }
+        guard line.location < source.length,
+              storage.attribute(.codeBlock, at: line.location, effectiveRange: nil) == nil else { return nil }
+        let content = source.substring(with: line).trimmingCharacters(in: .newlines)
+        let prefix = MarkdownLinePrefix.parse(content)
+        guard prefix.length > 0 else { return nil }
+        let contentStart = line.location + prefix.length
+        guard caret >= contentStart else { return nil }
+        if caret == contentStart {
+            return MarkdownEditing.deleteBackward(in: string, selection: selection, options: .concealed)
+        }
+        var target: Int
+        if lineStart {
+            // The visual line: on a wrapped paragraph, ⌘⌫ only clears the fragment the caret is on.
+            target = line.location
+            if let layoutManager {
+                let glyph = layoutManager.glyphIndexForCharacter(at: max(line.location, caret - 1))
+                var fragment = NSRange()
+                layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: &fragment)
+                target = layoutManager.characterRange(forGlyphRange: fragment, actualGlyphRange: nil).location
+            }
+            guard target <= contentStart else { return nil }
+        } else {
+            target = storage.nextWord(from: caret, forward: false)
+        }
+        target = max(target, contentStart)
+        var range = NSRange(location: target, length: caret - target)
+        let lineEnd = line.location + (content as NSString).length
+        if case .heading = prefix.kind, target == contentStart, caret == lineEnd {
+            range = NSRange(location: line.location, length: caret - line.location)
+        }
+        return MarkdownEdit(range: range, replacement: "", selection: NSRange(location: range.location, length: 0))
     }
 
     override func deleteForward(_ sender: Any?) {
@@ -1161,7 +1226,11 @@ struct MarkdownEditor: NSViewRepresentable {
                 let character = charIndexes[index]
                 guard character < storage.length else { continue }
                 if storage.attribute(.concealed, at: character, effectiveRange: nil) != nil {
-                    properties[index] = .null
+                    // Hidden Markdown is laid out as zero-width control characters, not null
+                    // glyphs: a line that starts with null glyphs (a heading's `#`, a quote's `>`,
+                    // a nested item's indentation) makes AppKit drop the previous paragraph's
+                    // paragraphSpacing, collapsing the space above headings, quotes and nested items.
+                    properties[index] = .controlCharacter
                 } else if let replacement = storage.attribute(.replacement, at: character, effectiveRange: nil) as? String, var unicode = replacement.utf16.first {
                     var glyph: CGGlyph = 0
                     if CTFontGetGlyphsForCharacters(font as CTFont, &unicode, &glyph, 1) { replacements[index] = glyph }
@@ -1173,6 +1242,12 @@ struct MarkdownEditor: NSViewRepresentable {
                 }
             }
             return glyphRange.length
+        }
+        func layoutManager(_ layoutManager: NSLayoutManager, shouldUse action: NSLayoutManager.ControlCharacterAction, forControlCharacterAt charIndex: Int) -> NSLayoutManager.ControlCharacterAction {
+            guard let storage = layoutManager.textStorage, charIndex < storage.length,
+                  storage.attribute(.concealed, at: charIndex, effectiveRange: nil) != nil,
+                  (storage.string as NSString).character(at: charIndex) != 10 else { return action }
+            return .zeroAdvancement
         }
     }
 }
