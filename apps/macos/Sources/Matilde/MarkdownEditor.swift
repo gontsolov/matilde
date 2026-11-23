@@ -88,6 +88,8 @@ enum MarkdownStyler {
         var offset = 0
         var fence: String?
         var codeRanges: [NSRange] = []
+        // Nested list items are indented by their depth, not by however many spaces they use.
+        let listDepths = MarkdownEditing.listDepths(in: storage.string)
         for line in storage.string.components(separatedBy: "\n") {
             let length = (line as NSString).length
             let range = NSRange(location: offset, length: length)
@@ -133,19 +135,23 @@ enum MarkdownStyler {
                 // Match the rendered marker, not an arbitrary hanging indent.
                 // Replacement glyphs and concealed task syntax change its width.
                 let font = Paper.body(textSize)
-                let indentation = (line as NSString).substring(with: marker.range(at: 1))
+                let indentation = marker.range(at: 1)
+                let depth = CGFloat(listDepths[offset] ?? 0)
+                let nesting = depth * textSize * 1.4
+                if indentation.length > 0 { conceal(NSRange(location: offset, length: indentation.length), in: storage) }
                 let prefix: String
                 if first("^(\\s*)[-*+] \\[([ xX])\\] ", in: line) != nil {
                     let symbolFont = NSFont(name: "Apple Symbols", size: 23) ?? NSFont.systemFont(ofSize: 19)
                     let checked = first("^(\\s*)[-*+] \\[[xX]\\] ", in: line) != nil
-                    style.headIndent = (indentation as NSString).size(withAttributes: [.font: font]).width
+                    style.headIndent = nesting
                         + ((checked ? "☑" : "☐") as NSString).size(withAttributes: [.font: symbolFont]).width
                         + (" " as NSString).size(withAttributes: [.font: font]).width
                 } else {
                     prefix = first("^(\\s*)[-*+] ", in: line) != nil
-                        ? indentation + "• " : (line as NSString).substring(with: marker.range)
-                    style.headIndent = (prefix as NSString).size(withAttributes: [.font: font]).width
+                        ? "• " : (line as NSString).substring(with: marker.range(at: 2))
+                    style.headIndent = nesting + (prefix as NSString).size(withAttributes: [.font: font]).width
                 }
+                style.firstLineHeadIndent = nesting
             } else if first(EditorImage.linePattern, in: line) != nil {
                 // The image itself is laid out by styleImages, which keeps this spacing.
                 block = .image
@@ -351,7 +357,13 @@ final class WritingTextView: NSTextView {
     private var imageLayoutWidth: CGFloat = -1
 
     override func paste(_ sender: Any?) {
-        if !pasteMedia(from: .general) { super.paste(sender) }
+        if pasteMedia(from: .general) { return }
+        if !hasMarkedText(), let pasted = NSPasteboard.general.string(forType: .string),
+           let edit = MarkdownEditing.paste(pasted, in: string, selection: selectedRange()) {
+            applyMarkdownEdit(edit)
+            return
+        }
+        super.paste(sender)
     }
 
     override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
@@ -627,10 +639,84 @@ final class WritingTextView: NSTextView {
         scrollRangeToVisible(selectedRange())
     }
 
-    override func moveUp(_ sender: Any?) { super.moveUp(sender); skipDivider(forward: false) }
-    override func moveDown(_ sender: Any?) { super.moveDown(sender); skipDivider(forward: true) }
-    override func moveLeft(_ sender: Any?) { super.moveLeft(sender); skipDivider(forward: false) }
-    override func moveRight(_ sender: Any?) { super.moveRight(sender); skipDivider(forward: true) }
+    override func moveUp(_ sender: Any?) { super.moveUp(sender); skipDivider(forward: false); skipHiddenLineStart() }
+    override func moveDown(_ sender: Any?) { super.moveDown(sender); skipDivider(forward: true); skipHiddenLineStart() }
+    override func moveLeft(_ sender: Any?) {
+        guard selectedRange().length == 0 else { super.moveLeft(sender); return }
+        leaveConcealed(forward: false)
+        super.moveLeft(sender)
+        settleCaret(forward: false)
+        skipDivider(forward: false)
+    }
+    override func moveRight(_ sender: Any?) {
+        guard selectedRange().length == 0 else { super.moveRight(sender); return }
+        leaveConcealed(forward: true)
+        super.moveRight(sender)
+        settleCaret(forward: true)
+        skipDivider(forward: true)
+    }
+    override func moveToBeginningOfLine(_ sender: Any?) { super.moveToBeginningOfLine(sender); skipHiddenLineStart() }
+    override func moveToLeftEndOfLine(_ sender: Any?) { super.moveToLeftEndOfLine(sender); skipHiddenLineStart() }
+
+    // MARK: Hidden Markdown and the caret (EDIT-31)
+
+    func isConcealed(_ index: Int) -> Bool {
+        guard let storage = textStorage, index >= 0, index < storage.length,
+              (string as NSString).character(at: index) != 10 else { return false }
+        return storage.attribute(.concealed, at: index, effectiveRange: nil) != nil
+    }
+
+    /// Arrow keys never stop on positions the reader cannot see: hidden `**`, `#`, link
+    /// destinations or list indentation are stepped over, so every press moves the caret
+    /// visibly. Before the move, the caret leaves the hidden run it touches in that direction.
+    func leaveConcealed(forward: Bool) {
+        var position = selectedRange().location
+        let start = position
+        if forward { while isConcealed(position) { position += 1 } }
+        else { while position > 0, isConcealed(position - 1) { position -= 1 } }
+        if position != start { setSelectedRange(NSRange(location: position, length: 0)) }
+    }
+
+    /// After the move, a caret inside a hidden run goes to the run's edge in the direction of
+    /// travel; a caret at the start of a line with hidden marks goes after them.
+    func settleCaret(forward: Bool) {
+        guard selectedRange().length == 0 else { return }
+        var position = selectedRange().location
+        let start = position
+        guard isConcealed(position) else { return }
+        guard isConcealed(position - 1) else { skipHiddenLineStart(); return }
+        if forward { while isConcealed(position) { position += 1 } }
+        else { while position > 0, isConcealed(position - 1) { position -= 1 } }
+        if position != start { setSelectedRange(NSRange(location: position, length: 0)) }
+    }
+
+    /// A caret at the very start of a line whose first characters are hidden (a heading's `#`,
+    /// a quote's `>`, a nested item's indentation) moves to after them, where typing belongs.
+    func skipHiddenLineStart() {
+        guard selectedRange().length == 0 else { return }
+        let source = string as NSString
+        var position = selectedRange().location
+        guard position < source.length,
+              source.lineRange(for: NSRange(location: position, length: 0)).location == position,
+              textStorage?.attribute(.codeBlock, at: position, effectiveRange: nil) == nil else { return }
+        while isConcealed(position) { position += 1 }
+        // A fully hidden line (a code fence) keeps its caret where it was.
+        guard position != selectedRange().location, position < source.length, source.character(at: position) != 10 else { return }
+        setSelectedRange(NSRange(location: position, length: 0))
+    }
+
+    /// Applies one shared editing rule (MatildeKit's MarkdownEditing) as its own undo step.
+    func applyMarkdownEdit(_ edit: MarkdownEdit) {
+        breakUndoCoalescing()
+        if !edit.isSelectionOnly {
+            guard shouldChangeText(in: edit.range, replacementString: edit.replacement) else { return }
+            textStorage?.replaceCharacters(in: edit.range, with: edit.replacement)
+            didChangeText()
+        }
+        setSelectedRange(edit.selection)
+        scrollRangeToVisible(edit.selection)
+        breakUndoCoalescing()
+    }
 
     func alignedCaretRect(_ rect: NSRect) -> NSRect {
         guard let storage = textStorage, let layoutManager, storage.length > 0 else { return rect }
@@ -655,9 +741,40 @@ final class WritingTextView: NSTextView {
     override func deleteBackward(_ sender: Any?) {
         if selectedRange().length == 0, let range = dividerRange(at: selectedRange().location) {
             insertText("", replacementRange: range)
+        } else if !hasMarkedText(), let edit = MarkdownEditing.deleteBackward(in: string, selection: selectedRange(), options: .concealed) {
+            applyMarkdownEdit(edit)
         } else {
             super.deleteBackward(sender)
         }
+    }
+
+    override func deleteForward(_ sender: Any?) {
+        if !hasMarkedText(), let edit = MarkdownEditing.deleteForward(in: string, selection: selectedRange(), options: .concealed) {
+            applyMarkdownEdit(edit)
+        } else {
+            super.deleteForward(sender)
+        }
+    }
+
+    override func insertTab(_ sender: Any?) {
+        if !hasMarkedText(), let edit = MarkdownEditing.indent(in: string, selection: selectedRange()) {
+            applyMarkdownEdit(edit)
+        } else {
+            super.insertTab(sender)
+        }
+    }
+
+    override func insertBacktab(_ sender: Any?) {
+        if !hasMarkedText(), let edit = MarkdownEditing.outdent(in: string, selection: selectedRange()) {
+            applyMarkdownEdit(edit)
+        } else {
+            super.insertBacktab(sender)
+        }
+    }
+
+    override func insertLineBreak(_ sender: Any?) {
+        guard !hasMarkedText() else { super.insertLineBreak(sender); return }
+        applyMarkdownEdit(MarkdownEditing.insertLineBreak(in: string, selection: selectedRange()))
     }
 
     var onEscape: (() -> Void)?
@@ -688,20 +805,10 @@ final class WritingTextView: NSTextView {
                 }
             }
         }
-        if !hasMarkedText(), inserted == " ", range.length == 0, range.location <= (string as NSString).length {
-            let source = string as NSString
-            let line = source.lineRange(for: NSRange(location: range.location, length: 0))
-            let prefix = source.substring(with: NSRange(location: line.location, length: range.location - line.location))
-            if let match = MarkdownStyler.first("^( *|\\t*)\\[([ xX])\\]$", in: prefix) {
-                let styled = NSMutableAttributedString(string: string)
-                MarkdownStyler.style(styled)
-                if line.location >= styled.length || styled.attribute(.codeBlock, at: line.location, effectiveRange: nil) == nil {
-                    let indent = (prefix as NSString).substring(with: match.range(at: 1))
-                    let state = (prefix as NSString).substring(with: match.range(at: 2))
-                    super.insertText(indent + "- [" + state + "] ", replacementRange: NSRange(location: line.location, length: (prefix as NSString).length))
-                    return
-                }
-            }
+        if !hasMarkedText(), let inserted, inserted.count == 1, range == selectedRange(),
+           let edit = MarkdownEditing.insertText(inserted, in: string, selection: range, options: .concealed) {
+            applyMarkdownEdit(edit)
+            return
         }
         super.insertText(insertString, replacementRange: replacementRange)
     }
@@ -731,44 +838,17 @@ final class WritingTextView: NSTextView {
            selectedRange() == divider {
             setSelectedRange(NSRange(location: NSMaxRange(divider), length: 0))
         }
-        let source = string as NSString
-        let selection = selectedRange()
-        let lineRange = source.lineRange(for: NSRange(location: min(selection.location, source.length), length: 0))
-        let line = source.substring(with: lineRange).trimmingCharacters(in: .newlines)
-        var fence: String?
-        for previous in source.substring(to: lineRange.location).components(separatedBy: "\n") {
-            let trimmed = previous.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
-                let marker = String(trimmed.prefix(3))
-                if fence == nil { fence = marker } else if fence == marker { fence = nil }
-            }
+        if !hasMarkedText(), let edit = MarkdownEditing.insertNewline(in: string, selection: selectedRange()) {
+            applyMarkdownEdit(edit)
+        } else {
+            super.insertNewline(sender)
         }
-        guard fence == nil, !source.substring(with: selection).contains("\n") else {
-            super.insertNewline(sender); return
-        }
-        if let match = MarkdownStyler.first("^(\\s*)([-*+] \\[[ xX]\\] |[-*+] |[0-9]+[.)] |>{1} ?)", in: line) {
-            guard selection.location >= lineRange.location + match.range.length else {
-                super.insertNewline(sender); return
-            }
-            let prefix = (line as NSString).substring(with: match.range)
-            if line.trimmingCharacters(in: .whitespaces) == prefix.trimmingCharacters(in: .whitespaces) {
-                insertText("", replacementRange: NSRange(location: lineRange.location, length: match.range.length))
-                return
-            }
-            var next = prefix.replacingOccurrences(of: "[x]", with: "[ ]").replacingOccurrences(of: "[X]", with: "[ ]")
-            if let number = MarkdownStyler.first("[0-9]+", in: prefix), let value = Int((prefix as NSString).substring(with: number.range)) {
-                let increment = value.addingReportingOverflow(1)
-                if !increment.overflow {
-                    next = (prefix as NSString).replacingCharacters(in: number.range, with: String(increment.partialValue))
-                }
-            }
-            insertText("\n" + next, replacementRange: selection)
-        } else { super.insertNewline(sender) }
     }
     override func mouseDown(with event: NSEvent) {
         defer { showSelectionAssist() }
         super.mouseDown(with: event)
         if event.clickCount == 1, selectedRange().length == 0, openComment(at: event) { return }
+        if event.clickCount == 1 { skipHiddenLineStart() }
         if selectedRange().length == 0, let divider = dividerRange(at: selectedRange().location) {
             if event.clickCount == 1 { skipDivider(forward: true) }
             else { setSelectedRange(divider) }

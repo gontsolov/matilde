@@ -122,10 +122,11 @@ struct NoteTextView: UIViewRepresentable {
         func textViewDidChangeSelection(_ view: UITextView) {
             guard !adjustingSelection else { return }
             var range = view.selectedRange
-            // Keep the caret out of a heading's hidden `#` marks: typing there would land before
-            // or inside them. Moving left out of the heading's text goes on to the line above.
+            // Keep the caret out of hidden line marks (a heading's `#`, a nested item's
+            // indentation): typing there would land before or inside them. Moving left out of
+            // the line's text goes on to the line above.
             if range.length == 0, view.markedTextRange == nil,
-               let marker = MarkdownStyle.hiddenHeadingMarker(in: view.text, at: range.location),
+               let marker = MarkdownStyle.hiddenLineStart(in: view.text, at: range.location),
                range.location < NSMaxRange(marker) {
                 let backward = range.location < lastCaret && lastCaret == NSMaxRange(marker) && marker.location > 0
                 range = NSRange(location: backward ? marker.location - 1 : NSMaxRange(marker), length: 0)
@@ -140,28 +141,49 @@ struct NoteTextView: UIViewRepresentable {
 
         func textViewDidEndEditing(_ view: UITextView) { model.flush() }
 
-        /// At the start of a heading's text (its `#` marks are hidden): Backspace removes the
-        /// marks, which turns the heading back into a paragraph, and Return opens a line above
-        /// the heading instead of splitting the marks from the text.
+        /// EDIT-31: Backspace, Delete, Return, Tab and typed brackets follow the shared Markdown
+        /// editing rules (MatildeKit's MarkdownEditing), as on the Mac: Backspace at the start of
+        /// a heading, item or quote removes its marker (nested items move out first), Return
+        /// continues or ends lists, Tab nests an item. Text being composed is left alone.
         func textView(_ view: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-            guard view.markedTextRange == nil, view.selectedRange.length == 0 else { return true }
-            let caret = view.selectedRange.location
-            guard let marker = MarkdownStyle.hiddenHeadingMarker(in: view.text, at: caret), caret == NSMaxRange(marker) else { return true }
-            let edit: (range: NSRange, text: String, caret: Int)
-            if text.isEmpty, range.length == 1, NSMaxRange(range) == caret {
-                edit = (marker, "", marker.location)
-            } else if text == "\n", range.length == 0, range.location == caret {
-                edit = (NSRange(location: marker.location, length: 0), "\n", caret + 1)
-            } else {
-                return true
-            }
-            guard let start = view.position(from: view.beginningOfDocument, offset: edit.range.location),
-                  let end = view.position(from: start, offset: edit.range.length),
-                  let textRange = view.textRange(from: start, to: end) else { return true }
-            view.replace(textRange, withText: edit.text)
-            view.selectedRange = NSRange(location: edit.caret, length: 0)
-            textViewDidChange(view)
+            guard view.markedTextRange == nil, let view = view as? NoteUITextView, !view.isApplyingMarkdownEdit,
+                  let edit = markdownEdit(in: view, range: range, text: text) else { return true }
+            view.applyMarkdownEdit(edit)
             return false
+        }
+
+        private func markdownEdit(in view: NoteUITextView, range: NSRange, text: String) -> MarkdownEdit? {
+            let source = view.text ?? ""
+            let string = source as NSString
+            let selection = view.selectedRange
+            let options = MarkdownEditingOptions.visibleMarkers
+            guard selection.location != NSNotFound, NSMaxRange(selection) <= string.length else { return nil }
+            if text.isEmpty {
+                if selection.length > 0 {
+                    guard range == selection else { return nil }
+                    return MarkdownEditing.deleteBackward(in: source, selection: selection, options: options)
+                }
+                let caret = selection.location
+                if caret > 0, range == string.rangeOfComposedCharacterSequence(at: caret - 1), NSMaxRange(range) == caret {
+                    // Before a nested item's hidden indentation, Backspace moves the item out.
+                    if let indent = MarkdownStyle.hiddenListIndent(in: source, at: caret), caret == NSMaxRange(indent) {
+                        return MarkdownEditing.outdent(in: source, selection: selection)
+                    }
+                    return MarkdownEditing.deleteBackward(in: source, selection: selection, options: options)
+                }
+                if caret < string.length, range == string.rangeOfComposedCharacterSequence(at: caret) {
+                    return MarkdownEditing.deleteForward(in: source, selection: selection, options: options)
+                }
+                return nil
+            }
+            guard range == selection else { return nil }
+            switch text {
+            case "\n": return MarkdownEditing.insertNewline(in: source, selection: selection)
+            case "\t": return MarkdownEditing.indent(in: source, selection: selection)
+            default:
+                guard text.count == 1 else { return nil }
+                return MarkdownEditing.insertText(text, in: source, selection: selection, options: options)
+            }
         }
 
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -221,6 +243,8 @@ struct NoteTextView: UIViewRepresentable {
                 button("bold", "Bold", #selector(bold)),
                 button("italic", "Italic", #selector(italic)),
                 button("list.bullet", "List", #selector(list)),
+                button("decrease.indent", "Outdent", #selector(outdent)),
+                button("increase.indent", "Indent", #selector(indent)),
                 button("text.quote", "Quote", #selector(quote)),
                 button("text.bubble", "Comment", #selector(comment)),
                 button("sparkles", "Ask Matilde", #selector(ask)),
@@ -248,6 +272,8 @@ struct NoteTextView: UIViewRepresentable {
         @objc private func italic() { model.apply(.italic) }
         @objc private func list() { model.apply(.list) }
         @objc private func quote() { model.apply(.quote) }
+        @objc private func indent() { model.apply(.indent) }
+        @objc private func outdent() { model.apply(.outdent) }
         @objc private func comment() { model.commentOnSelection() }
         @objc private func ask() { model.askMatildeOnSelection() }
         @objc private func done() { model.textView?.resignFirstResponder() }
@@ -435,6 +461,59 @@ final class NoteUITextView: UITextView {
         let maxY = max(-inset.top, contentSize.height + inset.bottom - bounds.height)
         let y = min(max(rect.minY - inset.top - uncovered / 3, -inset.top), maxY)
         setContentOffset(CGPoint(x: contentOffset.x, y: y), animated: true)
+    }
+
+    // MARK: Markdown editing rules (EDIT-31)
+
+    /// True while a shared editing rule is being applied, so its own replacement isn't
+    /// checked against the rules again.
+    private(set) var isApplyingMarkdownEdit = false
+
+    /// Applies one shared editing rule as a single undoable change, then restyles.
+    func applyMarkdownEdit(_ edit: MarkdownEdit) {
+        if !edit.isSelectionOnly {
+            guard let start = position(from: beginningOfDocument, offset: edit.range.location),
+                  let end = position(from: start, offset: edit.range.length),
+                  let range = textRange(from: start, to: end) else { return }
+            isApplyingMarkdownEdit = true
+            replace(range, withText: edit.replacement)
+            isApplyingMarkdownEdit = false
+        }
+        selectedRange = edit.selection
+        if !edit.isSelectionOnly { delegate?.textViewDidChange?(self) }
+    }
+
+    /// A hardware keyboard's Tab and Shift-Tab nest and un-nest list items; elsewhere Tab
+    /// types a tab as before.
+    override var keyCommands: [UIKeyCommand]? {
+        let tab = UIKeyCommand(title: "Indent", action: #selector(indentLine), input: "\t")
+        let backtab = UIKeyCommand(title: "Outdent", action: #selector(outdentLine), input: "\t", modifierFlags: .shift)
+        tab.wantsPriorityOverSystemBehavior = true
+        backtab.wantsPriorityOverSystemBehavior = true
+        return (super.keyCommands ?? []) + [tab, backtab]
+    }
+
+    @objc func indentLine() {
+        guard markedTextRange == nil, let edit = MarkdownEditing.indent(in: text, selection: selectedRange) else {
+            insertText("\t"); return
+        }
+        applyMarkdownEdit(edit)
+    }
+
+    @objc func outdentLine() {
+        guard markedTextRange == nil, let edit = MarkdownEditing.outdent(in: text, selection: selectedRange) else { return }
+        applyMarkdownEdit(edit)
+    }
+
+    /// Pasting list items or a heading into an empty item replaces its marker instead of
+    /// stacking a second one; Windows line endings become plain ones.
+    override func paste(_ sender: Any?) {
+        if markedTextRange == nil, let pasted = UIPasteboard.general.string,
+           let edit = MarkdownEditing.paste(pasted, in: text, selection: selectedRange) {
+            applyMarkdownEdit(edit)
+            return
+        }
+        super.paste(sender)
     }
 
     /// A caret at the start of a heading's text sits right after its hidden `#` marks, whose

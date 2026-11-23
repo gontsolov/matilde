@@ -397,8 +397,8 @@ public enum MarkdownEditing {
     }
 
     /// The input rule run after a space was typed at `caret` (the caret after the space): turns
-    /// `[ ] `, `[x] ` or `[] ` at the start of a line, or after a bullet, into `- [ ] `. The Mac
-    /// applies it as a second undo step, so the first Undo keeps what was typed.
+    /// `[ ] `, `[x] ` or `[] ` at the start of a line, or after a bullet, into `- [ ] `.
+    /// `insertText(" ")` uses it, so typing the space and the formatting undo together.
     public static func autoFormat(in text: String, caret: Int) -> MarkdownEdit? {
         let document = MarkdownLines(text)
         guard caret > 0, caret <= document.source.length else { return nil }

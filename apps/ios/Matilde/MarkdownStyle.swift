@@ -1,11 +1,13 @@
 import Foundation
 import UIKit
 import CoreText
+import MatildeKit
 
 /// IOS-05: how the editor dresses Markdown, close to the Mac editor (apps/macos
 /// MarkdownEditor.swift) but simpler: the Markdown stays visible and editable; syntax marks are
 /// faded rather than hidden, except a heading's `#` marks, which are hidden once the heading has
-/// text (the stored Markdown keeps them). Headings use Newsreader at the Mac's sizes, emphasis is
+/// text, and a nested list item's indentation, which is shown as an indent by depth instead
+/// (EDIT-31; the stored Markdown keeps both). Headings use Newsreader at the Mac's sizes, emphasis is
 /// bold or italic, code is monospaced and quotes are indented.
 ///
 /// `spans(in:)` is pure so tests can check it; `apply(to:)` turns spans into attributes.
@@ -17,6 +19,8 @@ enum MarkdownStyle {
         case code
         case quote
         case listMarker
+        /// A list item's line: indented by its nesting depth, wrapped lines aligned after `marker`.
+        case listItem(depth: Int, marker: String)
         case link
         /// Syntax characters (`**`, `` ` ``, `>`, link brackets): drawn faded.
         case mark
@@ -45,6 +49,7 @@ enum MarkdownStyle {
         var spans: [Span] = []
         var code: [NSRange] = []
         var fenced = false
+        let depths = MarkdownEditing.listDepths(in: text)
         source.enumerateSubstrings(in: NSRange(location: 0, length: source.length), options: [.byLines, .substringNotRequired]) { _, lineRange, _, _ in
             let line = source.substring(with: lineRange)
             let offset = lineRange.location
@@ -66,8 +71,13 @@ enum MarkdownStyle {
             } else if let match = first("^> ?", in: line) {
                 spans.append(Span(kind: .quote, range: lineRange))
                 spans.append(Span(kind: .mark, range: NSRange(location: offset, length: match.range.length)))
-            } else if let match = first("^\\s*(?:[-*+] \\[[ xX]\\]|[-*+]|[0-9]+[.)]) ", in: line) {
-                spans.append(Span(kind: .listMarker, range: NSRange(location: offset, length: match.range.length)))
+            } else if let match = first("^([ \\t]*)(?:[-*+] \\[[ xX]\\]|[-*+]|[0-9]+[.)]) ", in: line) {
+                // Nesting is shown by depth, so the raw indentation is hidden like heading marks.
+                let indent = match.range(at: 1).length
+                if indent > 0 { spans.append(Span(kind: .hiddenMark, range: NSRange(location: offset, length: indent))) }
+                let marker = NSRange(location: offset + indent, length: match.range.length - indent)
+                spans.append(Span(kind: .listMarker, range: marker))
+                spans.append(Span(kind: .listItem(depth: depths[offset] ?? 0, marker: source.substring(with: marker)), range: lineRange))
             }
         }
         for match in matches("`([^`\\n]+)`", in: text) where !intersects(match.range, code) {
@@ -157,6 +167,12 @@ enum MarkdownStyle {
                 storage.addAttributes([.paragraphStyle: paragraph, .foregroundColor: muted], range: span.range)
             case .listMarker:
                 storage.addAttribute(.foregroundColor, value: muted, range: span.range)
+            case .listItem(let depth, let marker):
+                let paragraph = NSMutableParagraphStyle()
+                paragraph.lineSpacing = 6; paragraph.paragraphSpacing = 8
+                paragraph.firstLineHeadIndent = CGFloat(depth) * listIndent
+                paragraph.headIndent = paragraph.firstLineHeadIndent + (marker as NSString).size(withAttributes: [.font: bodyFont()]).width
+                storage.addAttribute(.paragraphStyle, value: paragraph, range: span.range)
             case .link:
                 storage.addAttributes([.foregroundColor: UIColor(Paper.accent), .underlineStyle: NSUnderlineStyle.single.rawValue], range: span.range)
             case .mark:
@@ -167,6 +183,9 @@ enum MarkdownStyle {
         }
         storage.endEditing()
     }
+
+    /// How far each nesting level of a list is indented.
+    static let listIndent: CGFloat = 24
 
     /// Small enough that hidden heading marks take no visible room or line height.
     private static let hiddenFont = UIFont.systemFont(ofSize: 0.01)
@@ -187,6 +206,24 @@ enum MarkdownStyle {
         let rest = source.substring(with: NSRange(location: NSMaxRange(marker), length: NSMaxRange(line) - NSMaxRange(marker)))
         guard !rest.trimmingCharacters(in: .whitespaces).isEmpty, !isFenced(source, before: start) else { return nil }
         return marker
+    }
+
+    /// The hidden indentation of a list item on the line containing `location`, or nil.
+    static func hiddenListIndent(in text: String, at location: Int) -> NSRange? {
+        let source = text as NSString
+        guard location >= 0, location <= source.length else { return nil }
+        var start = 0, end = 0, contentsEnd = 0
+        source.getLineStart(&start, end: &end, contentsEnd: &contentsEnd, for: NSRange(location: location, length: 0))
+        if location == source.length, location > 0, contentsEnd < location { return nil }
+        let line = source.substring(with: NSRange(location: start, length: contentsEnd - start))
+        guard let match = first("^([ \\t]+)(?:[-*+]|[0-9]+[.)]) ", in: line), !isFenced(source, before: start) else { return nil }
+        return NSRange(location: start, length: match.range(at: 1).length)
+    }
+
+    /// Hidden marks at the start of the line containing `location` (a heading's `#` marks or a
+    /// nested item's indentation), which the caret is kept out of.
+    static func hiddenLineStart(in text: String, at location: Int) -> NSRange? {
+        hiddenHeadingMarker(in: text, at: location) ?? hiddenListIndent(in: text, at: location)
     }
 
     /// Whether `location` falls inside a fenced code block (an odd number of ``` lines before it).

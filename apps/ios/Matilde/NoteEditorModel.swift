@@ -215,10 +215,18 @@ final class NoteEditorModel {
 
     // MARK: Formatting (keyboard bar)
 
-    enum Format { case heading, bold, italic, list, quote }
+    enum Format { case heading, bold, italic, list, quote, indent, outdent }
 
     func apply(_ format: Format) {
         guard let textView, let selected = textView.selectedTextRange else { return }
+        if format == .indent || format == .outdent {
+            // Nesting follows the shared rules (MatildeKit's MarkdownEditing), as Tab does.
+            let selection = textView.selectedRange
+            let edit = format == .indent ? MarkdownEditing.indent(in: textView.text, selection: selection)
+                : MarkdownEditing.outdent(in: textView.text, selection: selection)
+            if let edit, let view = textView as? NoteUITextView { view.applyMarkdownEdit(edit) }
+            return
+        }
         let source = textView.text as NSString
         let range = textView.selectedRange
         switch format {
@@ -227,6 +235,8 @@ final class NoteEditorModel {
             let inner = source.substring(with: range)
             textView.replace(selected, withText: mark + inner + mark)
             textView.selectedRange = NSRange(location: range.location + mark.count, length: (inner as NSString).length)
+        case .indent, .outdent:
+            return
         case .heading, .list, .quote:
             let line = source.lineRange(for: NSRange(location: range.location, length: 0))
             let current = source.substring(with: line)

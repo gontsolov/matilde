@@ -324,6 +324,19 @@ final class MarkdownEditingTests: XCTestCase {
 
     // MARK: Rendering help and edits
 
+    /// Cases the Mac and iPhone editors' own tests depend on.
+    func testCasesTheEditorsRelyOn() {
+        check(.backspace, "Intro\n## A|", "Intro\n|")
+        check(.enter, "- one\n  - |", "- one\n- |")
+        check(.enter, "- one\n- |", "- one\n|")
+        check(.tab, "Plain|", nil)
+        check(.shiftTab, "1. Here is a test\n   1. |", "1. Here is a test\n2. |")
+        check(.paste("- a\r\n- b"), "- |", "- a\n- b|")
+        check(.type(" "), "[ ]|", "- [ ] |")
+        // iPhone: Backspace before a nested item's (hidden) indentation moves it out.
+        check(.shiftTab, "- one\n    |- two", "- one\n|- two", options: .visibleMarkers)
+    }
+
     func testListDepths() {
         let text = "- a\n  - b\n    - c\n- d\n\n1. x\n   1. y\nPara\n  - e"
         let depths = MarkdownEditing.listDepths(in: text)
