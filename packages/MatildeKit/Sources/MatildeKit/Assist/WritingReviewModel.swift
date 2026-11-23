@@ -73,6 +73,7 @@ public final class WritingReviewModel: ObservableObject {
         var comment = CommentAnchor.refreshed(ReviewComment(id: UUID(), suggestion: suggestion, location: range.location, length: range.length),
                                               range: range, in: input.body)
         comment.userInitiated = true
+        comment.reviewedQuote = comment.quote
         history[0].comments.append(comment)
         persist(history[0]); focusedCommentID = comment.id; focusRequest = UUID()
     }
@@ -120,16 +121,21 @@ public final class WritingReviewModel: ObservableObject {
         let token = generation
         isRunning = true
         requestRevision = WritingReview.revision(input)
+        // Everything already said about this draft goes with the request, so the review doesn't
+        // repeat it (AI-19): Ask Matilde comments in every state and the writer's own comments.
+        let commentContext = existingComments(body: input.body)
         task = Task { [weak self, client] in
             do {
-                let suggestions = try await client.review(input, configuration: configuration, key: credential)
+                let suggestions = try await client.review(input, existing: commentContext, configuration: configuration, key: credential)
                 try Task.checkCancellation()
                 var result = try WritingReview.make(draftID: draftID, input: input, model: configuration.model, suggestions: suggestions)
                 guard let self, self.generation == token else { return }
-                // Carry open threads forward and suppress already-reviewed unchanged passages.
+                // Carry open threads forward and drop suggestions that repeat an existing comment:
+                // unchanged quotes of earlier reviews, then the overlap-and-wording check.
                 let existing = self.history.first?.comments ?? []
                 let oldQuotes = Set(self.history.flatMap(\.comments).filter { $0.status != "stale" && input.body.contains($0.suggestion.quote) }.map { $0.suggestion.quote })
                 result.comments.removeAll { oldQuotes.contains($0.suggestion.quote) }
+                result.comments = ReviewDeduplication.filter(result.comments, against: commentContext)
                 for index in result.comments.indices { result.comments[index].unread = true }
                 result.comments = existing.filter { $0.status == "open" && $0.matches(input.body) } + result.comments
                 for i in self.history.indices where !self.history[i].stale {
@@ -146,6 +152,12 @@ public final class WritingReviewModel: ObservableObject {
                 self.fail((error as? ReviewError)?.localizedDescription ?? "The review could not be saved or completed. Please try again.", quietly: automatic)
             }
         }
+    }
+    /// The draft's comments as the next review should see them (`ReviewContext`).
+    public func existingComments(body: String) -> [ExistingComment] {
+        let notes = draftID.flatMap { try? workspace?.userComments(draftID: $0) } ?? []
+        let archived = draftID.flatMap { try? workspace?.archivedUserComments(draftID: $0) } ?? []
+        return ReviewContext.existingComments(history: history, notes: notes, archivedNotes: archived, body: body)
     }
     public func toggleAutomatic() {
         automaticPaused.toggle()

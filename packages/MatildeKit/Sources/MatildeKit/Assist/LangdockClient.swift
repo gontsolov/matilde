@@ -89,9 +89,14 @@ public protocol LangdockServing {
     func streamReply(_ conversation: ReplyConversation, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply
     func models(configuration: LangdockConfiguration, key: String) async throws -> [String]
     func review(_ input: ReviewInput, configuration: LangdockConfiguration, key: String) async throws -> [ReviewSuggestion]
+    /// A review that knows the draft's existing comments (see `ReviewContext`).
+    func review(_ input: ReviewInput, existing: [ExistingComment], configuration: LangdockConfiguration, key: String) async throws -> [ReviewSuggestion]
 }
 
 extension LangdockServing {
+    public func review(_ input: ReviewInput, existing: [ExistingComment], configuration: LangdockConfiguration, key: String) async throws -> [ReviewSuggestion] {
+        try await review(input, configuration: configuration, key: key)
+    }
     public func streamReply(_ conversation: ReplyConversation, configuration: LangdockConfiguration, key: String, onText: @escaping @MainActor (String) -> Void) async throws -> ReviewReply {
         try await streamReply(conversation.input, suggestion: conversation.suggestion, messages: conversation.history,
                               question: conversation.question, configuration: configuration, key: key, onText: onText)
@@ -201,22 +206,22 @@ public final class LangdockClient: NSObject, LangdockServing {
     }
 
     public func review(_ input: ReviewInput, configuration: LangdockConfiguration, key: String) async throws -> [ReviewSuggestion] {
+        try await review(input, existing: [], configuration: configuration, key: key)
+    }
+    public func review(_ input: ReviewInput, existing: [ExistingComment], configuration: LangdockConfiguration, key: String) async throws -> [ReviewSuggestion] {
         guard !configuration.model.isEmpty else { throw ReviewError.message("Choose a Langdock model in Settings → Connections.") }
         guard input.body.utf8.count <= 100_000, input.title.utf8.count + input.goal.utf8.count <= 10_000 else {
             throw ReviewError.message("This draft is too long for a review. The current limit is 100 KB of writing and 10 KB of title and goal.")
         }
-        struct Message: Encodable { let role: String; let content: String }
         struct Request: Encodable {
             public let model: String
-            public let messages: [Message]
+            public let messages: [ReplyConversation.Message]
             public let response_format = ["type": "json_object"]
             public let max_completion_tokens = 4000
             public let stream = false
         }
-        let context = ReplyPrompt.encode(input.transmitted)
-        let body = try Self.encoder.encode(Request(model: configuration.model, messages: [
-            Message(role: "system", content: WritingAssistPrompt.review(guidance: configuration.guidance)), Message(role: "user", content: context)
-        ]))
+        let body = try Self.encoder.encode(Request(model: configuration.model,
+            messages: ReviewContext.messages(input: input, existing: existing, guidance: configuration.guidance)))
         return try Self.decode(try await request("chat/completions", body: body, configuration: configuration, key: key))
     }
 

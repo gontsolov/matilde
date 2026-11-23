@@ -342,6 +342,9 @@ describe("MCP over OAuth", () => {
 
     const comment = await tool(c, "add_comment", { id, quote: "lovely café visit", comment: "Maybe name the café?" });
     expect(comment.isError).toBe(false);
+    const repeated = await tool(c, "add_comment", { id, quote: "lovely café visit", comment: "  maybe name the café? " });
+    expect(repeated.isError).toBe(false);
+    expect(repeated.structuredContent).toEqual(expect.objectContaining({ commentId: comment.structuredContent.commentId, alreadyThere: true }));
     const ambiguous = await tool(c, "add_comment", { id, quote: "a", comment: "x" });
     expect(ambiguous.isError).toBe(true);
 
