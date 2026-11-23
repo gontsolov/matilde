@@ -72,7 +72,6 @@ final class CommandPaletteController: NSObject, ObservableObject, NSWindowDelega
     @Published var query = "" { didSet { if query != oldValue { refresh(keepSelection: false) } } }
     @Published private(set) var groups: [PaletteGroup] = []
     @Published var selection: PaletteTarget?
-    @Published private(set) var appeared = false
     /// Changes on every opening so the view can focus its field again.
     @Published private(set) var openings = 0
 
@@ -93,9 +92,9 @@ final class CommandPaletteController: NSObject, ObservableObject, NSWindowDelega
     /// Draft text read for searching, with the edit date it was read at.
     private var bodies: [String: (edited: Date, text: String)] = [:]
     private var loadTask: Task<Void, Never>?
-    private var closing = 0
+    private var closing = false
 
-    var isOpen: Bool { panel?.isVisible == true && closing == 0 }
+    var isOpen: Bool { panel?.isVisible == true && !closing }
     var items: [PaletteItem] { PaletteSearch.flatten(groups) }
 
     // MARK: Keyboard
@@ -149,7 +148,6 @@ final class CommandPaletteController: NSObject, ObservableObject, NSWindowDelega
     func show() {
         guard let host = hostWindow, host.attachedSheet == nil else { return }
         if isOpen { panel?.makeKey(); return }
-        closing = 0
         prepare()
         query = ""
         refresh(keepSelection: false)
@@ -158,38 +156,22 @@ final class CommandPaletteController: NSObject, ObservableObject, NSWindowDelega
         if panel.parent !== host { panel.parent?.removeChildWindow(panel); host.addChildWindow(panel, ordered: .above) }
         panel.appearance = host.effectiveAppearance
         panel.setFrame(PaletteLayout.frame(cardHeight: PaletteLayout.cardHeight(groups), in: host.frame, screen: host.screen?.visibleFrame), display: false)
-        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        appeared = false
-        panel.alphaValue = 0
+        // Appears instantly, with no fade or motion.
+        panel.alphaValue = 1
         panel.makeKeyAndOrderFront(nil)
         openings += 1
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = reduceMotion ? 0.08 : 0.14
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().alphaValue = 1
-        }
-        withAnimation(reduceMotion ? nil : .spring(duration: 0.22, bounce: 0)) { appeared = true }
     }
 
     func close() {
-        guard let panel, panel.isVisible, closing == 0 else { return }
-        closing += 1
-        let token = closing
+        guard let panel, panel.isVisible, !closing else { return }
+        // Guards against re-entry: resigning key while closing calls close() again.
+        closing = true
+        defer { closing = false }
         loadTask?.cancel()
         let host = panel.parent
-        withAnimation(.easeIn(duration: 0.1)) { appeared = false }
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0.06 : 0.1
-            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            panel.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            MainActor.assumeIsolated {
-                guard let self, self.closing == token else { return }
-                panel.parent?.removeChildWindow(panel)
-                panel.orderOut(nil)
-                self.closing = 0
-            }
-        })
+        // Disappears instantly, with no fade.
+        host?.removeChildWindow(panel)
+        panel.orderOut(nil)
         host?.makeKey()
     }
 
@@ -366,15 +348,12 @@ private struct CommandPaletteAnchor: NSViewRepresentable {
 struct CommandPaletteView: View {
     @ObservedObject var controller: CommandPaletteController
     @FocusState private var fieldFocused: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @State private var lastPointer: CGPoint?
 
     var body: some View {
         VStack(spacing: 0) {
             card
-                .scaleEffect(controller.appeared || reduceMotion ? 1 : 0.98, anchor: .top)
-                .offset(y: controller.appeared || reduceMotion ? 0 : -6)
             Spacer(minLength: 0)
         }
         .padding(PaletteLayout.shadowInset)
@@ -478,7 +457,6 @@ struct CommandPaletteView: View {
                 .fill(Color(PaletteStyle.selection))
                 .opacity(selected ? 1 : 0)
         )
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.08), value: selected)
         .contentShape(Rectangle())
         .onTapGesture { controller.selection = item.target; controller.run(item) }
         .onContinuousHover { phase in
