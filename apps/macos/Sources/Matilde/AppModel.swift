@@ -27,6 +27,11 @@ final class AppModel: ObservableObject {
     @Published var search = ""
     /// Sidebar folders the writer collapsed this session.
     @Published var collapsedFolders: Set<String> = []
+    /// Note order per folder the writer arranged by dragging (family IDs, top first).
+    @Published var sidebarOrders: [String: [String]] = [:]
+    /// Plain-text openings of drafts (by ID) for sidebar rows without a writing goal.
+    @Published private(set) var previews: [String: String] = [:]
+    private var previewStamps: [String: Date] = [:]
     @Published var headerTitle = "" { didSet { if headerTitle != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput) } } }
     @Published var headerGoal = "" { didSet { if headerGoal != oldValue { review.changed(workspace: workspace, draftID: active?.id, input: reviewInput) } } }
     @Published var focusTitleID: String?
@@ -123,6 +128,9 @@ final class AppModel: ObservableObject {
         workspace = newWorkspace; drafts = contents.drafts; folders = contents.folders
         sidebar = try newWorkspace.state("sidebar") != "false"
         collapsedFolders = []
+        sidebarOrders = try newWorkspace.sidebarOrder(folders: contents.folders)
+        previews = [:]; previewStamps = [:]
+        updatePreviews()
         restoresPositionID = selected?.id
         active = selected; text = content; savedText = content
         if let selected { try newWorkspace.rememberFamilyDraft(selected) }
@@ -168,6 +176,9 @@ final class AppModel: ObservableObject {
             }
         }
         if folders != contents.folders { folders = contents.folders }
+        updatePreviews()
+        let orders = try workspace.sidebarOrder(folders: folders)
+        if orders != sidebarOrders { sidebarOrders = orders }
         if let id = active?.id, let updated = drafts.first(where: { $0.id == id }), updated != active { active = updated }
     }
     func initialPosition(for draft: Draft) -> (cursor: Int, scroll: Double) {
@@ -249,7 +260,7 @@ final class AppModel: ObservableObject {
 
     /// Note (family) IDs in the sidebar's visible order.
     var visibleNotes: [String] {
-        SidebarOrder.visible(drafts, folders: folders, collapsed: collapsedFolders, search: search)
+        SidebarOrder.visible(drafts, folders: folders, collapsed: collapsedFolders, search: search, order: sidebarOrders)
             .flatMap { $0.groups.map(\.id) }
     }
     var canCycleNotes: Bool {
@@ -381,6 +392,46 @@ final class AppModel: ObservableObject {
                 headerTitle = active.title
             }
             try comparison?.poll()
+        }
+    }
+    /// The sidebar's line under a note's title when it has no goal: the start of its text,
+    /// live for the open draft.
+    func preview(for draft: Draft) -> String {
+        draft.id == active?.id ? NotePreview.text(text) : previews[draft.id] ?? ""
+    }
+    /// Re-reads only drafts that changed since their preview was made.
+    func updatePreviews() {
+        guard let workspace else { return }
+        var next: [String: String] = [:]
+        var stamps: [String: Date] = [:]
+        for draft in drafts {
+            let stamp = SidebarOrder.date(draft)
+            if previewStamps[draft.id] == stamp, let cached = previews[draft.id] {
+                next[draft.id] = cached
+            } else {
+                next[draft.id] = (try? workspace.read(draft)).map { NotePreview.text($0) } ?? ""
+            }
+            stamps[draft.id] = stamp
+        }
+        previewStamps = stamps
+        if next != previews { previews = next }
+    }
+    /// Drop a sidebar note at `index` among `folder`'s notes: moves it there on disk when it
+    /// comes from another folder, then remembers the folder's new order.
+    func placeNote(family: String, from source: String, to folder: String, at index: Int) {
+        guard !isBranching, boardFlight == nil, let workspace else { return }
+        let current = SidebarOrder.visible(drafts, folders: folders, collapsed: [], search: "", order: sidebarOrders)
+            .first { $0.folder == folder }?.groups.map(\.id) ?? []
+        if source != folder {
+            moveNote(family: family, from: source, to: folder)
+            guard drafts.contains(where: { $0.family == family && $0.folder == folder }) else { return }
+        }
+        let order = SidebarOrder.reordered(current, moving: family, to: index)
+        // Dropped back where it was: keep the folder newest first rather than freezing it.
+        if source == folder, order == current { return }
+        attempt {
+            try workspace.setSidebarOrder(order, folder: folder)
+            sidebarOrders[folder] = order
         }
     }
     func newDocument(in folder: String) {

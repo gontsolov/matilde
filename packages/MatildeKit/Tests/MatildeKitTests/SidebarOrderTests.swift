@@ -24,6 +24,21 @@ final class SidebarOrderTests: XCTestCase {
         XCTAssertEqual(SidebarOrder.groups([b, a]).first?.root.id, "A")
         XCTAssertEqual(SidebarOrder.groups([a, b, c]).map(\.id), SidebarOrder.groups([c, b, a]).map(\.id))
     }
+    func testDraggedOrderKeepsNewNotesOnTopAndIgnoresMissingOnes() {
+        let groups = SidebarOrder.groups([draft("A", edited: 1), draft("B", edited: 2), draft("C", edited: 3), draft("D", edited: 4)])
+        XCTAssertEqual(groups.map(\.id), ["D", "C", "B", "A"])
+        XCTAssertEqual(SidebarOrder.arranged(groups, order: []).map(\.id), ["D", "C", "B", "A"])
+        // D is new to the saved order, so it stays on top; "gone" no longer exists.
+        XCTAssertEqual(SidebarOrder.arranged(groups, order: ["A", "gone", "C", "B"]).map(\.id), ["D", "A", "C", "B"])
+    }
+    func testReorderingMovesWithinAndInsertsFromElsewhere() {
+        XCTAssertEqual(SidebarOrder.reordered(["A", "B", "C"], moving: "A", to: 3), ["B", "C", "A"])
+        XCTAssertEqual(SidebarOrder.reordered(["A", "B", "C"], moving: "C", to: 0), ["C", "A", "B"])
+        XCTAssertEqual(SidebarOrder.reordered(["A", "B", "C"], moving: "A", to: 2), ["B", "A", "C"])
+        XCTAssertEqual(SidebarOrder.reordered(["A", "B", "C"], moving: "B", to: 1), ["A", "B", "C"])
+        XCTAssertEqual(SidebarOrder.reordered(["A", "B"], moving: "X", to: 1), ["A", "X", "B"])
+        XCTAssertEqual(SidebarOrder.reordered([], moving: "X", to: 5), ["X"])
+    }
     func testFamilySelectionPersistsAndFallsBackAfterRemoval() throws {
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("build/sidebar-family-\(UUID().uuidString)")
