@@ -71,6 +71,15 @@ enum MatildeIcon: String, CaseIterable {
     case download = "download"
     case printer = "printer"
     case copy = "copy"
+    // Command palette (UI-31)
+    case trash = "trash"
+    case save = "device-floppy"
+    case sparkles = "sparkles"
+    case feedback = "message-2"
+    case sun = "sun"
+    case moon = "moon"
+    case sunMoon = "sun-moon"
+    case spellCheck = "abc"
 
     /// The Mac icon for a symbol named in shared MatildeKit copy (`SyncOnboardingCopy.points`),
     /// which names SF Symbols for the iPhone.
