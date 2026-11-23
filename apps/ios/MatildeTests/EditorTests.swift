@@ -49,6 +49,28 @@ struct MarkdownStyleTests {
         #expect(spans.contains(MarkdownStyle.Span(kind: .link, range: NSRange(location: 12, length: 5))))
     }
 
+    @Test func nestedItemsAreIndentedByDepth() {
+        let spans = MarkdownStyle.spans(in: "- one\n   1. two\n- [ ] three")
+        #expect(spans.contains(MarkdownStyle.Span(kind: .listItem(depth: 0, marker: "- "), range: NSRange(location: 0, length: 5))))
+        #expect(spans.contains(MarkdownStyle.Span(kind: .hiddenMark, range: NSRange(location: 6, length: 3))))
+        #expect(spans.contains(MarkdownStyle.Span(kind: .listMarker, range: NSRange(location: 9, length: 3))))
+        #expect(spans.contains(MarkdownStyle.Span(kind: .listItem(depth: 1, marker: "1. "), range: NSRange(location: 6, length: 9))))
+        #expect(spans.contains(MarkdownStyle.Span(kind: .listItem(depth: 0, marker: "- [ ] "), range: NSRange(location: 16, length: 11))))
+        let storage = NSTextStorage(string: "- one\n   1. two")
+        MarkdownStyle.apply(to: storage)
+        let nested = storage.attribute(.paragraphStyle, at: 6, effectiveRange: nil) as? NSParagraphStyle
+        #expect(nested?.firstLineHeadIndent == MarkdownStyle.listIndent)
+        #expect((nested?.headIndent ?? 0) > MarkdownStyle.listIndent)
+    }
+
+    @Test func caretIsKeptOutOfHiddenIndentation() {
+        let text = "- one\n    - two\n```\n  - code\n```"
+        #expect(MarkdownStyle.hiddenListIndent(in: text, at: 8) == NSRange(location: 6, length: 4))
+        #expect(MarkdownStyle.hiddenLineStart(in: text, at: 6) == NSRange(location: 6, length: 4))
+        #expect(MarkdownStyle.hiddenListIndent(in: text, at: 2) == nil)
+        #expect(MarkdownStyle.hiddenListIndent(in: text, at: 22) == nil)
+    }
+
     @Test func headingSizesFollowTheMacScale() {
         #expect(MarkdownStyle.textSize == 20)
         #expect(MarkdownStyle.headingSize(level: 1) == 28.5)
