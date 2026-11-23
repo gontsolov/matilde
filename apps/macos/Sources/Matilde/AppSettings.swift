@@ -20,6 +20,8 @@ struct AppSettingsView: View {
     @AppStorage("langdock.region") private var langdockRegion = "eu"
     @AppStorage("langdock.model") private var langdockModel = ""
     @AppStorage(WritingAssistPrompt.guidanceKey) private var guidance = WritingAssistPrompt.defaultGuidance
+    /// The open tab; the command palette sets it to open a specific section.
+    @AppStorage(SettingsTab.storageKey) private var tab = SettingsTab.general.rawValue
     @State private var models: [String] = []
     @State private var loadingModels = false
     @State private var modelTask: Task<Void, Never>?
@@ -31,7 +33,7 @@ struct AppSettingsView: View {
     private let keyStore = APIKeyStore()
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             Form {
                 Picker("Appearance", selection: $appearance) {
                     ForEach(AppAppearance.allCases) { mode in Text(mode.title).tag(mode.rawValue) }
@@ -47,6 +49,7 @@ struct AppSettingsView: View {
                 }
             }.formStyle(.grouped)
                 .tabItem { Label { Text("General") } icon: { MatildeIcon.settings.image(size: MatildeIcon.tabSize) } }
+                .tag(SettingsTab.general.rawValue)
 
             Form {
                 Section {
@@ -71,6 +74,7 @@ struct AppSettingsView: View {
                 }
             }.formStyle(.grouped)
                 .tabItem { Label { Text("Writing") } icon: { MatildeIcon.typography.image(size: MatildeIcon.tabSize) } }
+                .tag(SettingsTab.writing.rawValue)
             Form {
                 Section("Guidance") {
                     TextEditor(text: $guidance)
@@ -83,6 +87,7 @@ struct AppSettingsView: View {
                 }
             }.formStyle(.grouped)
                 .tabItem { Label { Text("Ask Matilde") } icon: { MatildeIcon.askMatilde.image(size: MatildeIcon.tabSize) } }
+                .tag(SettingsTab.askMatilde.rawValue)
             Form {
                 Section("Langdock") {
                     LabeledContent("API key", value: hasKey ? "Saved in Keychain" : "Not configured")
@@ -115,8 +120,10 @@ struct AppSettingsView: View {
                 }
             }.formStyle(.grouped)
                 .tabItem { Label { Text("Connections") } icon: { MatildeIcon.key.image(size: MatildeIcon.tabSize) } }
+                .tag(SettingsTab.connections.rawValue)
             SyncSettingsView()
                 .tabItem { Label { Text("Sync") } icon: { MatildeIcon.sync.image(size: MatildeIcon.tabSize) } }
+                .tag(SettingsTab.sync.rawValue)
         }
         .padding(12).frame(width: 540, height: 380)
         .tint(Color(Paper.accent)).modifier(AppAppearanceModifier())

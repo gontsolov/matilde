@@ -145,6 +145,7 @@ SF_REPLACED = {
     "alert": ["exclamationmark.circle"], "circleCheck": ["checkmark.circle"],
     "refresh": ["arrow.triangle.2.circlepath"], "download": ["square.and.arrow.down", "arrow.down.app"],
     "printer": ["printer"], "copy": ["doc.on.doc"],
+    "trash": ["trash"], "save": [], "sparkles": [], "feedback": [], "sun": [], "moon": [], "sunMoon": [], "spellCheck": [],
 }
 
 

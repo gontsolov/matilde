@@ -82,6 +82,7 @@ This is a Swift Package Manager project, not an Xcode project. `Package.swift` u
 | `Sources/Matilde/PageCurlView.swift` | SceneKit page mesh, materials, and diagonal branch animation |
 | `Sources/Matilde/AppIcon.swift` | App icon choices, stored preference, runtime Dock icon and the Settings picker; SVG sources in `assets/app-icons`, PNGs from `scripts/app-icons.py` |
 | `Sources/Matilde/MatildeIcon.swift` | Tabler icon names, template image loading and sizes; PDFs in `Resources/Icons`, source SVGs in `assets/tabler-icons` |
+| `Sources/Matilde/AppCommands.swift`, `CommandPalette.swift`, `CommandPaletteView.swift`, `FuzzyMatch.swift` | Shared command registry used by menus and the ⌘K palette (UI-31), palette search and ranking, the palette panel, key monitor and view, fuzzy matching |
 | `Sources/Matilde/AppUpdater.swift` | Sparkle controller and native Check for Updates action |
 | `packages/MatildeKit/Sources/MatildeKit/Sync/`, `Sources/Matilde/Sync/` | Client sync (SYNC-07): in MatildeKit the `SyncEngine` push/pull actor, `SyncMerge` rules, `SyncCodec` framing, `SyncWire` and `HTTPSyncTransport` (sessions, Keychain tokens, WebSocket); `WorkspaceSyncStore` mirror into files and tables (MatildeKit since IOS-02); in the app the `SyncCenter` controller and the Settings → Sync tab; see `docs/sync-client.md` |
 | `packages/MatildeKit/Sources/MatildeKit/SyncCrypto/` | End-to-end encryption for cloud sync (SYNC-06): account key ring, record/blob/field envelopes, recovery key, key slots, Keychain store; spec in `docs/sync-encryption.md` |
