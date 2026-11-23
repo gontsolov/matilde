@@ -45,15 +45,41 @@ public enum SidebarOrder {
     /// The note rows the sidebar shows, top to bottom, with their folders: folders in workspace
     /// order, notes newest first, collapsed folders hidden unless searching, and search matching
     /// a note's title or any of its drafts' titles.
-    public static func visible(_ drafts: [Draft], folders: [String], collapsed: Set<String>, search: String) -> [SidebarSection] {
+    public static func visible(_ drafts: [Draft], folders: [String], collapsed: Set<String>, search: String,
+                               order: [String: [String]] = [:]) -> [SidebarSection] {
         folders.compactMap { folder in
-            let rows = SidebarOrder.groups(drafts.filter { $0.folder == folder }).filter { group in
+            let rows = arranged(SidebarOrder.groups(drafts.filter { $0.folder == folder }), order: order[folder] ?? []).filter { group in
                 search.isEmpty || ([group.root] + group.branches).contains { $0.title.localizedCaseInsensitiveContains(search) }
             }
             guard !rows.isEmpty || search.isEmpty else { return nil }
             let expanded = folder.isEmpty || !collapsed.contains(folder) || !search.isEmpty
             return SidebarSection(folder: folder, groups: expanded ? rows : [])
         }
+    }
+
+    /// A folder's notes in the order the writer dragged them into (family IDs, top first).
+    /// Notes the saved order doesn't know yet (new ones, or ones moved in from elsewhere) come
+    /// first, newest first, so a fresh note still shows up at the top; IDs no longer in the
+    /// folder are ignored. With no saved order the folder stays newest first.
+    public static func arranged(_ groups: [SidebarDraftGroup], order: [String]) -> [SidebarDraftGroup] {
+        guard !order.isEmpty else { return groups }
+        let rank = Dictionary(order.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+        let unknown = groups.filter { rank[$0.id] == nil }
+        let known = groups.filter { rank[$0.id] != nil }.sorted { rank[$0.id]! < rank[$1.id]! }
+        return unknown + known
+    }
+
+    /// The order after dropping `family` at `index` among `current` (the folder's visible
+    /// family IDs, top first, which may or may not already contain `family`).
+    public static func reordered(_ current: [String], moving family: String, to index: Int) -> [String] {
+        var ids = current
+        var target = max(0, min(index, ids.count))
+        if let from = ids.firstIndex(of: family) {
+            ids.remove(at: from)
+            if from < target { target -= 1 }
+        }
+        ids.insert(family, at: min(target, ids.count))
+        return ids
     }
 
     /// The note (family) after or before `current` in the visible order, wrapping at the ends.
@@ -69,6 +95,19 @@ public enum SidebarOrder {
 }
 
 extension Workspace {
+    /// Manually arranged note order per folder (`""` is the top level), kept in workspace state.
+    public func sidebarOrder(folders: [String]) throws -> [String: [String]] {
+        var orders: [String: [String]] = [:]
+        for folder in folders {
+            if let saved = try state("sidebarOrder:\(folder)"), !saved.isEmpty {
+                orders[folder] = saved.split(separator: "\n").map(String.init)
+            }
+        }
+        return orders
+    }
+    public func setSidebarOrder(_ families: [String], folder: String) throws {
+        try setState("sidebarOrder:\(folder)", families.joined(separator: "\n"))
+    }
     public func rememberFamilyDraft(_ draft: Draft) throws {
         try setState("familyActive:\(draft.family)", draft.id)
     }

@@ -109,14 +109,14 @@ struct ContentView: View {
     @ObservedObject var model: AppModel
     @State private var hoveredDraft: String?
     @State private var hoveredFolder: String?
-    @State private var draggedNote: SidebarNoteDrag?
-    @State private var dropFolder: String?
+    @State private var noteDrag: SidebarNoteDrag?
+    @State private var noteDropTarget: SidebarDropTarget?
+    @State private var sidebarFrames: [String: CGRect] = [:]
     @State private var sidebarKeyboard = SidebarKeyboardView()
     @State private var folderToTrash: String?
     private var sidebarFocused: Bool { sidebarKeyboard.window?.firstResponder === sidebarKeyboard }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var chrome = WindowChromeModel()
-    @State private var draftsVisible = false
     @State private var boardAmount: CGFloat = 0
     @State private var pinchTarget: CGFloat = 0
     @State private var animatingFlightID: UUID?
@@ -272,14 +272,13 @@ struct ContentView: View {
                     .help("New folder").accessibilityLabel("New folder")
             }.buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
                 .padding(.horizontal, 16).frame(height: 30).padding(.top, 4)
-                .background(dropHighlight(""))
-                .onDrop(of: [SidebarNoteDrag.type], isTargeted: dropTarget("")) { dropNote($0, into: "") }
+                .background(dropHighlight("").padding(.horizontal, 8))
+                .sidebarFrame(SidebarDropPlanner.headerKey(""))
             ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
                     // The same order Next/Previous Note walks through.
-                    ForEach(SidebarOrder.visible(model.drafts, folders: model.folders,
-                                                 collapsed: model.collapsedFolders, search: model.search)) { section in
+                    ForEach(visibleSections) { section in
                         let folder = section.folder
                         VStack(alignment: .leading, spacing: 1) {
                             if !folder.isEmpty { folderRow(folder) }
@@ -287,8 +286,7 @@ struct ContentView: View {
                                 draftRow(group, folder: folder).id(group.id)
                             }
                         }
-                        .background(dropHighlight(folder))
-                        .onDrop(of: [SidebarNoteDrag.type], isTargeted: dropTarget(folder)) { dropNote($0, into: folder) }
+                        .sidebarFrame(SidebarDropPlanner.sectionKey(folder))
                     }
                 }.padding(.horizontal, 8).padding(.bottom, 12)
             }
@@ -310,7 +308,51 @@ struct ContentView: View {
                 Spacer()
                 SidebarFeedbackButton()
             }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 14)
-        }.background(Color(Paper.sidebar))
+        }
+        .coordinateSpace(name: SidebarDropPlanner.space)
+        .onPreferenceChange(SidebarFrameKey.self) { sidebarFrames = $0 }
+        .overlay(alignment: .topLeading) { noteDragOverlay }
+        .background(Color(Paper.sidebar))
+    }
+    private var visibleSections: [SidebarSection] {
+        SidebarOrder.visible(model.drafts, folders: model.folders, collapsed: model.collapsedFolders,
+                             search: model.search, order: model.sidebarOrders)
+    }
+    /// The insertion line and a small label following the pointer while a note is dragged.
+    @ViewBuilder private var noteDragOverlay: some View {
+        if let noteDrag {
+            ZStack(alignment: .topLeading) {
+                if let y = noteDropTarget?.lineY {
+                    Capsule().fill(Color(Paper.accent))
+                        .frame(width: WindowChrome.sidebarWidth - 32, height: 2)
+                        .offset(x: 16, y: y - 1)
+                }
+                Text(noteDrag.title)
+                    .font(.system(size: 13, weight: .medium)).lineLimit(1)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(Color(Paper.background), in: RoundedRectangle(cornerRadius: 6))
+                    .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                    .frame(maxWidth: WindowChrome.sidebarWidth - 40, alignment: .leading)
+                    .fixedSize()
+                    .offset(x: noteDrag.location.x + 12, y: noteDrag.location.y - 14)
+            }
+            .allowsHitTesting(false)
+        }
+    }
+    private func noteDragGesture(_ group: SidebarDraftGroup, folder: String) -> some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .named(SidebarDropPlanner.space))
+            .onChanged { value in
+                if noteDrag == nil { noteDrag = SidebarNoteDrag(family: group.id, folder: folder, title: group.root.title) }
+                noteDrag?.location = value.location
+                let sections = visibleSections.map { (folder: $0.folder, rows: $0.groups.map(\.id)) }
+                noteDropTarget = SidebarDropPlanner.target(at: value.location, sections: sections, frames: sidebarFrames)
+            }
+            .onEnded { _ in
+                defer { noteDrag = nil; noteDropTarget = nil }
+                guard let note = noteDrag, let target = noteDropTarget else { return }
+                model.placeNote(family: note.family, from: note.folder, to: target.folder, at: target.index)
+                model.collapsedFolders.remove(target.folder)
+            }
     }
     private func sidebarIcon(_ icon: MatildeIcon) -> some View {
         icon.image(size: 18)
@@ -342,6 +384,8 @@ struct ContentView: View {
                 if inside { hoveredFolder = folder } else if hoveredFolder == folder { hoveredFolder = nil }
             }
             .contextMenu { folderMenu(folder) }
+            .background(dropHighlight(folder))
+            .sidebarFrame(SidebarDropPlanner.headerKey(folder))
     }
     @ViewBuilder private var emptySidebarMenu: some View {
         Button("New Document") { newNote(in: "") }
@@ -392,21 +436,16 @@ struct ContentView: View {
         model.collapsedFolders.remove(folder)
         model.newDocument(in: folder)
     }
-    private func dropTarget(_ folder: String) -> Binding<Bool> {
-        Binding(get: { dropFolder == folder }, set: { inside in
-            if inside { dropFolder = folder } else if dropFolder == folder { dropFolder = nil }
-        })
-    }
-    private func dropNote(_ providers: [NSItemProvider], into folder: String) -> Bool {
-        defer { draggedNote = nil; dropFolder = nil }
-        guard SidebarNoteDrag.accepts(providers), let note = draggedNote, note.folder != folder else { return false }
-        model.moveNote(family: note.family, from: note.folder, to: folder)
-        model.collapsedFolders.remove(folder)
-        return true
-    }
     private func dropHighlight(_ folder: String) -> some View {
         RoundedRectangle(cornerRadius: 5)
-            .fill(Color(Paper.accent).opacity(dropFolder == folder && draggedNote != nil && draggedNote?.folder != folder ? 0.1 : 0))
+            .fill(Color(Paper.accent).opacity(noteDropTarget?.onHeader == true && noteDropTarget?.folder == folder ? 0.12 : 0))
+    }
+    /// The goal when there is one, else the start of the note's text, else "No goal set".
+    private func sidebarSubtitle(_ draft: Draft) -> String {
+        let goal = draft.goal.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !goal.isEmpty { return goal.split(whereSeparator: \.isNewline).joined(separator: " ") }
+        let preview = model.preview(for: draft)
+        return preview.isEmpty ? "No goal set" : preview
     }
     private func draftRow(_ group: SidebarDraftGroup, folder: String) -> some View {
         let draft = group.root
@@ -429,12 +468,11 @@ struct ContentView: View {
                         }
                             .font(.system(size: 11)).foregroundStyle(Color(Paper.muted)).fixedSize()
                             .accessibilityLabel("\(group.branches.count) alternate drafts")
-                            .help("\(group.branches.count) alternate drafts · Switch drafts above the document title")
+                            .help("\(group.branches.count) alternate drafts · Switch drafts on the draft board (⌘0)")
                     }
                 }
                 HStack(spacing: 8) {
-                    Text(draft.goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                         ? "No goal set" : draft.goal.replacingOccurrences(of: "\n", with: " "))
+                    Text(sidebarSubtitle(draft))
                         .font(.system(size: 12)).foregroundStyle(Color(Paper.muted))
                         .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
                     DraftTimestamp(draft: datedDraft, compact: true).fixedSize()
@@ -448,10 +486,9 @@ struct ContentView: View {
                 if let target { noteMenu(target, folder: folder, selected: selected) }
             }
             .onHover { hoveredDraft = $0 ? draft.id : nil }
-            .onDrag {
-                draggedNote = SidebarNoteDrag(family: group.id, folder: folder)
-                return SidebarNoteDrag.provider()
-            }
+            .opacity(noteDrag?.family == group.id ? 0.4 : 1)
+            .simultaneousGesture(noteDragGesture(group, folder: folder))
+            .sidebarFrame(SidebarDropPlanner.rowKey(group.id))
             .accessibilityAddTraits(selected ? .isSelected : [])
     }
     private func writingSpace(_ draft: Draft) -> some View {
@@ -484,7 +521,7 @@ struct ContentView: View {
             .onAppear { model.boardSize = geometry.size; model.reduceBoardMotion = reduceMotion }
             .onChange(of: geometry.size) { _, size in model.boardSize = size }
             .onChange(of: reduceMotion) { _, value in model.reduceBoardMotion = value }
-            .onChange(of: model.boardRequest) { _, _ in draftsVisible = false; model.toggleBoard() }
+            .onChange(of: model.boardRequest) { _, _ in model.toggleBoard() }
             .onChange(of: model.boardFlight?.id) { _, _ in animateBoardFlight() }
             .onChange(of: model.boardFlight?.interactive) { _, _ in animateBoardFlight() }
             .onChange(of: model.editorReadyID) { _, _ in animateBoardFlight() }
@@ -531,7 +568,6 @@ struct ContentView: View {
     private func updateWritingPinch(_ total: CGFloat, _ phase: NSEvent.Phase) {
         let ending = phase == .ended || phase == .cancelled
         if model.boardFlight == nil && !ending && WritingPinch.progress(total) > 0 {
-            draftsVisible = false
             model.showBoard(interactive: true)
         }
         guard var flight = model.boardFlight, flight.interactive else { return }
@@ -550,10 +586,9 @@ struct ContentView: View {
             if let moment = model.branchMoment { TearAwayPage(moment: moment).id(moment.id) }
         }
         .clipped()
-        .onChange(of: model.active?.id) { _, _ in draftsVisible = false }
     }
     private func writingEditor(_ draft: Draft) -> some View {
-            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: model.initialPosition(for: draft).cursor, initialScroll: model.initialPosition(for: draft).scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !draftsVisible && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), saveImage: { data in
+            MarkdownEditor(draftID: draft.id, text: model.text, initialCursor: model.initialPosition(for: draft).cursor, initialScroll: model.initialPosition(for: draft).scroll, onChange: model.edited, onPosition: model.position, focusOnLoad: model.focusTitleID != draft.id && !model.boardVisible && !sidebarFocused, onReady: { model.editorReadyID = $0 }, header: AnyView(writingHeader(draft)), saveImage: { data in
                 guard let workspace = model.workspace else { throw WorkspaceError.message("Open a workspace first.") }
                 return try workspace.importImage(data, beside: draft)
             }, resolveImage: { model.workspace?.image(at: $0, beside: draft) }, mediaError: { model.error = $0 },
@@ -566,22 +601,6 @@ struct ContentView: View {
     private func writingHeader(_ draft: Draft) -> some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 15) {
-                HStack(spacing: 8) {
-                    HStack(spacing: 12) {
-                        Button {
-                            withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) { draftsVisible.toggle() }
-                        } label: {
-                            HStack(spacing: 5) {
-                                Text("\(model.related.count) \(model.related.count == 1 ? "draft" : "drafts")")
-                                (draftsVisible ? MatildeIcon.chevronUp : .chevronDown).image(size: 13)
-                            }.font(.system(size: 11))
-                        }.help("Show drafts").accessibilityLabel("Show drafts")
-                        Button { draftsVisible = false; model.branch() } label: {
-                            MatildeIcon.branch.image(size: 17)
-                        }.help("Branch draft · ⇧⌘B").accessibilityLabel("Branch draft").disabled(model.isBranching)
-                    }.buttonStyle(.plain).foregroundStyle(Color(Paper.muted))
-                    Spacer()
-                }.padding(.bottom, 12)
                 InlineTitle(model: model, draftID: draft.id) {
                     guard let window = NSApp.keyWindow,
                           let editor = findWritingView(window.contentView) as? WritingTextView else { return }
@@ -589,16 +608,9 @@ struct ContentView: View {
                     editor.scrollRangeToVisible(editor.selectedRange())
                 }.id(draft.id)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             // Match the body's left edge: text inset (28) plus line-fragment padding (5).
             .padding(.horizontal, 33).padding(.top, WindowChrome.canvasTopInset).padding(.bottom, 10).frame(maxWidth: CommentMargin.maximumColumn)
-            if draftsVisible {
-                DraftTray(model: model) {
-                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) { draftsVisible = false }
-                    DispatchQueue.main.async {
-                        NSApp.keyWindow?.makeFirstResponder(findWritingView(NSApp.keyWindow?.contentView))
-                    }
-                }.transition(.opacity.combined(with: .move(edge: .top)))
-            }
         }
     }
     private func findWritingView(_ root: NSView?) -> NSView? {

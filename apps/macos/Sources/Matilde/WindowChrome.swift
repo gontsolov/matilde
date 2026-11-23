@@ -34,10 +34,9 @@ enum WindowChrome {
     static let defaultButtonStride: CGFloat = 20
     /// Trailing edge of the traffic lights once placed at the header inset.
     static let defaultTrafficLightsTrailing: CGFloat = horizontalInset + 2 * defaultButtonStride + defaultButtonSize
-    /// Gap between the header row and the first content below it on the canvas.
-    static let canvasContentGap: CGFloat = 16
-    /// Where the writing header starts, so resting text clears the header row.
-    static let canvasTopInset: CGFloat = headerHeight + canvasContentGap
+    /// Where the writing header starts: right below the header row, so resting text clears
+    /// the controls without a tall empty band above the title.
+    static let canvasTopInset: CGFloat = headerHeight
     /// Height of the paper fade that softens text scrolled under the controls.
     static let fadeHeight: CGFloat = headerHeight + 12
     /// Trailing padding of the top-right cluster, so its last icon ends `horizontalInset`

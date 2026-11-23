@@ -136,7 +136,7 @@ final class WindowChromeTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(WindowChrome.headerHeight, WindowChrome.controlTop + WindowChrome.controlHeight)
         // Equal room above and below the controls inside the row.
         XCTAssertEqual(WindowChrome.headerHeight - (WindowChrome.controlTop + WindowChrome.controlHeight), WindowChrome.controlTop)
-        XCTAssertEqual(WindowChrome.canvasTopInset, WindowChrome.headerHeight + WindowChrome.canvasContentGap)
+        XCTAssertEqual(WindowChrome.canvasTopInset, WindowChrome.headerHeight)
         XCTAssertGreaterThan(WindowChrome.fadeHeight, WindowChrome.headerHeight)
     }
 }
