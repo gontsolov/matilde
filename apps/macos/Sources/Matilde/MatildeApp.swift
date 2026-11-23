@@ -14,60 +14,60 @@ struct MatildeApp: App {
                 .frame(minWidth: 760, minHeight: 520)
                 .modifier(AppAppearanceModifier())
                 .scrollIndicators(.hidden)
-                .onAppear { delegate.model = model; NSApp.activate(ignoringOtherApps: true) }
+                .onAppear {
+                    delegate.model = model
+                    CommandPaletteController.shared.updater = updater
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+                .modifier(CommandPaletteHost(model: model))
                 .modifier(AnnounceWhatsNew())
         }
         .defaultSize(width: 1180, height: 820)
         .windowStyle(.hiddenTitleBar)
         .commands {
+            // Every item comes from the command registry (`AppCommands`), shared with the
+            // command palette (UI-31).
+            let context = CommandContext(model: model, canCheckForUpdates: updater.canCheckForUpdates)
+            let actions = CommandPaletteController.shared.commandActions(model, updater: updater)
+            let item = { (id: String) in CommandMenuItem(id, context: context, actions: actions) }
             CommandGroup(after: .appInfo) {
-                Button("Check for Updates…") { updater.checkForUpdates() }
-                    .disabled(!updater.canCheckForUpdates)
+                item("check-for-updates")
             }
             CommandGroup(replacing: .newItem) {
-                Button("New Document") { model.newDocument() }.keyboardShortcut("n").disabled(model.workspace == nil)
-                Button("New Folder…") { model.sheet = .folder }.keyboardShortcut("n", modifiers: [.command, .shift]).disabled(model.workspace == nil)
+                item("new-document")
+                item("new-folder")
                 Divider()
-                Button("Open Workspace…") { model.chooseWorkspace() }.keyboardShortcut("o")
+                item("open-workspace")
             }
             CommandGroup(replacing: .saveItem) {
-                Button("Save") { model.attempt { try model.flush() } }.keyboardShortcut("s").disabled(model.active == nil)
-                Button("Rename Document…") { model.sheet = .rename }.disabled(model.active == nil)
+                item("save")
+                item("rename")
             }
             CommandMenu("Writing") {
-                Button("Checkbox") {
-                    NSApp.sendAction(#selector(WritingTextView.insertCheckbox(_:)), to: nil, from: nil)
-                }.keyboardShortcut("l", modifiers: [.command, .shift])
-                    .disabled(model.active == nil || model.boardVisible)
+                item("command-palette")
                 Divider()
-                Button("Ask Matilde…") {
-                    NSApp.sendAction(#selector(WritingTextView.askAboutSelection), to: nil, from: nil)
-                }.keyboardShortcut("a", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
-                Button("Add Comment") {
-                    NSApp.sendAction(#selector(WritingTextView.addUserComment(_:)), to: nil, from: nil)
-                }.keyboardShortcut("k", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
-                Button("Branch Draft") { model.branch() }.keyboardShortcut("b", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardVisible)
-                Button(model.boardVisible ? "Return to Draft" : "Show Draft Board") { model.boardRequest += 1 }.keyboardShortcut("0").disabled(model.active == nil)
-                Button("Toggle Stash") { model.stash.toggle() }.keyboardShortcut("j", modifiers: [.command, .shift]).disabled(model.active == nil || model.boardFlight != nil || model.isBranching)
-                Button("Reveal Stash in Finder") { model.stash.reveal() }.disabled(model.active == nil)
-                Button("Reload Stash from Disk") { model.stash.reloadPreservingChanges() }.disabled(model.active == nil)
-                Button("Show All Stashes in Finder") { model.stash.reveal(all: true) }.disabled(model.workspace == nil)
-                Button("Review now") { model.reviewNow() }.disabled(model.active == nil || model.boardVisible || model.isBranching)
-                Button("Writing Goal…") { model.sheet = .goal }.disabled(model.active == nil)
+                item("checkbox")
                 Divider()
-                // ⌃⌘↑/↓: free in NSTextView key bindings (⌘↑/↓, ⌥↑/↓ and ⌃↑/↓ stay with text
-                // editing and Mission Control) and clear of ⇧⌘A, ⇧⌘K and the other menu items.
-                Button("Next Note") { model.cycleNote(forward: true) }
-                    .keyboardShortcut(.downArrow, modifiers: [.command, .control]).disabled(!model.canCycleNotes)
-                Button("Previous Note") { model.cycleNote(forward: false) }
-                    .keyboardShortcut(.upArrow, modifiers: [.command, .control]).disabled(!model.canCycleNotes)
-                Button(model.sidebar ? "Enter Focus Mode" : "Leave Focus Mode") { model.toggleSidebar() }.keyboardShortcut("\\", modifiers: .command)
+                item("ask-matilde")
+                item("add-comment")
+                item("branch")
+                item("board")
+                item("toggle-stash")
+                item("reveal-stash")
+                item("reload-stash")
+                item("reveal-all-stashes")
+                item("review-now")
+                item("goal")
+                Divider()
+                item("next-note")
+                item("previous-note")
+                item("focus-mode")
             }
             CommandGroup(replacing: .help) {
-                Button("Welcome to Matilde") { model.showWelcomeDocument() }.disabled(model.workspace == nil)
-                WhatsNewButton { Text("What's New in Matilde…") }
+                item("welcome")
+                item("whats-new")
                 Divider()
-                FeedbackButton { Text(FeedbackCopy.menuTitle) }
+                item("feedback")
             }
         }
         Settings { AppSettingsView().scrollIndicators(.hidden) }

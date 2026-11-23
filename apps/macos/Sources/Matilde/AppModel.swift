@@ -239,6 +239,14 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Open one draft found in the command palette, leaving the board like a sidebar row does.
+    func openDraft(_ draft: Draft) {
+        guard !isBranching, boardFlight == nil else { return }
+        select(draft)
+        guard active?.id == draft.id else { return }
+        if boardVisible { persistBoard(); boardVisible = false; boardFlight = nil }
+    }
+
     /// Note (family) IDs in the sidebar's visible order.
     var visibleNotes: [String] {
         SidebarOrder.visible(drafts, folders: folders, collapsed: collapsedFolders, search: search)

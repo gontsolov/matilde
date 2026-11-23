@@ -28,10 +28,13 @@ public struct ReviewComment: Codable, Identifiable {
     public var initialReplacement: String? = nil
     /// Frozen chat prefix for this thread (see `ReplyContext`); nil until its first delivered reply.
     public var replyContext: ReplyContext? = nil
+    /// The passage when the comment was made; the tracked `quote` follows later edits. Lets a
+    /// review tell an unchanged passage from a reworded one (AI-19). Nil in older reviews.
+    public var reviewedQuote: String? = nil
     public var range: NSRange { NSRange(location: location, length: length) }
     public var isUnread: Bool { unread == true }
 
-    public init(id: UUID, suggestion: ReviewSuggestion, location: Int, length: Int, status: String = "open", messages: [ReviewMessage]? = nil, replyError: String? = nil, userInitiated: Bool? = nil, rewriteQuote: String? = nil, unread: Bool? = nil, rewriteMessageID: UUID? = nil, initialReplacement: String? = nil, replyContext: ReplyContext? = nil) {
+    public init(id: UUID, suggestion: ReviewSuggestion, location: Int, length: Int, status: String = "open", messages: [ReviewMessage]? = nil, replyError: String? = nil, userInitiated: Bool? = nil, rewriteQuote: String? = nil, unread: Bool? = nil, rewriteMessageID: UUID? = nil, initialReplacement: String? = nil, replyContext: ReplyContext? = nil, reviewedQuote: String? = nil) {
         self.id = id
         self.suggestion = suggestion
         self.location = location
@@ -45,6 +48,7 @@ public struct ReviewComment: Codable, Identifiable {
         self.rewriteMessageID = rewriteMessageID
         self.initialReplacement = initialReplacement
         self.replyContext = replyContext
+        self.reviewedQuote = reviewedQuote
     }
 }
 
@@ -88,8 +92,10 @@ public struct WritingReview: Codable, Identifiable {
                   !comments.contains(where: { NSIntersectionRange($0.range, range).length > 0 }) else {
                 throw ReviewError.message("The review couldn’t be matched reliably to this draft. Please review again.")
             }
-            let comment = ReviewComment(id: UUID(), suggestion: suggestion, location: range.location, length: range.length)
-            comments.append(CommentAnchor.refreshed(comment, range: range, in: input.body))
+            var comment = CommentAnchor.refreshed(ReviewComment(id: UUID(), suggestion: suggestion, location: range.location, length: range.length),
+                                                  range: range, in: input.body)
+            comment.reviewedQuote = comment.quote
+            comments.append(comment)
         }
         return Self(id: UUID(), draftID: draftID, created: Date(), model: model, revision: revision(input), stale: false, comments: comments, source: input)
     }
